@@ -1,4 +1,4 @@
-(footprint "RaspberryPi_Pico_Common_THT"
+(footprint "RaspberryPi_Pico_Common_THT_mod"
 	(version 20241229)
 	(generator "pcbnew")
 	(generator_version "9.0")
@@ -18,7 +18,7 @@
 			(justify left)
 		)
 	)
-	(property "Value" "RaspberryPi_Pico_Common_THT"
+	(property "Value" "RaspberryPi_Pico_Common_THT_mod"
 		(at 8.89 52.07 0)
 		(unlocked yes)
 		(layer "F.Fab")
@@ -56,6 +56,59 @@
 		)
 	)
 	(attr through_hole)
+	(fp_line
+		(start -1.61 -1.4)
+		(end -1.61 49.6)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "Cmts.User")
+		(uuid "61d23803-78d9-4b13-97b4-e0b85411f14f")
+	)
+	(fp_line
+		(start -1.61 -1.4)
+		(end 19.39 -1.4)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "Cmts.User")
+		(uuid "99e7c2db-1330-4829-b0a3-e3fd23a70786")
+	)
+	(fp_line
+		(start -1.61 49.6)
+		(end 19.39 49.6)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "Cmts.User")
+		(uuid "72a281f6-3373-4e95-87fa-f1e4df69b7bc")
+	)
+	(fp_line
+		(start 19.39 -1.4)
+		(end 19.39 49.6)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "Cmts.User")
+		(uuid "c6b431b3-fdc5-4689-92cb-21e19405fafc")
+	)
+	(fp_text user "CommentIsDimensions"
+		(at -2.54 -5.08 0)
+		(unlocked yes)
+		(layer "Cmts.User")
+		(uuid "2ef54ccc-8a58-4b84-aa8a-e17f9945b86d")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom)
+		)
+	)
 	(pad "1" thru_hole circle
 		(at 0 0)
 		(size 1.6 1.6)
@@ -576,6 +629,57 @@
 		(remove_unused_layers no)
 		(uuid "c8fe8714-f3b6-4cea-b78b-11ed38c9f8c2")
 	)
+	(pad "dbg_gnd" thru_hole custom
+		(at 8.89 48 270)
+		(size 1.6 1.6)
+		(drill 1)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(options
+			(clearance outline)
+			(anchor circle)
+		)
+		(primitives
+			(gr_poly
+				(pts
+					(xy -0.8 0.6) (xy -0.8 -0.6) (xy -0.6 -0.8) (xy 0 -0.8) (xy 0 0.8) (xy -0.6 0.8)
+				)
+				(width 0)
+				(fill yes)
+			)
+			(gr_circle
+				(center -0.6 0.6)
+				(end -0.4 0.6)
+				(width 0)
+				(fill yes)
+			)
+			(gr_circle
+				(center -0.6 -0.6)
+				(end -0.4 -0.6)
+				(width 0)
+				(fill yes)
+			)
+		)
+		(uuid "edac7d96-9ee1-4320-af1a-8b71e839a721")
+	)
+	(pad "swclk" thru_hole circle
+		(at 6.35 48)
+		(size 1.6 1.6)
+		(drill 1)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(thermal_bridge_angle 90)
+		(uuid "a6f16f07-3ef3-4f20-b946-ebc3449987b7")
+	)
+	(pad "swdio" thru_hole circle
+		(at 11.43 48)
+		(size 1.6 1.6)
+		(drill 1)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(thermal_bridge_angle 90)
+		(uuid "e092f3df-29b8-41ce-9e95-19ef6bc4d3d8")
+	)
 	(group ""
 		(uuid "0d49ef59-6dbf-4238-8e51-d082afc40f64")
 		(members "07a9d05b-b3a6-4412-a39c-b8f9218328ff" "1867f381-132b-4827-8a0a-dd599299fa53"
@@ -598,6 +702,12 @@
 			"da38934e-64ea-44ce-b848-cbb6dae5e9cf" "e4e8ec54-e033-4413-a579-787744fde03d"
 			"f6afce6f-1985-44fb-8f62-1c50ec051a40" "fa486b5a-acaf-42ba-a401-0009298757f8"
 			"fc53a0e8-1d70-43ca-a565-98375803c030" "fed1f427-c7fb-450f-b195-2218b1ea047d"
+		)
+	)
+	(group ""
+		(uuid "13392b93-7484-498c-a6ce-170b6081e759")
+		(members "a6f16f07-3ef3-4f20-b946-ebc3449987b7" "e092f3df-29b8-41ce-9e95-19ef6bc4d3d8"
+			"edac7d96-9ee1-4320-af1a-8b71e839a721"
 		)
 	)
 	(embedded_fonts no)
