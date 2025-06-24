@@ -1081,7 +1081,7 @@
 	)
 	(symbol
 		(lib_id "MCU_Module:RaspberryPi_Pico_W_Debug")
-		(at 132.08 74.93 0)
+		(at 218.44 73.66 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -1090,7 +1090,7 @@
 		(fields_autoplaced yes)
 		(uuid "3384ee2c-29e7-4189-8c9a-266e11035f08")
 		(property "Reference" "A1"
-			(at 134.2233 109.22 0)
+			(at 220.5833 107.95 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1099,7 +1099,7 @@
 			)
 		)
 		(property "Value" "RaspberryPi_Pico_W"
-			(at 134.2233 111.76 0)
+			(at 220.5833 110.49 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1108,7 +1108,7 @@
 			)
 		)
 		(property "Footprint" "Module:RaspberryPi_Pico_W_SMD_HandSolder"
-			(at 132.08 121.92 0)
+			(at 218.44 120.65 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1117,7 +1117,7 @@
 			)
 		)
 		(property "Datasheet" "https://datasheets.raspberrypi.com/picow/pico-w-datasheet.pdf"
-			(at 132.08 124.46 0)
+			(at 218.44 123.19 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1126,7 +1126,7 @@
 			)
 		)
 		(property "Description" "Versatile and inexpensive wireless microcontroller module (with debug pins) powered by RP2040 dual-core Arm Cortex-M0+ processor up to 133 MHz, 264kB SRAM, 2MB QSPI flash, Infineon CYW43439 2.4GHz 802.11n wireless LAN; also supports Raspberry Pi Pico 2 W"
-			(at 132.08 127 0)
+			(at 218.44 125.73 0)
 			(effects
 				(font
 					(size 1.27 1.27)
