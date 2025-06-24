@@ -19,3 +19,6 @@ Hole clearance: `(3.8 - 2.1) / 2 = 0.85mm`.
 Debug headers are NOT at full 2.54mm offset.
 Y value is 1.6mm off the botom edge; `49.63 - 1.6=48.03mm`
 
+For the 2w; debug gnd at x: `19.39-7.3759=12.0141mm`, y at `49.63-19.8= 29.83mm`.
+Swdio thus atx: `12.0141 + 2.54=14.5541mm`, swclk at `12.0141-2.54 = 9.4741mm`.
+

@@ -1,9 +1,9 @@
-(footprint "RaspberryPi_Pico_Common_THT_mod"
+(footprint "RaspberryPi_Pico_2w_tht"
 	(version 20241229)
 	(generator "pcbnew")
 	(generator_version "9.0")
 	(layer "F.Cu")
-	(descr "Raspberry Pi Pico common (Pico & Pico W) through-hole footprint, supports Raspberry Pi Pico 2, default socketed model has height of 8.51mm, https://datasheets.raspberrypi.com/pico/pico-datasheet.pdf")
+	(descr "Raspberry Pi Pico 2W common (Pico & Pico W) through-hole footprint, supports Raspberry Pi Pico 2, default socketed model has height of 8.51mm, https://datasheets.raspberrypi.com/pico/pico-datasheet.pdf")
 	(tags "module usb pcb antenna")
 	(property "Reference" "REF**"
 		(at 19.5 49.13 0)
@@ -18,7 +18,7 @@
 			(justify left)
 		)
 	)
-	(property "Value" "RaspberryPi_Pico_Common_THT_mod"
+	(property "Value" "RaspberryPi_Pico_2w_tht"
 		(at 8.89 52.07 0)
 		(unlocked yes)
 		(layer "F.Fab")
@@ -666,7 +666,7 @@
 		(uuid "c8fe8714-f3b6-4cea-b78b-11ed38c9f8c2")
 	)
 	(pad "dbg_gnd" thru_hole custom
-		(at 8.89 48.03 270)
+		(at 12.0141 29.83 270)
 		(size 1.6 1.6)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")
@@ -699,7 +699,7 @@
 		(uuid "edac7d96-9ee1-4320-af1a-8b71e839a721")
 	)
 	(pad "swclk" thru_hole circle
-		(at 6.35 48.03)
+		(at 9.4741 29.83)
 		(size 1.6 1.6)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")
@@ -708,7 +708,7 @@
 		(uuid "a6f16f07-3ef3-4f20-b946-ebc3449987b7")
 	)
 	(pad "swdio" thru_hole circle
-		(at 11.43 48.03)
+		(at 14.5541 29.83)
 		(size 1.6 1.6)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")
