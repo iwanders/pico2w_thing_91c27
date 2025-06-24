@@ -57,8 +57,8 @@
 	)
 	(attr through_hole)
 	(fp_line
-		(start -1.61 -1.4)
-		(end -1.61 49.6)
+		(start -1.61 -1.37)
+		(end -1.61 49.63)
 		(stroke
 			(width 0.1)
 			(type solid)
@@ -67,8 +67,8 @@
 		(uuid "61d23803-78d9-4b13-97b4-e0b85411f14f")
 	)
 	(fp_line
-		(start -1.61 -1.4)
-		(end 19.39 -1.4)
+		(start -1.61 -1.37)
+		(end 19.39 -1.37)
 		(stroke
 			(width 0.1)
 			(type solid)
@@ -77,8 +77,8 @@
 		(uuid "99e7c2db-1330-4829-b0a3-e3fd23a70786")
 	)
 	(fp_line
-		(start -1.61 49.6)
-		(end 19.39 49.6)
+		(start -1.61 49.63)
+		(end 19.39 49.63)
 		(stroke
 			(width 0.1)
 			(type solid)
@@ -87,8 +87,8 @@
 		(uuid "72a281f6-3373-4e95-87fa-f1e4df69b7bc")
 	)
 	(fp_line
-		(start 19.39 -1.4)
-		(end 19.39 49.6)
+		(start 19.39 -1.37)
+		(end 19.39 49.63)
 		(stroke
 			(width 0.1)
 			(type solid)
@@ -108,6 +108,42 @@
 			)
 			(justify left bottom)
 		)
+	)
+	(pad "" np_thru_hole circle
+		(at 3.19 0.63)
+		(size 1.6 1.6)
+		(drill 2.1)
+		(layers "F&B.Cu" "*.Mask")
+		(clearance 0.85)
+		(zone_connect 0)
+		(uuid "40b494e1-4eff-4ade-afda-62e4c470ba81")
+	)
+	(pad "" np_thru_hole circle
+		(at 3.19 47.63)
+		(size 1.6 1.6)
+		(drill 2.1)
+		(layers "F&B.Cu" "*.Mask")
+		(clearance 0.85)
+		(zone_connect 0)
+		(uuid "ed7d0d8d-0dd9-4aab-8f6e-69cf01dbab15")
+	)
+	(pad "" np_thru_hole circle
+		(at 14.59 0.63)
+		(size 1.6 1.6)
+		(drill 2.1)
+		(layers "F&B.Cu" "*.Mask")
+		(clearance 0.85)
+		(zone_connect 0)
+		(uuid "37e61ab5-5237-40de-b98f-7c291b0b6c22")
+	)
+	(pad "" np_thru_hole circle
+		(at 14.59 47.63)
+		(size 1.6 1.6)
+		(drill 2.1)
+		(layers "F&B.Cu" "*.Mask")
+		(clearance 0.85)
+		(zone_connect 0)
+		(uuid "58d37bca-c66b-45f2-a496-4d66ca16fb1c")
 	)
 	(pad "1" thru_hole circle
 		(at 0 0)
@@ -630,7 +666,7 @@
 		(uuid "c8fe8714-f3b6-4cea-b78b-11ed38c9f8c2")
 	)
 	(pad "dbg_gnd" thru_hole custom
-		(at 8.89 48 270)
+		(at 8.89 48.03 270)
 		(size 1.6 1.6)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")
@@ -663,7 +699,7 @@
 		(uuid "edac7d96-9ee1-4320-af1a-8b71e839a721")
 	)
 	(pad "swclk" thru_hole circle
-		(at 6.35 48)
+		(at 6.35 48.03)
 		(size 1.6 1.6)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")
@@ -672,7 +708,7 @@
 		(uuid "a6f16f07-3ef3-4f20-b946-ebc3449987b7")
 	)
 	(pad "swdio" thru_hole circle
-		(at 11.43 48)
+		(at 11.43 48.03)
 		(size 1.6 1.6)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")
