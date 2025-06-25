@@ -6,7 +6,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(property "Reference" "U"
+		(property "Reference" "ICM-42688-P"
 			(at -4.572 20.574 0)
 			(effects
 				(font
@@ -22,7 +22,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Package_LGA:LGA-14_3x2.5mm_P0.5mm_LayoutBorder3x4y"
 			(at 0 0 0)
 			(effects
 				(font
@@ -49,20 +49,18 @@
 				(hide yes)
 			)
 		)
-		(symbol "ICM-42688-P_0_1"
+		(symbol "ICM-42688-P_1_1"
 			(rectangle
 				(start -7.62 26.67)
 				(end 44.45 -15.24)
 				(stroke
 					(width 0)
-					(type default)
+					(type solid)
 				)
 				(fill
-					(type none)
+					(type background)
 				)
 			)
-		)
-		(symbol "ICM-42688-P_1_1"
 			(text "ICM-42688-P"
 				(at 1.27 24.638 0)
 				(effects
