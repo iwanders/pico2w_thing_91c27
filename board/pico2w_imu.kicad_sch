@@ -4059,26 +4059,6 @@
 			(embedded_fonts no)
 		)
 	)
-	(text "SPI0_CSn"
-		(exclude_from_sim no)
-		(at 144.526 42.164 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-		)
-		(uuid "18ad8be0-dad7-48f6-be47-79c6167e3541")
-	)
-	(text "i2C0_SDA"
-		(exclude_from_sim no)
-		(at 144.78 49.784 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-		)
-		(uuid "1f8e5e46-01fd-4e93-99d5-5640529e829f")
-	)
 	(text "charge_compl"
 		(exclude_from_sim no)
 		(at 106.68 180.594 0)
@@ -4089,86 +4069,6 @@
 		)
 		(uuid "2df29c89-9227-458d-9611-70f29b6248d4")
 	)
-	(text "SPI0_RX"
-		(exclude_from_sim no)
-		(at 145.034 39.624 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-		)
-		(uuid "30f90881-1d9f-47ed-92c6-cbef5fa1c169")
-	)
-	(text "UART1 TX\n"
-		(exclude_from_sim no)
-		(at 134.366 57.404 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-		)
-		(uuid "325ec93e-c6bc-4a64-ae4b-f629afe2d508")
-	)
-	(text "SPI1_CSn"
-		(exclude_from_sim no)
-		(at 134.874 70.104 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-		)
-		(uuid "347df879-7ca5-43de-930b-bae2bfaf2397")
-	)
-	(text "SPI0_TX"
-		(exclude_from_sim no)
-		(at 133.096 44.704 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-		)
-		(uuid "5fd6a9ce-5f3a-4414-90ab-45cbb7fd04ec")
-	)
-	(text "SPI0_TX"
-		(exclude_from_sim no)
-		(at 144.78 47.244 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-		)
-		(uuid "65446b9e-e2fb-4019-a209-8a61f675f05f")
-	)
-	(text "SPI0_RX"
-		(exclude_from_sim no)
-		(at 133.35 47.244 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-		)
-		(uuid "722d6505-ae5d-4968-b3d0-52911273bb9f")
-	)
-	(text "SPI0_CSn"
-		(exclude_from_sim no)
-		(at 133.858 50.038 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-		)
-		(uuid "8c0a6f63-474b-4c72-a052-70b1c678bac8")
-	)
-	(text "SPI0_SCK"
-		(exclude_from_sim no)
-		(at 144.526 44.704 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-		)
-		(uuid "9474a857-049d-4af6-9fe1-f6dc23808f3b")
-	)
 	(text "BME280 in i2c config"
 		(exclude_from_sim no)
 		(at 263.398 21.082 0)
@@ -4178,56 +4078,6 @@
 			)
 		)
 		(uuid "af876e86-b24b-4d4e-a8cd-2b11d6d279f3")
-	)
-	(text "UART1 RX\n"
-		(exclude_from_sim no)
-		(at 134.366 59.944 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-		)
-		(uuid "bcc98284-6503-41de-8cc5-1062ee02bf05")
-	)
-	(text "SPI1_SCK"
-		(exclude_from_sim no)
-		(at 135.128 62.484 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-		)
-		(uuid "d0cf330f-19b2-47dd-a42a-c1dd30d9cf8c")
-	)
-	(text "SPI1_RX"
-		(exclude_from_sim no)
-		(at 134.62 67.564 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-		)
-		(uuid "d585ea6e-3f2e-44ec-9278-768508108e25")
-	)
-	(text "SPI0_SCK"
-		(exclude_from_sim no)
-		(at 133.858 42.164 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-		)
-		(uuid "d728496f-b1c8-49f1-98bb-0c1d1188cf28")
-	)
-	(text "I2C_SCL"
-		(exclude_from_sim no)
-		(at 145.288 52.07 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-		)
-		(uuid "d8ba1b7b-0f81-4d9a-ae7a-e1b87b99e11d")
 	)
 	(text "Typically, single cell LiPo batteries are terminated with a two pin JST-PH female connector. These are polarized connectors with pin 1 as +VBATT (red wire) and pin 2 connected to ground (black wire). These mate with the two pin JST-PH male connector (shroud).\nhttps://learn.sparkfun.com/tutorials/single-cell-lipo-battery-care/jst-ph-connectors"
 		(exclude_from_sim no)
@@ -4248,16 +4098,6 @@
 			)
 		)
 		(uuid "db5d306d-7227-4af4-88aa-43507d77c264")
-	)
-	(text "SPI1_TX"
-		(exclude_from_sim no)
-		(at 134.366 65.024 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-		)
-		(uuid "e16bb672-622a-4f3e-8499-4750ef8a1a87")
 	)
 	(text "charge_prog"
 		(exclude_from_sim no)
@@ -7592,15 +7432,19 @@
 		)
 		(pin "21"
 			(uuid "97ba77d2-be66-4ed6-ab0f-a66a859e2072")
+			(alternate "SPI0_RX")
 		)
 		(pin "27"
 			(uuid "70b614e0-31ae-4088-b756-1d0387583238")
+			(alternate "I2C0_SCL")
 		)
 		(pin "25"
 			(uuid "5be45374-4a12-4faa-9186-be9a36f5d614")
+			(alternate "SPI0_TX")
 		)
 		(pin "22"
 			(uuid "a399d57c-34b3-4e47-ada0-3daa712a7601")
+			(alternate "~{SPI0_CSn}")
 		)
 		(pin "29"
 			(uuid "7155acef-028f-4208-95fb-a1eaf7445627")
@@ -7625,9 +7469,11 @@
 		)
 		(pin "4"
 			(uuid "3f01cb1b-5734-43f7-8336-c74975e7a14b")
+			(alternate "SPI0_SCK")
 		)
 		(pin "24"
 			(uuid "c1a76501-c105-4ffe-930e-42096f469c9e")
+			(alternate "SPI0_SCK")
 		)
 		(pin "1"
 			(uuid "fdee6b1c-3d49-4e91-b0ce-f484f757d708")
@@ -7646,9 +7492,11 @@
 		)
 		(pin "12"
 			(uuid "f32da1f7-886d-4ff9-8f23-e238232cf1ff")
+			(alternate "UART1_RX")
 		)
 		(pin "11"
 			(uuid "da82a18a-2587-47e2-add1-2759e09afa16")
+			(alternate "UART1_TX")
 		)
 		(pin "10"
 			(uuid "40995858-4c24-40f8-81db-37bf2f33fac5")
@@ -7658,15 +7506,19 @@
 		)
 		(pin "7"
 			(uuid "dd2eeab3-cc8c-4f92-a8ed-4058fd9718d4")
+			(alternate "~{SPI0_CSn}")
 		)
 		(pin "6"
 			(uuid "8f6fd9c3-303e-467e-9b26-05b9f98cdd4e")
+			(alternate "SPI0_RX")
 		)
 		(pin "5"
 			(uuid "4b6fc81e-087c-4cc5-b4c5-799666f53927")
+			(alternate "SPI0_TX")
 		)
 		(pin "14"
 			(uuid "569d06c8-023c-43db-bcc1-d0146029919c")
+			(alternate "SPI1_SCK")
 		)
 		(pin "40"
 			(uuid "6650853f-3f79-4e7f-9c9c-548637de3292")
@@ -7682,12 +7534,15 @@
 		)
 		(pin "17"
 			(uuid "744523c9-8250-414f-a8d0-7924e5e9153d")
+			(alternate "~{SPI1_CSn}")
 		)
 		(pin "16"
 			(uuid "8e97f5c1-b12b-4e69-8898-e6b8d40c620d")
+			(alternate "SPI1_RX")
 		)
 		(pin "15"
 			(uuid "f407331c-349c-46de-b0f8-6613ad71a954")
+			(alternate "SPI1_TX")
 		)
 		(pin "13"
 			(uuid "0c6e3820-7a25-48d0-aac2-d327773abdad")
@@ -7709,6 +7564,7 @@
 		)
 		(pin "26"
 			(uuid "024db2e2-bbe3-417f-9cb5-5610100eb24e")
+			(alternate "I2C0_SDA")
 		)
 		(pin "D3"
 			(uuid "4af1362c-1142-4198-8b04-64b192d5385d")
