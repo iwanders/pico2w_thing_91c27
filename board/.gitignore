@@ -2,3 +2,5 @@ pico2w_imu-backups
 fp-info-cache
 *.lck
 *.bak
+\#auto_saved_files*
+_autosave-*

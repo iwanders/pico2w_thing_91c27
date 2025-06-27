@@ -513,6 +513,14 @@
       {
         "netclass": "power",
         "pattern": "GND"
+      },
+      {
+        "netclass": "power",
+        "pattern": "VSYS"
+      },
+      {
+        "netclass": "power",
+        "pattern": "VBUS"
       }
     ]
   },

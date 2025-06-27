@@ -4469,6 +4469,16 @@
 	)
 	(wire
 		(pts
+			(xy 162.56 74.93) (xy 162.56 78.74)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "133b8f78-5b3c-4094-ab18-4bd59fdb0a22")
+	)
+	(wire
+		(pts
 			(xy 208.28 101.6) (xy 208.28 104.14)
 		)
 		(stroke
@@ -4779,6 +4789,16 @@
 	)
 	(wire
 		(pts
+			(xy 232.41 93.98) (xy 232.41 87.63)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "474030a9-d19b-4761-8d49-6c1e8bf83c0f")
+	)
+	(wire
+		(pts
 			(xy 50.8 54.61) (xy 50.8 44.45)
 		)
 		(stroke
@@ -4976,6 +4996,16 @@
 			(type default)
 		)
 		(uuid "60a0e9ae-2934-49cb-a2c3-23ccb8d51a35")
+	)
+	(wire
+		(pts
+			(xy 167.64 67.31) (xy 167.64 93.98)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "610a75a6-1e4b-4527-9b8b-2aeccd3eb41e")
 	)
 	(wire
 		(pts
@@ -5276,6 +5306,26 @@
 			(type default)
 		)
 		(uuid "7e93c7f3-8800-4104-8bf5-fe2fb6c40569")
+	)
+	(wire
+		(pts
+			(xy 162.56 67.31) (xy 167.64 67.31)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7ece84a6-b1b7-433e-8527-f936591f412c")
+	)
+	(wire
+		(pts
+			(xy 232.41 87.63) (xy 238.76 87.63)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7f44d64d-156c-4f99-9bfe-4dbbeb4d6d36")
 	)
 	(wire
 		(pts
@@ -5696,6 +5746,16 @@
 			(type default)
 		)
 		(uuid "b1badce1-0ece-48cf-a870-1e12e0da80e2")
+	)
+	(wire
+		(pts
+			(xy 167.64 93.98) (xy 232.41 93.98)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b3c5f018-cf3e-4d64-b60a-28f1b396e280")
 	)
 	(wire
 		(pts
@@ -7077,6 +7137,72 @@
 			(project "pico2w_imu"
 				(path "/4038b6de-78f0-4f6b-8c4b-14dbdd02c193"
 					(reference "R6")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 162.56 78.74 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "16623b4c-4f4d-40f0-85b7-37ada8b7b40e")
+		(property "Reference" "#PWR019"
+			(at 162.56 85.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 162.56 83.82 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 162.56 78.74 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 162.56 78.74 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 162.56 78.74 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "ebe4703f-19a7-49aa-ad75-859c777b04f3")
+		)
+		(instances
+			(project "pico2w_imu"
+				(path "/4038b6de-78f0-4f6b-8c4b-14dbdd02c193"
+					(reference "#PWR019")
 					(unit 1)
 				)
 			)
