@@ -6802,7 +6802,7 @@
 		(fields_autoplaced yes)
 		(uuid "01e01247-1666-4b0c-8d59-0c9d1d60f0d1")
 		(property "Reference" "IND1"
-			(at 98.7425 25.4 0)
+			(at 98.7425 11.43 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6810,7 +6810,7 @@
 			)
 		)
 		(property "Value" "LED"
-			(at 98.7425 22.86 0)
+			(at 98.7425 13.97 0)
 			(effects
 				(font
 					(size 1.27 1.27)
