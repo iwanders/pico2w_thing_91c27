@@ -179,7 +179,14 @@ This comes from the uC, it can be PWM'd, but it does consume battery and the lik
 Nominal  $R=\frac{V_s - V_f}{I_f}$, `(3.3-2.75)/4e-3` = 137.5 ohm.
 
 
+## LMS6DSV320X
 
+Decoupling caps, 100nF:
+- `1276-1022-1-ND`
+- https://www.digikey.ca/en/products/detail/samsung-electro-mechanics/CL05A104KP5NNNC/3886680
+
+
+## ICM-42688-P
 
 
 
