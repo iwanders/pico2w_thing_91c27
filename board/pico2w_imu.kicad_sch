@@ -7173,7 +7173,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "5k"
+		(property "Value" "2.5k"
 			(at 125.73 187.9599 0)
 			(effects
 				(font
@@ -9469,7 +9469,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
+		(property "Footprint" "ProjectFootprint:SOT-23_diodes_inc_standard"
 			(at 150.495 170.18 0)
 			(effects
 				(font
