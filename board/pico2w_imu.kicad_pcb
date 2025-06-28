@@ -9671,14 +9671,14 @@
 			(justify left bottom)
 		)
 	)
-	(gr_text "Bat-"
-		(at 5.588 5.588 90)
+	(gr_text "BAT-"
+		(at 5.553436 5.779974 90)
 		(layer "F.SilkS")
 		(uuid "327aac28-e384-43a3-865f-f342d15c794e")
 		(effects
 			(font
 				(size 1 1)
-				(thickness 0.1)
+				(thickness 0.15)
 			)
 			(justify left bottom)
 		)
@@ -9731,14 +9731,14 @@
 			(justify left bottom)
 		)
 	)
-	(gr_text "Bat+"
-		(at 13.716 5.588 90)
+	(gr_text "BAT+"
+		(at 13.61601 5.772436 90)
 		(layer "F.SilkS")
 		(uuid "de761b1a-1cac-4382-8125-95fae8db164f")
 		(effects
 			(font
 				(size 1 1)
-				(thickness 0.1)
+				(thickness 0.15)
 			)
 			(justify left bottom)
 		)
