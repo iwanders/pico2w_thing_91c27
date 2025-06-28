@@ -59,6 +59,13 @@ To get 400mA current, we need $R_\text{prog}$ to be 2.5k Ohm.
 
 > If temperature monitoring is not required, place a standard 10 kΩ resistor from THERM to VSS.
 
+
+Capacitor C8, decoupling on vbat:
+- Switched it to 0603, because there's plenty of space there.
+- `1276-1044-1-ND`
+- https://www.digikey.ca/en/products/detail/samsung-electro-mechanics/CL10A475KP8NNNC/3886702
+
+
 ## Battery input
 
 Following the guidance of the Pico 2W datasheet; `Diodes DMG2305UX`, just in SOT23 package.

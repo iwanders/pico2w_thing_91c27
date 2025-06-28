@@ -7094,18 +7094,17 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "1003e74d-333b-41c1-814e-d5734f16a8bc")
 		(property "Reference" "R5"
-			(at 90.17 184.15 90)
+			(at 90.17 187.706 90)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Value" "470"
-			(at 90.17 186.69 90)
+		(property "Value" "750"
+			(at 90.17 193.04 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7162,10 +7161,9 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "1620ed5e-7944-4341-b553-2834069be0e1")
 		(property "Reference" "R6"
-			(at 125.73 185.4199 0)
+			(at 119.126 185.928 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7173,8 +7171,8 @@
 				(justify right)
 			)
 		)
-		(property "Value" "2.5k"
-			(at 125.73 187.9599 0)
+		(property "Value" "2500"
+			(at 117.094 187.96 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7298,10 +7296,9 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "1ad7992f-c5b0-43d3-9a27-5707f71140b8")
 		(property "Reference" "PG1"
-			(at 75.2475 182.88 0)
+			(at 71.882 186.944 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7309,7 +7306,7 @@
 			)
 		)
 		(property "Value" "LED"
-			(at 75.2475 185.42 0)
+			(at 75.946 187.198 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7441,10 +7438,9 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "265fb5fb-6cc1-4452-9255-534b80bef182")
 		(property "Reference" "100%1"
-			(at 75.2475 172.72 0)
+			(at 72.136 176.53 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7452,7 +7448,7 @@
 			)
 		)
 		(property "Value" "LED"
-			(at 75.2475 175.26 0)
+			(at 77.47 176.276 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8367,18 +8363,17 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "61b13460-02ed-4e06-b092-39eb07aaa484")
 		(property "Reference" "R4"
-			(at 90.17 173.99 90)
+			(at 90.17 177.8 90)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Value" "470"
-			(at 90.17 176.53 90)
+		(property "Value" "3833"
+			(at 90.17 182.626 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8600,10 +8595,9 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "7543fed3-b038-4c57-9e2b-840233cfff1a")
 		(property "Reference" "CHG1"
-			(at 75.2475 163.83 0)
+			(at 71.12 168.148 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8611,7 +8605,7 @@
 			)
 		)
 		(property "Value" "LED"
-			(at 75.2475 166.37 0)
+			(at 76.708 167.386 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8785,7 +8779,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric"
 			(at 144.4752 158.75 0)
 			(effects
 				(font
@@ -9661,10 +9655,9 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "aeb5c584-f5f4-461a-94d8-35e5366373db")
 		(property "Reference" "R10"
-			(at 133.35 185.4199 0)
+			(at 131.826 185.674 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9673,7 +9666,7 @@
 			)
 		)
 		(property "Value" "10k"
-			(at 133.35 187.9599 0)
+			(at 132.334 188.214 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9951,18 +9944,17 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "b47b8a54-b579-44b1-bae3-112c64966aab")
 		(property "Reference" "R3"
-			(at 90.17 165.1 90)
+			(at 89.662 168.91 90)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Value" "470"
-			(at 90.17 167.64 90)
+		(property "Value" "1200"
+			(at 90.17 173.736 90)
 			(effects
 				(font
 					(size 1.27 1.27)
