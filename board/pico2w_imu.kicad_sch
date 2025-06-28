@@ -4116,6 +4116,12 @@
 		(uuid "003fc545-0d06-4b67-9224-102427fd80c0")
 	)
 	(junction
+		(at 123.19 190.5)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "0d775128-e3b5-49dc-970a-ca36979ec6fc")
+	)
+	(junction
 		(at 194.31 59.69)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -4606,6 +4612,16 @@
 			(type default)
 		)
 		(uuid "24714f57-d726-4b74-b142-de9ece603ebd")
+	)
+	(wire
+		(pts
+			(xy 123.19 190.5) (xy 130.81 190.5)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "24bf0f2c-68b6-4e38-bf83-87df923952aa")
 	)
 	(wire
 		(pts
@@ -5929,6 +5945,16 @@
 	)
 	(wire
 		(pts
+			(xy 130.81 180.34) (xy 130.81 182.88)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cd04d284-75f7-40c3-bda7-8d320f78cced")
+	)
+	(wire
+		(pts
 			(xy 93.98 171.45) (xy 93.98 177.8)
 		)
 		(stroke
@@ -6116,6 +6142,16 @@
 			(type default)
 		)
 		(uuid "dec991a7-2e87-48e8-a847-804bcadcbea2")
+	)
+	(wire
+		(pts
+			(xy 119.38 180.34) (xy 130.81 180.34)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "deec51de-5533-473d-ab2b-f9d49b3f843c")
 	)
 	(wire
 		(pts
@@ -7091,7 +7127,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "1k"
+		(property "Value" "5k"
 			(at 125.73 187.9599 0)
 			(effects
 				(font
@@ -9501,6 +9537,76 @@
 			(project "pico2w_imu"
 				(path "/4038b6de-78f0-4f6b-8c4b-14dbdd02c193"
 					(reference "C6")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 130.81 186.69 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "aeb5c584-f5f4-461a-94d8-35e5366373db")
+		(property "Reference" "R10"
+			(at 133.35 185.4199 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "10k"
+			(at 133.35 187.9599 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
+			(at 132.588 186.69 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 130.81 186.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 130.81 186.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "6dce07ce-4d4a-4cee-aa4c-01b6652fe1cf")
+		)
+		(pin "1"
+			(uuid "21bd3b10-f4b0-4b04-82ff-2239bf1f8928")
+		)
+		(instances
+			(project "pico2w_imu"
+				(path "/4038b6de-78f0-4f6b-8c4b-14dbdd02c193"
+					(reference "R10")
 					(unit 1)
 				)
 			)

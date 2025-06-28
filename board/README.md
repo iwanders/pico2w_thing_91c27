@@ -34,8 +34,12 @@ Swdio thus atx: `12.0141 + 2.54=14.5541mm`, swclk at `12.0141-2.54 = 9.4741mm`.
 
 ## Battery Charger MCP73833
 
+
+Only the part ending in 33 has the power good pin, 34 is the timer flavour, which we don't want.
+
 Likely going to use a small LiPo battery, 180 mAh; like 30mm by 12mm, charge at 1C, gives about
 200 mA charge current.
+
 
 Equation 5-1, p17 of datasheet;
 
@@ -45,3 +49,9 @@ I_\text{reg} = \frac{1000V}{R_\text{prog}}
 With $I_\text{reg}$ in mA and $R_\text{prog}$ in kOhm.
 
 To get 200mA current, we need $R_\text{prog}$ to be 5k Ohm.
+
+> When the voltage at the VBAT pin reaches the regulation voltage, VREG, constant voltage regulation begins. The regulation voltage is factory set to 4.20V, 4.35V, 4.40V, or 4.50V with a tolerance of ± 0.75%. 
+
+Need to pick the right 'flavour' of IC to ensure we get the correct termination voltage.
+
+> If temperature monitoring is not required, place a standard 10 kΩ resistor from THERM to VSS.
