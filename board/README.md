@@ -56,13 +56,37 @@ Need to pick the right 'flavour' of IC to ensure we get the correct termination 
 
 > If temperature monitoring is not required, place a standard 10 kΩ resistor from THERM to VSS.
 
-### Battery charger LEDs
+### LEDs
 
+Lets go with [OSRAM SMARTLED® 0603](https://ams-osram.com/products/product-families/smartled-0603) series, they seem made for diffuse indicator lights. Effectively `Kx EELP41.xx` with x changing depending on the color.
+
+
+This [application note](https://look.ams-osram.com/m/7936f76d4c70ced0/original/Determination-of-resistances-for-brightness-compensation.pdf) `AN041` is helpful.
+
+Key takehome is that it is not known which brightness we get when ordering, but a particular reel has a particular brightness group. Using this code on the reel, one can pick the resistor value.
+
+#### Power Good
 VBus is from USB, so 5V, the pins sink.
 
-Digikey discrete leds [link](https://www.digikey.ca/en/products/filter/led-indication-discrete/105).
+Power good, `super red`:
+- `KS EELP41.22-P1R2-58-A8J8-020-R18`
+- https://www.digikey.ca/en/products/detail/ams-osram-usa-inc/KS-EELP41-22-P1R2-58-A8J8-020-R18/24765247
 
-- Power good: Red
+Brightness groups:
+- P1 is brightness group 45-56 mcd at 20mA. (~50)
+- 4 more groups here.
+- R2 brightness group 140-180 mcd at 20mA. (~150)
+Middle is ~100 mcd at 20mA.
+
+Forward voltage groups:
+- 1.6V - 2.0V
+- 2.0V - 2.4V
+Nominal is 2V.
+
+Relative luminous intensity is a straight line. Lets say aim is 10mcd?
+
+- P1 brightness group needs 10/50 * 20mA = 4mA, so $R=\frac{V_s - V_f}{I_f}$ (`5-2/4e-3`) = 750 ohm.
+- R2 brightness group needs 10/150 * 20mA = 1.3mA, so $R=\frac{V_s - V_f}{I_f}$ (`5-2/4e-3`) = 2250 ohm.
 
 
 - Charging: Orange
