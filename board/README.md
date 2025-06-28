@@ -55,3 +55,17 @@ To get 200mA current, we need $R_\text{prog}$ to be 5k Ohm.
 Need to pick the right 'flavour' of IC to ensure we get the correct termination voltage.
 
 > If temperature monitoring is not required, place a standard 10 kΩ resistor from THERM to VSS.
+
+### Battery charger LEDs
+
+VBus is from USB, so 5V, the pins sink.
+
+Digikey discrete leds [link](https://www.digikey.ca/en/products/filter/led-indication-discrete/105).
+
+- Power good: Red
+
+
+- Charging: Orange
+- Done: Green
+
+
