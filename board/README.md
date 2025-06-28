@@ -34,7 +34,6 @@ Swdio thus atx: `12.0141 + 2.54=14.5541mm`, swclk at `12.0141-2.54 = 9.4741mm`.
 
 ## Battery Charger MCP73833
 
-
 Only the part ending in 33 has the power good pin, 34 is the timer flavour, which we don't want.
 
 Likely going to use a small LiPo battery, 180 mAh; like 30mm by 12mm, charge at 1C, gives about
@@ -56,19 +55,19 @@ Need to pick the right 'flavour' of IC to ensure we get the correct termination 
 
 > If temperature monitoring is not required, place a standard 10 kΩ resistor from THERM to VSS.
 
-### LEDs
+## LEDs
 
-Lets go with [OSRAM SMARTLED® 0603](https://ams-osram.com/products/product-families/smartled-0603) series, they seem made for diffuse indicator lights. Effectively `Kx EELP41.xx` with x changing depending on the color.
+Lets go with [OSRAM SMARTLED® 0603](https://ams-osram.com/products/product-families/smartled-0603) series, they seem made for diffuse indicator lights. Effectively `Kx EELP41.xx` with x changing depending on the color. Digikey [filter link](https://www.digikey.ca/en/products/filter/led-indication-discrete/105?s=N4IgjCBcoLQCxVAYygMwIYBsDOBTANCAPZQDaIAbAExwDMtIAugL7OFVkgCiXAMgApNmQA); search on series and `EELP`.
 
 
 This [application note](https://look.ams-osram.com/m/7936f76d4c70ced0/original/Determination-of-resistances-for-brightness-compensation.pdf) `AN041` is helpful.
 
 Key takehome is that it is not known which brightness we get when ordering, but a particular reel has a particular brightness group. Using this code on the reel, one can pick the resistor value.
 
-#### Power Good
-VBus is from USB, so 5V, the pins sink.
+### Power Good
+PG pin on battery charger, VBus is from USB, so 5V, the pin sinks.
 
-Power good, `super red`:
+- Color: `super red`:
 - `KS EELP41.22-P1R2-58-A8J8-020-R18`
 - https://www.digikey.ca/en/products/detail/ams-osram-usa-inc/KS-EELP41-22-P1R2-58-A8J8-020-R18/24765247
 
@@ -76,7 +75,8 @@ Brightness groups:
 - P1 is brightness group 45-56 mcd at 20mA. (~50)
 - 4 more groups here.
 - R2 brightness group 140-180 mcd at 20mA. (~150)
-Middle is ~100 mcd at 20mA.
+
+Average of all groups is ~100 mcd at 20mA.
 
 Forward voltage groups:
 - 1.6V - 2.0V
@@ -85,11 +85,78 @@ Nominal is 2V.
 
 Relative luminous intensity is a straight line. Lets say aim is 10mcd?
 
-- P1 brightness group needs 10/50 * 20mA = 4mA, so $R=\frac{V_s - V_f}{I_f}$ (`5-2/4e-3`) = 750 ohm.
-- R2 brightness group needs 10/150 * 20mA = 1.3mA, so $R=\frac{V_s - V_f}{I_f}$ (`5-2/4e-3`) = 2250 ohm.
+- P1 brightness group needs 10/50 * 20mA = 4mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/4e-3` = 750 ohm.
+- R2 brightness group needs 10/150 * 20mA = 1.3mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/4e-3` = 2250 ohm.
 
+### Charging
+STAT1 pin on battery charger, VBus is from USB, so 5V, the pin sinks.
 
-- Charging: Orange
-- Done: Green
+- Color: `orange`:
+- `KO EELP41.22-Q1S2-25-A8J8-020-R18`
+- https://www.digikey.ca/en/products/detail/ams-osram-usa-inc/KO-EELP41-22-Q1S2-25-A8J8-020-R18/24765237
+
+Brightness groups:
+- Q1 is brightness group 71-90 mcd at 20mA. (~80)
+- 4 more groups here.
+- S2 brightness group 224-280 mcd at 20mA. (~252)
+
+Average of all groups is ~166 mcd at 20mA.
+
+Forward voltage groups:
+- 1.6V - 2.0V
+- 2.0V - 2.4V
+Nominal is 2V.
+
+Relative luminous intensity is a straight line. Lets say aim is 10mcd?
+
+- Q1 brightness group needs 10/80 * 20mA = 2.5mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/2.5e-3` = 1200 ohm.
+- S2 brightness group needs 10/252 * 20mA = 0.8mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/0.8e-3` = 3750 ohm.
+
+### End of Charge
+STAT2 pin on battery charger, VBus is from USB, so 5V, the pin sinks.
+
+- Color: `green`:
+- `KT EELP41.12-S2U1-25-2X4Y-5-R18`
+- https://www.digikey.ca/en/products/detail/ams-osram-usa-inc/KT-EELP41-12-S2U1-25-2X4Y-5-R18/24765233
+
+Brightness groups:
+- S2 brightness group 224-280 mcd at 20mA. (~252)
+- 2 more groups here.
+- U1 brightness group 450-560 mcd at 20mA. (~505)
+
+Average of all groups is ~378 mcd at 20mA.
+
+Forward voltage groups:
+- 2X 2.3V - 2.4V
+- 6 more groups
+- 4Y 3.0V - 3.1V
+Nominal is 2.7V.
+
+Relative luminous intensity is not a straight line, graph is non uniform, but not by much... 7.5mcd goal?
+
+- S2 brightness group needs 7.5/252 * 20mA = 0.6mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2.7)/0.6e-3` = 3833 ohm.
+- U2 brightness group needs 7.5/505 * 20mA = 0.3mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2.7)/0.3e-3` = 7666 ohm.
+
+### Indicator LED
+Connected to the uC, 3.3v driving voltage.
+
+- Color: `blue`:
+- `KB EELP41.12-P1R2-36-3X4X-5-R18`
+- https://www.digikey.ca/en/products/detail/ams-osram-usa-inc/KB-EELP41-12-P1R2-36-3X4X-5-R18/24765234
+
+Brightness groups:
+- P1 is brightness group 45-56 mcd at 20mA. (~50)
+- 4 more groups here.
+- R2 brightness group 140-180 mcd at 20mA. (~150)
+
+Forward voltage groups:
+- 3X 2.6V - 2.7V
+- 2 more groups
+- 4X 2.9V - 3.0V
+Nominal is 2.75V.
+
+This comes from the uC, it can be PWM'd, but it does consume battery and the like. Lets go with 4mA, that's 10-30 mcd.
+
+Nominal  $R=\frac{V_s - V_f}{I_f}$, `(3.3-2.75)/4e-3` = 137.5 ohm.
 
 
