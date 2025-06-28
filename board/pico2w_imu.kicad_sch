@@ -6453,6 +6453,16 @@
 		)
 		(uuid "fffa767b-baf1-45f5-a0eb-47cdd2d0104e")
 	)
+	(label "VBat"
+		(at 132.08 156.21 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "af7948a7-7c92-4cef-858b-8a22add96374")
+	)
 	(global_label "3v3"
 		(shape bidirectional)
 		(at 21.59 19.05 180)
