@@ -4562,7 +4562,7 @@
 		(uuid "1ee6e2a2-f2b2-47c1-9f76-87a3f209b3d9")
 	)
 	(no_connect
-		(at 116.84 21.59)
+		(at 110.49 21.59)
 		(uuid "24804f4a-5236-4e15-aab7-aad9438444cd")
 	)
 	(no_connect
@@ -4594,7 +4594,7 @@
 		(uuid "acd1dcf7-83bc-441a-8e71-9234f1069b87")
 	)
 	(no_connect
-		(at 116.84 24.13)
+		(at 110.49 24.13)
 		(uuid "b12b5eec-0004-41c7-a278-5007f4144a3a")
 	)
 	(no_connect
@@ -6177,6 +6177,16 @@
 	)
 	(wire
 		(pts
+			(xy 110.49 21.59) (xy 116.84 21.59)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "aa2c847c-c907-4b15-9fdc-005220d16b5f")
+	)
+	(wire
+		(pts
 			(xy 116.84 97.79) (xy 214.63 97.79)
 		)
 		(stroke
@@ -6937,6 +6947,16 @@
 	)
 	(wire
 		(pts
+			(xy 110.49 24.13) (xy 116.84 24.13)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f8db742c-7ce5-4741-af1d-879a8d3f509e")
+	)
+	(wire
+		(pts
 			(xy 46.99 121.92) (xy 46.99 101.6)
 		)
 		(stroke
@@ -7064,6 +7084,16 @@
 			(justify right bottom)
 		)
 		(uuid "247ad6c5-7251-4555-8e9a-aba0006d4066")
+	)
+	(label "SWDIO"
+		(at 116.84 24.13 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "2b7f322f-dcc2-410c-8795-371030e56b50")
 	)
 	(label "MEM_SPI0_TX"
 		(at 162.56 46.99 0)
@@ -7214,6 +7244,16 @@
 			(justify right bottom)
 		)
 		(uuid "b8b1689e-127c-4a3f-8c60-fdff1cb1dc74")
+	)
+	(label "SWCLK"
+		(at 115.57 21.59 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "c14f3699-7b85-497e-86e3-07cda2eb058b")
 	)
 	(label "LSM_SCK_SPI1"
 		(at 116.84 62.23 180)

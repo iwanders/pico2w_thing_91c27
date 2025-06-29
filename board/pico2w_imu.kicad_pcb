@@ -131,6 +131,8 @@
 	(net 51 "Net-(IND1-A)")
 	(net 52 "/BME280_I2C0_SDA")
 	(net 53 "/BME280_I2C0_SCL")
+	(net 54 "/SWDIO")
+	(net 55 "/SWCLK")
 	(footprint "Capacitor_SMD:C_0402_1005Metric"
 		(layer "F.Cu")
 		(uuid "11ffa3c6-acb4-4c4c-8a66-cbaf4132845b")
@@ -4230,8 +4232,9 @@
 			)
 		)
 		(property "Value" "Conn_01x02_Pin"
-			(at 0 4.92 270)
+			(at -8.73992 4.575517 270)
 			(layer "F.Fab")
+			(hide yes)
 			(uuid "74596cbc-4551-4309-b6e0-faf1c23f8be0")
 			(effects
 				(font
@@ -6537,6 +6540,7 @@
 			(at 19.5 49.13 0)
 			(unlocked yes)
 			(layer "F.SilkS")
+			(hide yes)
 			(uuid "e22604b6-4309-4646-852d-4597c1be3ff2")
 			(effects
 				(font
@@ -6596,7 +6600,7 @@
 				(type solid)
 			)
 			(layer "Cmts.User")
-			(uuid "bf0a2eab-8a0a-4e35-87bc-f21f2cb13b8c")
+			(uuid "766bd0ec-c0ec-460c-9eb2-f99fa6afd714")
 		)
 		(fp_line
 			(start -1.61 -1.37)
@@ -6606,7 +6610,7 @@
 				(type solid)
 			)
 			(layer "Cmts.User")
-			(uuid "9dce38d2-f029-4282-bf4f-a375d7a114cb")
+			(uuid "cc3ac26f-b5ba-41f5-91ee-d47203725412")
 		)
 		(fp_line
 			(start -1.61 49.63)
@@ -6616,7 +6620,7 @@
 				(type solid)
 			)
 			(layer "Cmts.User")
-			(uuid "6eda29dd-a4e9-444a-b7c0-ea0555a239a1")
+			(uuid "0da7a0b9-0624-4120-a4b5-e2eae0f9ebd1")
 		)
 		(fp_line
 			(start 19.39 -1.37)
@@ -6626,67 +6630,19 @@
 				(type solid)
 			)
 			(layer "Cmts.User")
-			(uuid "42d6560a-291c-47f8-bf5b-69124ac48214")
-		)
-		(fp_text user "^ Suggested board edge for RF ^"
-			(at 10.16 -2.54 0)
-			(unlocked yes)
-			(layer "Cmts.User")
-			(uuid "27bd680d-62de-4f77-ae97-b59ddb3dbed5")
-			(effects
-				(font
-					(size 0.5 0.5)
-					(thickness 0.075)
-				)
-			)
+			(uuid "1e6ca83b-10c3-410a-8e05-ebb18d0306e3")
 		)
 		(fp_text user "CommentIsDimensions"
 			(at -2.54 -5.08 0)
 			(unlocked yes)
 			(layer "Cmts.User")
-			(uuid "8f576f1e-7da9-4c88-a082-d310c0d917c4")
+			(uuid "586f2620-f315-4d83-aff6-2d480b3aff56")
 			(effects
 				(font
 					(size 1 1)
 					(thickness 0.1)
 				)
 				(justify left bottom)
-			)
-		)
-		(fp_text user "2.4 GHz RF Keep Out"
-			(at 0 31.75 0)
-			(unlocked yes)
-			(layer "Cmts.User")
-			(uuid "963e2d59-0f5b-4c36-9361-1ce2c83d1c8c")
-			(effects
-				(font
-					(size 1 1)
-					(thickness 0.15)
-				)
-			)
-		)
-		(fp_text user "Keep unobstructed by metal as far as possible in all dimensions"
-			(at 0 33.9725 0)
-			(unlocked yes)
-			(layer "Cmts.User")
-			(uuid "ae9cb2fe-f3a2-4b46-a717-f3a218c687fc")
-			(effects
-				(font
-					(size 0.5 0.5)
-					(thickness 0.075)
-				)
-			)
-		)
-		(fp_text user "Antenna"
-			(at 0 19.685 0)
-			(unlocked yes)
-			(layer "Cmts.User")
-			(uuid "cea26e3d-b35f-49d8-bc36-2c7ca91546f0")
-			(effects
-				(font
-					(size 1 1)
-					(thickness 0.15)
-				)
 			)
 		)
 		(fp_text user "${REFERENCE}"
@@ -6707,7 +6663,7 @@
 			(layers "*.Cu" "*.Mask")
 			(clearance 0.85)
 			(zone_connect 0)
-			(uuid "be809d1f-ed2d-4b46-9109-a1b6eee0bea9")
+			(uuid "78f11444-d50b-4213-ab5c-b8f65efe782e")
 		)
 		(pad "" np_thru_hole circle
 			(at 3.19 47.63)
@@ -6716,7 +6672,7 @@
 			(layers "*.Cu" "*.Mask")
 			(clearance 0.85)
 			(zone_connect 0)
-			(uuid "293988d3-0896-4f84-ac46-b558eea8cfdc")
+			(uuid "ddb2d7d7-26b6-4344-8878-705b0659c751")
 		)
 		(pad "" np_thru_hole circle
 			(at 14.59 0.63)
@@ -6725,7 +6681,7 @@
 			(layers "*.Cu" "*.Mask")
 			(clearance 0.85)
 			(zone_connect 0)
-			(uuid "68328e04-a148-4de7-90f0-f2ddc74a191c")
+			(uuid "1cc39397-ce0b-43e1-bcf3-a26a4fa65384")
 		)
 		(pad "" np_thru_hole circle
 			(at 14.59 47.63)
@@ -6734,7 +6690,7 @@
 			(layers "*.Cu" "*.Mask")
 			(clearance 0.85)
 			(zone_connect 0)
-			(uuid "30e164ff-5c7c-4d11-8c88-d53567b3e9b1")
+			(uuid "75093068-b409-4b83-bb10-ea3883d8962a")
 		)
 		(pad "1" thru_hole circle
 			(at 0 0)
@@ -7376,12 +7332,27 @@
 			(pintype "power_out")
 			(uuid "ac371b88-778d-4981-8ff9-52f7bfab16ba")
 		)
-		(pad "dbg_gnd" thru_hole custom
+		(pad "D1" thru_hole circle
+			(at 9.4741 29.83)
+			(size 1.6 1.6)
+			(drill 1)
+			(layers "*.Cu" "*.Mask")
+			(remove_unused_layers no)
+			(net 55 "/SWCLK")
+			(pinfunction "SWCLK")
+			(pintype "input+no_connect")
+			(thermal_bridge_angle 90)
+			(uuid "4d99be99-41ed-4d0e-9230-76c266551c9b")
+		)
+		(pad "D2" thru_hole custom
 			(at 12.0141 29.83 270)
 			(size 1.6 1.6)
 			(drill 1)
 			(layers "*.Cu" "*.Mask")
 			(remove_unused_layers no)
+			(net 1 "GND")
+			(pinfunction "GND")
+			(pintype "passive")
 			(options
 				(clearance outline)
 				(anchor circle)
@@ -7407,34 +7378,28 @@
 					(fill yes)
 				)
 			)
-			(uuid "1870ad85-d10d-431e-9d58-ac81bb5ffdc6")
+			(uuid "0c203338-10ce-4848-b8a4-f720d88dab85")
 		)
-		(pad "swclk" thru_hole circle
-			(at 9.4741 29.83)
-			(size 1.6 1.6)
-			(drill 1)
-			(layers "*.Cu" "*.Mask")
-			(remove_unused_layers no)
-			(thermal_bridge_angle 90)
-			(uuid "7142d9f0-f59a-4056-bd08-90d8d712159f")
-		)
-		(pad "swdio" thru_hole circle
+		(pad "D3" thru_hole circle
 			(at 14.5541 29.83)
 			(size 1.6 1.6)
 			(drill 1)
 			(layers "*.Cu" "*.Mask")
 			(remove_unused_layers no)
+			(net 54 "/SWDIO")
+			(pinfunction "SWDIO")
+			(pintype "bidirectional+no_connect")
 			(thermal_bridge_angle 90)
-			(uuid "5cfeb157-9267-4189-b4c3-41cde56bd5f2")
+			(uuid "0476c49a-1026-4637-949c-1bdeab7088cf")
 		)
 		(group ""
-			(uuid "0060b3d0-e3d7-4266-aac7-1f3e9d9399a7")
-			(members "1870ad85-d10d-431e-9d58-ac81bb5ffdc6" "5cfeb157-9267-4189-b4c3-41cde56bd5f2"
-				"7142d9f0-f59a-4056-bd08-90d8d712159f"
+			(uuid "3477a6c8-cd6d-4fef-b325-cda0be41db45")
+			(members "0476c49a-1026-4637-949c-1bdeab7088cf" "0c203338-10ce-4848-b8a4-f720d88dab85"
+				"4d99be99-41ed-4d0e-9230-76c266551c9b"
 			)
 		)
 		(group ""
-			(uuid "88a08889-dc65-41dc-b176-b949eef81b1b")
+			(uuid "c11dff14-646a-4d01-8f02-8a147f35bb69")
 			(members "073b11eb-16db-4693-82cf-a220d2fcad09" "0a49b2eb-6e84-4f47-a5e3-96d8858e2b49"
 				"16b23742-4aa9-478c-92ee-bb3f46b0e244" "17124e19-8fa6-45eb-bac2-70df5b545303"
 				"172d4558-2297-44d7-8d32-c5d2b5201d82" "17ee5b4b-79aa-4a19-a3e4-fe33dfdfcd73"
@@ -10313,6 +10278,7 @@
 			(type solid)
 		)
 		(fill no)
+		(locked yes)
 		(layer "Edge.Cuts")
 		(uuid "0d8ccf8d-dd47-4c9b-829e-be6f5b93a1aa")
 	)
@@ -10809,6 +10775,14 @@
 		(uuid "9359d634-876e-483b-bf14-acf8a393d292")
 	)
 	(segment
+		(start 12.0141 29.83)
+		(end 13.4261 31.242)
+		(width 0.2)
+		(layer "F.Cu")
+		(net 1)
+		(uuid "99c3cf2e-3aa8-4627-b3a0-5a782e17a710")
+	)
+	(segment
 		(start 4.7225 27.305)
 		(end 4.7225 26.805)
 		(width 0.2)
@@ -10977,6 +10951,14 @@
 		(uuid "ca99afbd-1478-42c1-9b7f-5959d60bf233")
 	)
 	(segment
+		(start 17.018 31.242)
+		(end 17.78 30.48)
+		(width 0.2)
+		(layer "F.Cu")
+		(net 1)
+		(uuid "cc297e76-d8ef-44ff-9d1d-a9be032b5796")
+	)
+	(segment
 		(start 5.842 19.84)
 		(end 5.3365 19.84)
 		(width 0.2)
@@ -10991,6 +10973,14 @@
 		(layer "F.Cu")
 		(net 1)
 		(uuid "d185df41-d583-4508-8615-098146d50a07")
+	)
+	(segment
+		(start 13.4261 31.242)
+		(end 17.018 31.242)
+		(width 0.2)
+		(layer "F.Cu")
+		(net 1)
+		(uuid "d7219388-67a5-4a7a-86f5-6931e31ff0da")
 	)
 	(segment
 		(start 6.901281 35.56)

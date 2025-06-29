@@ -665,7 +665,16 @@
 		(remove_unused_layers no)
 		(uuid "c8fe8714-f3b6-4cea-b78b-11ed38c9f8c2")
 	)
-	(pad "dbg_gnd" thru_hole custom
+	(pad "D1" thru_hole circle
+		(at 9.4741 29.83)
+		(size 1.6 1.6)
+		(drill 1)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(thermal_bridge_angle 90)
+		(uuid "a6f16f07-3ef3-4f20-b946-ebc3449987b7")
+	)
+	(pad "D2" thru_hole custom
 		(at 12.0141 29.83 270)
 		(size 1.6 1.6)
 		(drill 1)
@@ -698,16 +707,7 @@
 		)
 		(uuid "edac7d96-9ee1-4320-af1a-8b71e839a721")
 	)
-	(pad "swclk" thru_hole circle
-		(at 9.4741 29.83)
-		(size 1.6 1.6)
-		(drill 1)
-		(layers "*.Cu" "*.Mask")
-		(remove_unused_layers no)
-		(thermal_bridge_angle 90)
-		(uuid "a6f16f07-3ef3-4f20-b946-ebc3449987b7")
-	)
-	(pad "swdio" thru_hole circle
+	(pad "D3" thru_hole circle
 		(at 14.5541 29.83)
 		(size 1.6 1.6)
 		(drill 1)
