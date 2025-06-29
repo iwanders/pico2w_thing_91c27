@@ -234,3 +234,16 @@ Decoupling cap 100nF, see above.
 
 - `WM6357CT-ND`
 - https://www.digikey.ca/en/products/detail/molex/1040310811/2370379
+
+## BME280
+
+Decoupling caps 100nF, see above.
+- `828-1063-1-ND`
+- https://www.digikey.ca/en/products/detail/bosch-sensortec/BME280/6136306
+
+
+## Resistors
+
+
+## BOM
+
