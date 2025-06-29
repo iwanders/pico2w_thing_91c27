@@ -249,6 +249,18 @@ JST PH 2mm pitch, through hole side connector.
 
 ## Resistors
 
+~Filter [link](https://www.digikey.ca/en/products/filter/chip-resistor-surface-mount/52?s=N4IgjCBcoMxaBjKAzAhgGwM4FMA0IB7KAbXDBggF18AHAFyhAGU6AnASwDsBzEAX3xgAbPBBJIaLHkIkQMAJxgArAA4Q1EPUYsOPfvgC0EaGJQYc%2BIpFJgATAHYRlASAO3R4tgFdpV0kvUXA3kPKG9fWSoggBZQiXMI6xBomCUnPgygA), `Samsung Electro-Mechanics`, `1%`, `RC` series, and in stock.~
+
+But [this filter](https://www.digikey.ca/en/products/filter/chip-resistor-surface-mount/52?s=N4IgjCBcoMxaBjKAzAhgGwM4FMA0IB7KAbXDBgnwDYBOKkfAdgoZAA4AWN1mx%2BgXXwAHAC5QQAZREAnAJYA7AOYgAvvjD1oIJJDRY8hEiBg0wAVm6CQo8VLlLV%2BALQQtOvTnxFIpMAAYQfjUQJxp4bSgZAFcDb19A4KcAJnCdaNijMwSVFSA) `Panasonic Electronic Components`, `<1%`, `ERJ-2RK` series has more options.
+
+- R1, R2: 4.7k  -> `P4.70KLCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF4701X/1746231
+- R3: 1200 -> 1.21k, `P1.21KLCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF1211X/192051
+- R4 3833 -> 3.83k, `P3.83KLCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF3831X/192287
+- R5 750 -> `P750LCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF7500X/192470
+- R6 2500 -> 2.49k `P2.49KLCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF2491X/192203
+- R7,8,10 10k -> `P10.0KLCT-ND`,  https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF1002X/192073
+- R9 470 -> 470 `P470LCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF4700X/1746229
+
 
 ## BOM
 
