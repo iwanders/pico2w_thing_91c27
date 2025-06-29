@@ -32,9 +32,9 @@ For the 2w; debug gnd at x: `19.39-7.3759=12.0141mm`, y at `49.63-19.8= 29.83mm`
 
 Swdio thus atx: `12.0141 + 2.54=14.5541mm`, swclk at `12.0141-2.54 = 9.4741mm`.
 
-## Battery Charger MCP73833
+## Battery Charger
 
-Only the part ending in 33 has the power good pin, 34 is the timer flavour, which we don't want.
+Chip is `MCP73833`. Only the part ending in 33 has the power good pin, 34 is the timer flavour, which we don't want.
 
 Is a DFN package... It has various flavours, digikey only carries VReg of 4.20v, going with no timer such that we can charge large batteries if necessary, with preconditioning, but no timer (in case we want to charge a large battery): `MCP73833-AMI/MF` in full.
 
@@ -65,6 +65,7 @@ Capacitor C8, decoupling on vbat:
 - `1276-1044-1-ND`
 - https://www.digikey.ca/en/products/detail/samsung-electro-mechanics/CL10A475KP8NNNC/3886702
 
+Verified pin inputs.
 
 ## Battery input
 
@@ -72,7 +73,7 @@ Following the guidance of the Pico 2W datasheet; `Diodes DMG2305UX`, just in SOT
 - `DMG2305UX-7DICT-ND`
 - https://www.digikey.ca/en/products/detail/diodes-incorporated/DMG2305UX-7/4340667
 
-Enlarged landing pads on footprint, made a new footprint for this.
+Enlarged landing pads on footprint, made a new footprint for this. Verified Pins
 
 ## LEDs
 
@@ -181,12 +182,15 @@ Nominal  $R=\frac{V_s - V_f}{I_f}$, `(3.3-2.75)/4e-3` = 137.5 ohm.
 
 ## LMS6DSV320X
 
-Decoupling caps, 100nF:
+Imu;
+- `497-LSM6DSV320XTRCT-ND`
+- https://www.digikey.ca/en/products/detail/stmicroelectronics/LSM6DSV320XTR/26254547?s=N4IgTCBcDaIDIGUCyA2AIggagZjABhAF0BfIA
+
+Decoupling caps, 100nF, 0402:
 - `1276-1022-1-ND`
 - https://www.digikey.ca/en/products/detail/samsung-electro-mechanics/CL05A104KP5NNNC/3886680
 
+Verified the pins.
 
 ## ICM-42688-P
-
-
 
