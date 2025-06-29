@@ -11338,7 +11338,7 @@
 				(justify right)
 			)
 		)
-		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
+		(property "Footprint" "ProjectFootprint:PinHeader_1x02_P2.54mm_Vertical_round_no_silk_courtyard"
 			(at 162.56 151.13 0)
 			(effects
 				(font
