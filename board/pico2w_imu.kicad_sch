@@ -7709,7 +7709,7 @@
 				)
 			)
 		)
-		(property "Value" "LED"
+		(property "Value" "LED_IND"
 			(at 82.2325 13.97 0)
 			(effects
 				(font
@@ -8263,7 +8263,7 @@
 				)
 			)
 		)
-		(property "Value" "LED"
+		(property "Value" "LED_PG"
 			(at 75.946 187.198 0)
 			(effects
 				(font
@@ -8405,7 +8405,7 @@
 				)
 			)
 		)
-		(property "Value" "LED"
+		(property "Value" "LED_EOC"
 			(at 77.47 176.276 0)
 			(effects
 				(font
@@ -9466,7 +9466,7 @@
 				)
 			)
 		)
-		(property "Value" "MCP73833-xxx-MF"
+		(property "Value" "MCP73833-AMI-MF"
 			(at 109.22 167.64 0)
 			(effects
 				(font
@@ -9560,7 +9560,7 @@
 				)
 			)
 		)
-		(property "Value" "LED"
+		(property "Value" "LED_CHG"
 			(at 76.708 167.386 0)
 			(effects
 				(font
