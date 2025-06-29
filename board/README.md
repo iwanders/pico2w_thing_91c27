@@ -227,3 +227,10 @@ Decoupling cap is 100nF, see above.
 - `1092-1234-ND`
 - https://www.digikey.ca/en/products/detail/macronix/MX25L25645GM2I-08G/7914972
 
+
+## SD Card
+
+Decoupling cap 100nF, see above.
+
+- `WM6357CT-ND`
+- https://www.digikey.ca/en/products/detail/molex/1040310811/2370379
