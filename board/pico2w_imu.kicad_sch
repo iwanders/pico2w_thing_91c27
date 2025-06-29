@@ -9079,7 +9079,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Connector_JST:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal"
+		(property "Footprint" "ProjectFootprint:JST_PH_S2B-PH-K_1x02_P2.00mm_Horizontal_no_silk"
 			(at 113.03 153.67 0)
 			(effects
 				(font
