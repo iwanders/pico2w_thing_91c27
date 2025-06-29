@@ -1909,7 +1909,6 @@
 						)
 					)
 					(alternate "" input line)
-					(alternate "" input line)
 					(alternate "I2C0_SCL" bidirectional clock)
 					(alternate "PWM4_B" bidirectional line)
 					(alternate "UART1_RX" input line)
@@ -4545,6 +4544,66 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "fedab529-3915-41c4-b58a-9e8ee4ee3de3")
+	)
+	(no_connect
+		(at 162.56 59.69)
+		(uuid "01fdeb4d-316a-4345-96fa-e66ac4b3ba9b")
+	)
+	(no_connect
+		(at 81.28 82.55)
+		(uuid "0d8be743-7534-4a14-a692-cbaea229ec8e")
+	)
+	(no_connect
+		(at 116.84 31.75)
+		(uuid "15ee8fdd-834f-4d49-956d-fd97b538713c")
+	)
+	(no_connect
+		(at 238.76 128.27)
+		(uuid "1ee6e2a2-f2b2-47c1-9f76-87a3f209b3d9")
+	)
+	(no_connect
+		(at 116.84 21.59)
+		(uuid "24804f4a-5236-4e15-aab7-aad9438444cd")
+	)
+	(no_connect
+		(at 81.28 78.74)
+		(uuid "46131392-8a85-49fc-ab06-aec78e85d7ae")
+	)
+	(no_connect
+		(at 238.76 85.09)
+		(uuid "467c8ebf-3825-4db5-b448-2b19e613df3a")
+	)
+	(no_connect
+		(at 238.76 132.08)
+		(uuid "63bb638d-107c-453e-9212-a7807fcbcf6a")
+	)
+	(no_connect
+		(at 184.15 80.01)
+		(uuid "70132053-0292-4e0d-9849-cea6d6bab3d2")
+	)
+	(no_connect
+		(at 181.61 128.27)
+		(uuid "98c24dc9-071e-4812-aa6b-91e72824067b")
+	)
+	(no_connect
+		(at 238.76 67.31)
+		(uuid "a0b894d9-7715-4490-aaed-09019b18a215")
+	)
+	(no_connect
+		(at 116.84 29.21)
+		(uuid "acd1dcf7-83bc-441a-8e71-9234f1069b87")
+	)
+	(no_connect
+		(at 116.84 24.13)
+		(uuid "b12b5eec-0004-41c7-a278-5007f4144a3a")
+	)
+	(no_connect
+		(at 162.56 67.31)
+		(uuid "d914af52-87e5-4186-960e-45a76012fafb")
+	)
+	(no_connect
+		(at 181.61 130.81)
+		(uuid "fca26b68-9c86-41e5-9ac7-fb7d3930797e")
 	)
 	(wire
 		(pts
