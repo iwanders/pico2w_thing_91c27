@@ -1703,7 +1703,7 @@
 				)
 			)
 		)
-		(property "Value" "1200"
+		(property "Value" "2500"
 			(at 0 1.17 0)
 			(layer "F.Fab")
 			(uuid "74268b49-7a04-4842-9d1a-8da0b0776106")
@@ -4028,7 +4028,7 @@
 				)
 			)
 		)
-		(property "Value" "3833"
+		(property "Value" "4347"
 			(at 0 1.17 90)
 			(layer "F.Fab")
 			(uuid "a62031e7-03f8-4b02-8e96-6e103d2960ec")
@@ -4853,7 +4853,7 @@
 			(roundrect_rratio 0.25)
 			(net 9 "unconnected-(LSM6DSV320X1-RESV-Pad2)")
 			(pinfunction "RESV")
-			(pintype "passive")
+			(pintype "passive+no_connect")
 			(uuid "6117d765-aa57-4906-a151-ee91f5e94c66")
 		)
 		(pad "3" smd roundrect
@@ -4863,7 +4863,7 @@
 			(roundrect_rratio 0.25)
 			(net 11 "unconnected-(LSM6DSV320X1-RESV-Pad3)")
 			(pinfunction "RESV")
-			(pintype "passive")
+			(pintype "passive+no_connect")
 			(uuid "e3bd2b85-2728-4142-a494-2ea6d43e4c62")
 		)
 		(pad "4" smd roundrect
@@ -4933,7 +4933,7 @@
 			(roundrect_rratio 0.25)
 			(net 8 "unconnected-(LSM6DSV320X1-OCS_aux-Pad10)")
 			(pinfunction "OCS_aux")
-			(pintype "passive")
+			(pintype "passive+no_connect")
 			(uuid "00d12a0e-36cf-4f4e-8521-05c5168e6e16")
 		)
 		(pad "11" smd roundrect
@@ -4943,7 +4943,7 @@
 			(roundrect_rratio 0.25)
 			(net 10 "unconnected-(LSM6DSV320X1-SDO_aux-Pad11)")
 			(pinfunction "SDO_aux")
-			(pintype "passive")
+			(pintype "passive+no_connect")
 			(uuid "9d8199d2-8247-4eb8-8bda-22643e48ffab")
 		)
 		(pad "12" smd roundrect
@@ -5007,7 +5007,7 @@
 				)
 			)
 		)
-		(property "Value" "470"
+		(property "Value" "137"
 			(at 0 1.17 90)
 			(layer "F.Fab")
 			(uuid "26e4857c-5532-4904-bc94-4cc8005c412d")
@@ -7311,7 +7311,7 @@
 			(remove_unused_layers no)
 			(net 2 "unconnected-(A1-RUN-Pad30)")
 			(pinfunction "RUN")
-			(pintype "passive")
+			(pintype "passive+no_connect")
 			(uuid "40437d0e-b4f5-4de2-ac3d-c7035d741e14")
 		)
 		(pad "31" thru_hole circle
@@ -7333,7 +7333,7 @@
 			(remove_unused_layers no)
 			(net 50 "unconnected-(A1-GPIO27_ADC1-Pad32)")
 			(pinfunction "GPIO27_ADC1")
-			(pintype "bidirectional")
+			(pintype "bidirectional+no_connect")
 			(uuid "16b23742-4aa9-478c-92ee-bb3f46b0e244")
 		)
 		(pad "33" thru_hole custom
@@ -7391,7 +7391,7 @@
 			(remove_unused_layers no)
 			(net 4 "unconnected-(A1-ADC_VREF-Pad35)")
 			(pinfunction "ADC_VREF")
-			(pintype "power_in")
+			(pintype "power_in+no_connect")
 			(uuid "8943eed3-52f8-425f-bca9-95f8176b7c03")
 		)
 		(pad "36" thru_hole circle
@@ -7413,7 +7413,7 @@
 			(remove_unused_layers no)
 			(net 5 "unconnected-(A1-3V3_EN-Pad37)")
 			(pinfunction "3V3_EN")
-			(pintype "passive")
+			(pintype "passive+no_connect")
 			(uuid "d17ffc60-7f4a-4779-aecf-46539b125f0e")
 		)
 		(pad "38" thru_hole custom
@@ -8635,7 +8635,7 @@
 				)
 			)
 		)
-		(property "Value" "750"
+		(property "Value" "1500"
 			(at 0 1.17 0)
 			(layer "F.Fab")
 			(uuid "7c27f4ef-75f2-45ee-9d3e-5a41f09ee385")
@@ -9087,7 +9087,7 @@
 			(roundrect_rratio 0.25)
 			(net 7 "unconnected-(U1-RESV-Pad10)")
 			(pinfunction "RESV")
-			(pintype "passive")
+			(pintype "passive+no_connect")
 			(uuid "51f95985-a1a4-4cf8-bb67-909ea6df7ab0")
 		)
 		(pad "11" smd roundrect
@@ -9097,7 +9097,7 @@
 			(roundrect_rratio 0.25)
 			(net 6 "unconnected-(U1-RESV-Pad11)")
 			(pinfunction "RESV")
-			(pintype "passive")
+			(pintype "passive+no_connect")
 			(uuid "03bbb330-7d96-4441-9cac-9f26ebe20336")
 		)
 		(pad "12" smd roundrect
@@ -9501,7 +9501,7 @@
 			(roundrect_rratio 0.25)
 			(net 19 "unconnected-(U4-~{WP}{slash}SIO2-Pad3)")
 			(pinfunction "~{WP}/SIO2")
-			(pintype "bidirectional")
+			(pintype "bidirectional+no_connect")
 			(uuid "6e8ea2fe-dbf9-49ba-8909-8d25796c0ec4")
 		)
 		(pad "4" smd roundrect
@@ -9944,7 +9944,7 @@
 			(layers "B.Cu" "B.Mask" "B.Paste")
 			(net 21 "unconnected-(J1-DAT2-Pad1)")
 			(pinfunction "DAT2")
-			(pintype "bidirectional")
+			(pintype "bidirectional+no_connect")
 			(uuid "c886f762-f574-4266-8963-d11312a86e16")
 		)
 		(pad "2" smd rect
@@ -10007,7 +10007,7 @@
 			(layers "B.Cu" "B.Mask" "B.Paste")
 			(net 20 "unconnected-(J1-DAT1-Pad8)")
 			(pinfunction "DAT1")
-			(pintype "bidirectional")
+			(pintype "bidirectional+no_connect")
 			(uuid "b66f8bce-f7fa-41bf-a43b-0c3d82bcc0f4")
 		)
 		(pad "9" smd rect

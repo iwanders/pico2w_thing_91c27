@@ -106,6 +106,7 @@ Nominal is 2V.
 Relative luminous intensity is a straight line. Lets say aim is 10mcd?
 
 - P1 brightness group needs 10/50 * 20mA = 4mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/4e-3` = 750 ohm.
+- Avg needs 10/100 * 20mA = 2mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/4e-3` = 1500 ohm. 
 - R2 brightness group needs 10/150 * 20mA = 1.3mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/4e-3` = 2250 ohm.
 
 ### Charging
@@ -130,6 +131,7 @@ Nominal is 2V.
 Relative luminous intensity is a straight line. Lets say aim is 10mcd?
 
 - Q1 brightness group needs 10/80 * 20mA = 2.5mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/2.5e-3` = 1200 ohm.
+- Avg needs 10/166 * 20mA = 1.2mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/1.2e-3` = 2500 ohm. 
 - S2 brightness group needs 10/252 * 20mA = 0.8mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/0.8e-3` = 3750 ohm.
 
 ### End of Charge
@@ -155,6 +157,7 @@ Nominal is 2.7V.
 Relative luminous intensity is not a straight line, graph is non uniform, but not by much... 7.5mcd goal?
 
 - S2 brightness group needs 7.5/252 * 20mA = 0.6mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2.7)/0.6e-3` = 3833 ohm.
+- Avg needs 10/378 * 20mA = 0.529mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2.7)/0.529e-3` = 4347 ohm. 
 - U2 brightness group needs 7.5/505 * 20mA = 0.3mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2.7)/0.3e-3` = 7666 ohm.
 
 ### Indicator LED
@@ -254,12 +257,21 @@ JST PH 2mm pitch, through hole side connector.
 But [this filter](https://www.digikey.ca/en/products/filter/chip-resistor-surface-mount/52?s=N4IgjCBcoMxaBjKAzAhgGwM4FMA0IB7KAbXDBgnwDYBOKkfAdgoZAA4AWN1mx%2BgXXwAHAC5QQAZREAnAJYA7AOYgAvvjD1oIJJDRY8hEiBg0wAVm6CQo8VLlLV%2BALQQtOvTnxFIpMAAYQfjUQJxp4bSgZAFcDb19A4KcAJnCdaNijMwSVFSA) `Panasonic Electronic Components`, `<1%`, `ERJ-2RK` series has more options.
 
 - R1, R2: 4.7k  -> `P4.70KLCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF4701X/1746231
-- R3: 1200 -> 1.21k, `P1.21KLCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF1211X/192051
-- R4 3833 -> 3.83k, `P3.83KLCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF3831X/192287
-- R5 750 -> `P750LCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF7500X/192470
-- R6 2500 -> 2.49k `P2.49KLCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF2491X/192203
+- R4, 4347 -> 4.3k `P4.32KLCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF4321X/192339
+- R5, 1500 -> 1.5k `P1.50KLCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF1501X/192060
+- R3, R6 2500 -> 2.49k `P2.49KLCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF2491X/192203
 - R7,8,10 10k -> `P10.0KLCT-ND`,  https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF1002X/192073
+- R9, 137 -> `P137LCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF1370X/192127
+
+Backups:
+- R3: 1200 -> 1.21k, `P1.21KLCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF1211X/192051
+- R3: 3750 -> 3.74k, `P3.74KLCT-ND` https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF3741X/192286
+- R5 750 -> `P750LCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF7500X/192470
+- R5 2250 -> 2.2k `P2.20KLCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF2201X/1746150
+- R4 3833 -> 3.83k, `P3.83KLCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF3831X/192287
+- R4 7666 -> 7.68k `P7.68KLCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF7681X/192458
 - R9 470 -> 470 `P470LCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF4700X/1746229
+
 
 
 ## BOM

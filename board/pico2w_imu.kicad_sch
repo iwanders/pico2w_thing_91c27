@@ -7991,7 +7991,7 @@
 				)
 			)
 		)
-		(property "Value" "750"
+		(property "Value" "1500"
 			(at 90.17 193.04 90)
 			(effects
 				(font
@@ -9328,7 +9328,7 @@
 				)
 			)
 		)
-		(property "Value" "3833"
+		(property "Value" "4347"
 			(at 90.17 182.626 90)
 			(effects
 				(font
@@ -10974,7 +10974,7 @@
 				)
 			)
 		)
-		(property "Value" "1200"
+		(property "Value" "2500"
 			(at 90.17 173.736 90)
 			(effects
 				(font
@@ -11194,7 +11194,7 @@
 				)
 			)
 		)
-		(property "Value" "470"
+		(property "Value" "137"
 			(at 95.25 21.59 90)
 			(effects
 				(font
