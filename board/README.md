@@ -182,7 +182,7 @@ Nominal  $R=\frac{V_s - V_f}{I_f}$, `(3.3-2.75)/4e-3` = 137.5 ohm.
 
 ## LMS6DSV320X
 
-Imu;
+Imu, large acceleration range;
 - `497-LSM6DSV320XTRCT-ND`
 - https://www.digikey.ca/en/products/detail/stmicroelectronics/LSM6DSV320XTR/26254547?s=N4IgTCBcDaIDIGUCyA2AIggagZjABhAF0BfIA
 
@@ -194,3 +194,19 @@ Verified the pins.
 
 ## ICM-42688-P
 
+Imu, high data rate;
+- `1428-ICM-42688-PCT-ND`
+- https://www.digikey.ca/en/products/detail/tdk-invensense/ICM-42688-P/10824934
+
+Caps:
+- One 100nF, see the other IMU.
+
+Cap 10nF:
+- `1276-1028-1-ND`
+- https://www.digikey.ca/en/products/detail/samsung-electro-mechanics/CL05B103KB5NNNC/3886686
+
+Cap 2.2uF:
+- `1276-1461-1-ND`
+- https://www.digikey.ca/en/products/detail/samsung-electro-mechanics/CL05A225KO5NQNC/3887119
+
+Verified the pins.
