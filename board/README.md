@@ -241,6 +241,11 @@ Decoupling caps 100nF, see above.
 - `828-1063-1-ND`
 - https://www.digikey.ca/en/products/detail/bosch-sensortec/BME280/6136306
 
+## Connector
+
+JST PH 2mm pitch, through hole side connector.
+- `455-1719-ND`
+- https://www.digikey.ca/en/products/detail/jst-sales-america-inc/S2B-PH-K-S/926626
 
 ## Resistors
 
