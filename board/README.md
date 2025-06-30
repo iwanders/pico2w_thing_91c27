@@ -4,7 +4,7 @@ Notes for myself mostly.
 
 ## Dimension notes
 
-Pin 1 is at the origin, such that we can conveniently use a 2.54mm grid.
+Pin 1 is at the origin, such that we can conveniently use a 2.54mm grid. Note to self; nothing ended up aligned on a 2.54 grid.
 
 Vertical Center is thus at `17.78 / 2 = 8.89mm`.
 
@@ -31,6 +31,10 @@ Y value is 1.6mm off the botom edge; `49.63 - 1.6=48.03mm`
 For the 2w; debug gnd at x: `19.39-7.3759=12.0141mm`, y at `49.63-19.8= 29.83mm`.
 
 Swdio thus atx: `12.0141 + 2.54=14.5541mm`, swclk at `12.0141-2.54 = 9.4741mm`.
+
+## Pico 2W
+- 2648-SC1633CT-ND
+- https://www.digikey.ca/en/products/detail/raspberry-pi/SC1633/25862726
 
 ## Battery Charger
 
@@ -61,7 +65,7 @@ To get 400mA current, we need $R_\text{prog}$ to be 2.5k Ohm.
 
 
 Capacitor C8, decoupling on vbat:
-- Switched it to 0603, because there's plenty of space there.
+- Switched it to 0603, because there's plenty of space there (and more available)
 - `1276-1044-1-ND`
 - https://www.digikey.ca/en/products/detail/samsung-electro-mechanics/CL10A475KP8NNNC/3886702
 
@@ -187,7 +191,7 @@ Nominal  $R=\frac{V_s - V_f}{I_f}$, `(3.3-2.75)/4e-3` = 137.5 ohm.
 
 Imu, large acceleration range;
 - `497-LSM6DSV320XTRCT-ND`
-- https://www.digikey.ca/en/products/detail/stmicroelectronics/LSM6DSV320XTR/26254547?s=N4IgTCBcDaIDIGUCyA2AIggagZjABhAF0BfIA
+- https://www.digikey.ca/en/products/detail/stmicroelectronics/LSM6DSV320XTR/26254547
 
 Decoupling caps, 100nF, 0402:
 - `1276-1022-1-ND`
@@ -272,6 +276,7 @@ Backups:
 - R4 7666 -> 7.68k `P7.68KLCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF7681X/192458
 - R9 470 -> 470 `P470LCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF4700X/1746229
 
+- 4.7uF in 0402; `1276-CL05A475KP5ZRNCCT-ND`, https://www.digikey.ca/en/products/detail/samsung-electro-mechanics/CL05A475KP5ZRNC/10478972
 
 
 ## BOM

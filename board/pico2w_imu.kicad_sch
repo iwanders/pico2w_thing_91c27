@@ -1885,6 +1885,7 @@
 						)
 					)
 					(alternate "" input line)
+					(alternate "" input line)
 					(alternate "I2C0_SDA" bidirectional line)
 					(alternate "PWM4_A" output line)
 					(alternate "SPI1_RX" input line)
@@ -1908,6 +1909,7 @@
 							)
 						)
 					)
+					(alternate "" input line)
 					(alternate "" input line)
 					(alternate "I2C0_SCL" bidirectional clock)
 					(alternate "PWM4_B" bidirectional line)
@@ -7793,6 +7795,24 @@
 				(hide yes)
 			)
 		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/ams-osram-usa-inc/KB-EELP41-12-P1R2-36-3X4X-5-R18/24765234"
+			(at 83.82 17.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "KB EELP41.12-P1R2-36-3X4X-5-R18"
+			(at 83.82 17.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "2"
 			(uuid "aa8a5371-c047-41b6-bc55-f9295bfd24fd")
 		)
@@ -7863,6 +7883,33 @@
 				(hide yes)
 			)
 		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/samsung-electro-mechanics/CL05A104KP5NNNC/3886680"
+			(at 233.68 54.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "1276-1022-1-ND"
+			(at 233.68 54.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 233.68 54.61 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "4d1e19c1-d3e3-46b8-bd30-e96f19490d94")
 		)
@@ -7925,6 +7972,33 @@
 			)
 		)
 		(property "Description" "Resistor"
+			(at 138.43 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF1002X/192073"
+			(at 138.43 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "P10.0KLCT-ND"
+			(at 138.43 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
 			(at 138.43 190.5 0)
 			(effects
 				(font
@@ -8066,6 +8140,33 @@
 				(hide yes)
 			)
 		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF1501X/192060"
+			(at 90.17 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "P1.50KLCT-ND"
+			(at 90.17 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 90.17 190.5 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "2"
 			(uuid "21be3a21-68b6-4f7d-8918-3fedb3eb4c0c")
 		)
@@ -8136,6 +8237,33 @@
 				(hide yes)
 			)
 		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/samsung-electro-mechanics/CL05A104KP5NNNC/3886680"
+			(at 276.86 26.67 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "1276-1022-1-ND"
+			(at 276.86 26.67 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 276.86 26.67 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "1799ebbe-328f-479b-916b-de34df85b833")
 		)
@@ -8197,6 +8325,33 @@
 			)
 		)
 		(property "Description" "Resistor"
+			(at 123.19 186.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF2491X/192203"
+			(at 123.19 186.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "P2.49KLCT-ND"
+			(at 123.19 186.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
 			(at 123.19 186.69 0)
 			(effects
 				(font
@@ -8347,6 +8502,33 @@
 				(hide yes)
 			)
 		)
+		(property "Field5" ""
+			(at 73.66 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/ams-osram-usa-inc/KS-EELP41-22-P1R2-58-A8J8-020-R18/24765247"
+			(at 73.66 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "KS EELP41.22-P1R2-58-A8J8-020-R18"
+			(at 73.66 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "2"
 			(uuid "2fac928b-d301-48d3-ad18-e136cfc8aa8a")
 		)
@@ -8481,6 +8663,33 @@
 			)
 		)
 		(property "Sim.Pins" "1=K 2=A"
+			(at 73.66 180.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 73.66 180.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/ams-osram-usa-inc/KT-EELP41-12-S2U1-25-2X4Y-5-R18/24765233"
+			(at 73.66 180.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "KT EELP41.12-S2U1-25-2X4Y-5-R18"
 			(at 73.66 180.34 0)
 			(effects
 				(font
@@ -8625,6 +8834,33 @@
 				(hide yes)
 			)
 		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/samsung-electro-mechanics/CL05B103KB5NNNC/3886686"
+			(at 25.4 125.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "1276-1028-1-ND"
+			(at 25.4 125.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 25.4 125.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "c987f426-aa15-437f-af63-71f3323589bf")
 		)
@@ -8688,6 +8924,24 @@
 		)
 		(property "Description" "Versatile and inexpensive wireless microcontroller module (with debug pins) powered by RP2040 dual-core Arm Cortex-M0+ processor up to 133 MHz, 264kB SRAM, 2MB QSPI flash, Infineon CYW43439 2.4GHz 802.11n wireless LAN; also supports Raspberry Pi Pico 2 W"
 			(at 139.7 104.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/raspberry-pi/SC1633/25862726"
+			(at 139.7 52.07 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "2648-SC1633CT-ND"
+			(at 139.7 52.07 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8970,6 +9224,33 @@
 				(hide yes)
 			)
 		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/samsung-electro-mechanics/CL05A104KP5NNNC/3886680"
+			(at 241.3 143.51 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "1276-1022-1-ND"
+			(at 241.3 143.51 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 241.3 143.51 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "5ad478d0-2076-434d-bd49-360a234dabfd")
 		)
@@ -9039,6 +9320,33 @@
 				(hide yes)
 			)
 		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/samsung-electro-mechanics/CL05A104KP5NNNC/3886680"
+			(at 85.09 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "1276-1022-1-ND"
+			(at 85.09 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 85.09 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "e7967473-8e99-4dc3-9de8-ac0f976faece")
 		)
@@ -9071,7 +9379,7 @@
 				)
 			)
 		)
-		(property "Value" "Conn_01x02_Pin"
+		(property "Value" "JSTHeader"
 			(at 115.824 151.13 0)
 			(effects
 				(font
@@ -9098,6 +9406,24 @@
 			)
 		)
 		(property "Description" "Generic connector, single row, 01x02, script generated"
+			(at 113.03 153.67 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/jst-sales-america-inc/S2B-PH-K-S/926626"
+			(at 113.03 153.67 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "455-1719-ND"
 			(at 113.03 153.67 0)
 			(effects
 				(font
@@ -9175,6 +9501,33 @@
 				(hide yes)
 			)
 		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/samsung-electro-mechanics/CL05A104KP5NNNC/3886680"
+			(at 19.05 25.4 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "1276-1022-1-ND"
+			(at 19.05 25.4 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 19.05 25.4 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "c3286b9e-3eae-4783-8b37-7ea14c7ffeb2")
 		)
@@ -9235,6 +9588,33 @@
 			)
 		)
 		(property "Description" "Micro SD Card Socket with two card detection pins"
+			(at 261.62 77.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/molex/1040310811/2370379"
+			(at 261.62 77.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "WM6357CT-ND"
+			(at 261.62 77.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
 			(at 261.62 77.47 0)
 			(effects
 				(font
@@ -9403,6 +9783,33 @@
 				(hide yes)
 			)
 		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF4321X/192339"
+			(at 90.17 180.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "P4.32KLCT-ND"
+			(at 90.17 180.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 90.17 180.34 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "2"
 			(uuid "b75b662e-c2d6-44dd-bf26-243f86b0e022")
 		)
@@ -9473,6 +9880,33 @@
 				(hide yes)
 			)
 		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF1002X/192073"
+			(at 138.43 180.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "P10.0KLCT-ND"
+			(at 138.43 180.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 138.43 180.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "8168a1da-1642-4ff7-a455-f1b582c9a219")
 		)
@@ -9533,6 +9967,33 @@
 			)
 		)
 		(property "Description" "Stand-Alone Linear Li-Ion / Li-Polymer Charge Management Controller, DFN-10"
+			(at 109.22 177.8 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/microchip-technology/MCP73833T-AMI-MF/1223181"
+			(at 109.22 177.8 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "MCP73833T-AMI/MFCT-ND"
+			(at 109.22 177.8 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
 			(at 109.22 177.8 0)
 			(effects
 				(font
@@ -9644,6 +10105,33 @@
 				(hide yes)
 			)
 		)
+		(property "Field5" ""
+			(at 73.66 171.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/ams-osram-usa-inc/KO-EELP41-22-Q1S2-25-A8J8-020-R18/24765237"
+			(at 73.66 171.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "KO EELP41.22-Q1S2-25-A8J8-020-R18"
+			(at 73.66 171.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "2"
 			(uuid "e2e4364c-a4b2-46e4-87a9-116bb838e248")
 		)
@@ -9705,6 +10193,33 @@
 			)
 		)
 		(property "Description" "32-Mbit, 3V (2.65V-3.6V) SPI Serial Flash Memory, SOIC-8 (SOP-8, 208 mil)"
+			(at 194.31 77.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/macronix/MX25L25645GM2I-08G/7914972"
+			(at 194.31 77.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "1092-1234-ND"
+			(at 194.31 77.47 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
 			(at 194.31 77.47 0)
 			(effects
 				(font
@@ -9801,6 +10316,33 @@
 				(hide yes)
 			)
 		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/samsung-electro-mechanics/CL10A475KP8NNNC/3886702"
+			(at 143.51 154.94 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "1276-1044-1-ND"
+			(at 143.51 154.94 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 143.51 154.94 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "e96d4184-33a1-46ee-ad2a-2674eeab6105")
 		)
@@ -9826,7 +10368,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "7d212515-8047-4177-9939-c83ace881c27")
-		(property "Reference" "U1"
+		(property "Reference" "ICM-42688-P"
 			(at 63.1033 53.34 0)
 			(effects
 				(font
@@ -9835,7 +10377,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "~"
+		(property "Value" "ICM-42688-P"
 			(at 63.1033 55.88 0)
 			(effects
 				(font
@@ -9863,6 +10405,33 @@
 			)
 		)
 		(property "Description" ""
+			(at 34.29 83.82 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/tdk-invensense/ICM-42688-P/10824934"
+			(at 34.29 83.82 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "1428-ICM-42688-PCT-ND"
+			(at 34.29 83.82 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
 			(at 34.29 83.82 0)
 			(effects
 				(font
@@ -9916,7 +10485,7 @@
 		(instances
 			(project ""
 				(path "/4038b6de-78f0-4f6b-8c4b-14dbdd02c193"
-					(reference "U1")
+					(reference "ICM-42688-P")
 					(unit 1)
 				)
 			)
@@ -10101,6 +10670,33 @@
 			)
 		)
 		(property "Description" "Resistor"
+			(at 215.9 20.32 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF4701X/1746231"
+			(at 215.9 20.32 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "P4.70KLCT-ND"
+			(at 215.9 20.32 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
 			(at 215.9 20.32 0)
 			(effects
 				(font
@@ -10311,6 +10907,33 @@
 				(hide yes)
 			)
 		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/samsung-electro-mechanics/CL05A104KP5NNNC/3886680"
+			(at 265.43 31.75 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "1276-1022-1-ND"
+			(at 265.43 31.75 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 265.43 31.75 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "c2559ec2-4dbf-4af1-bd10-674f1433ed1f")
 		)
@@ -10345,7 +10968,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "~"
+		(property "Value" "LSM6DSV320X1"
 			(at 220.5833 105.41 0)
 			(effects
 				(font
@@ -10373,6 +10996,33 @@
 			)
 		)
 		(property "Description" ""
+			(at 191.77 133.35 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/stmicroelectronics/LSM6DSV320XTR/26254547"
+			(at 191.77 133.35 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "497-LSM6DSV320XTRCT-ND"
+			(at 191.77 133.35 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
 			(at 191.77 133.35 0)
 			(effects
 				(font
@@ -10481,6 +11131,33 @@
 		)
 		(property "Description" "-3A Id, -20V Vds, P-Channel MOSFET, SOT-23"
 			(at 148.59 175.26 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/diodes-incorporated/DMG2305UX-7/4340667"
+			(at 148.59 175.26 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "DMG2305UX-7DICT-ND"
+			(at 148.59 175.26 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 148.59 175.26 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10693,6 +11370,33 @@
 				(hide yes)
 			)
 		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/samsung-electro-mechanics/CL05A104KP5NNNC/3886680"
+			(at 205.74 63.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "1276-1022-1-ND"
+			(at 205.74 63.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 205.74 63.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "80a61a01-602e-46cb-bb27-8298f1fa3586")
 		)
@@ -10754,6 +11458,33 @@
 			)
 		)
 		(property "Description" "Resistor"
+			(at 130.81 186.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF1002X/192073"
+			(at 130.81 186.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "P10.0KLCT-ND"
+			(at 130.81 186.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
 			(at 130.81 186.69 0)
 			(effects
 				(font
@@ -10890,6 +11621,33 @@
 			)
 		)
 		(property "Description" "3-in-1 sensor, humidity, pressure, temperature, I2C and SPI interface, 1.71-3.6V, LGA-8"
+			(at 242.57 27.94 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/bosch-sensortec/BME280/6136306"
+			(at 242.57 27.94 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "828-1063-1-ND"
+			(at 242.57 27.94 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
 			(at 242.57 27.94 0)
 			(effects
 				(font
@@ -11049,6 +11807,33 @@
 				(hide yes)
 			)
 		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF2491X/192203"
+			(at 90.17 171.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "P2.49KLCT-ND"
+			(at 90.17 171.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 90.17 171.45 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "2"
 			(uuid "bb804989-be34-43e5-9e92-34412846e3c1")
 		)
@@ -11108,6 +11893,15 @@
 			)
 		)
 		(property "Description" "Jumper, 3-pole, pins 1+2 closed/bridged"
+			(at 36.83 27.94 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
 			(at 36.83 27.94 0)
 			(effects
 				(font
@@ -11189,6 +11983,33 @@
 				(hide yes)
 			)
 		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/tdk-invensense/ICS-43434/6140298"
+			(at 55.88 30.48 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "1428-1066-1-ND"
+			(at 55.88 30.48 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 55.88 30.48 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "4"
 			(uuid "413ee088-60cd-4f3b-90d9-7b0e7e2ed2e8")
 		)
@@ -11262,6 +12083,33 @@
 		)
 		(property "Description" "Resistor"
 			(at 95.25 17.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF1370X/192127"
+			(at 95.25 17.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "P137LCT-ND"
+			(at 95.25 17.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 95.25 17.78 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -11358,7 +12206,7 @@
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
-		(dnp no)
+		(dnp yes)
 		(uuid "cdac0d37-950d-4618-8334-bb94046a762b")
 		(property "Reference" "J3"
 			(at 163.83 153.6701 0)
@@ -11369,7 +12217,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "Conn_01x02_Pin"
+		(property "Value" "PinHeader"
 			(at 163.83 151.1301 0)
 			(effects
 				(font
@@ -11397,6 +12245,15 @@
 			)
 		)
 		(property "Description" "Generic connector, single row, 01x02, script generated"
+			(at 162.56 151.13 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
 			(at 162.56 151.13 0)
 			(effects
 				(font
@@ -11607,6 +12464,33 @@
 				(hide yes)
 			)
 		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/samsung-electro-mechanics/CL05A104KP5NNNC/3886680"
+			(at 208.28 166.37 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "1276-1022-1-ND"
+			(at 208.28 166.37 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 208.28 166.37 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "38c98d40-5af8-40c7-9f32-6e135f8605a7")
 		)
@@ -11809,6 +12693,33 @@
 				(hide yes)
 			)
 		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/samsung-electro-mechanics/CL05A225KO5NQNC/3887119"
+			(at 96.52 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "1276-1461-1-ND"
+			(at 96.52 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 96.52 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "d1b2f904-e9bb-405c-a1d4-a8d14f47fba1")
 		)
@@ -11871,6 +12782,33 @@
 			)
 		)
 		(property "Description" "Resistor"
+			(at 207.01 20.32 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF4701X/1746231"
+			(at 207.01 20.32 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "P4.70KLCT-ND"
+			(at 207.01 20.32 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
 			(at 207.01 20.32 0)
 			(effects
 				(font
