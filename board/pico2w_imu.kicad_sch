@@ -8136,7 +8136,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 90.17 190.5 90)
+		(at 90.17 180.34 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -8144,7 +8144,7 @@
 		(dnp no)
 		(uuid "1003e74d-333b-41c1-814e-d5734f16a8bc")
 		(property "Reference" "R5"
-			(at 90.17 187.706 90)
+			(at 90.17 177.546 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8152,7 +8152,7 @@
 			)
 		)
 		(property "Value" "1500"
-			(at 90.17 193.04 90)
+			(at 90.17 182.88 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8160,7 +8160,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
-			(at 90.17 192.278 90)
+			(at 90.17 182.118 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8169,7 +8169,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 90.17 190.5 0)
+			(at 90.17 180.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8178,7 +8178,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 90.17 190.5 0)
+			(at 90.17 180.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8187,7 +8187,7 @@
 			)
 		)
 		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF1501X/192060"
-			(at 90.17 190.5 0)
+			(at 90.17 180.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8196,7 +8196,7 @@
 			)
 		)
 		(property "DigiKey_Part" "P1.50KLCT-ND"
-			(at 90.17 190.5 0)
+			(at 90.17 180.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8205,7 +8205,7 @@
 			)
 		)
 		(property "Field5" ""
-			(at 90.17 190.5 90)
+			(at 90.17 180.34 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8489,23 +8489,23 @@
 	)
 	(symbol
 		(lib_id "Device:LED")
-		(at 73.66 190.5 180)
+		(at 73.66 180.34 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
 		(uuid "1ad7992f-c5b0-43d3-9a27-5707f71140b8")
-		(property "Reference" "PG1"
-			(at 71.882 186.944 0)
+		(property "Reference" "LED_EOC1"
+			(at 69.342 177.8 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Value" "LED_PG"
-			(at 75.946 187.198 0)
+		(property "Value" "LED_EOC"
+			(at 75.946 177.038 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8513,7 +8513,7 @@
 			)
 		)
 		(property "Footprint" "LED_SMD:LED_0603_1608Metric"
-			(at 73.66 190.5 0)
+			(at 73.66 180.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8522,7 +8522,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 73.66 190.5 0)
+			(at 73.66 180.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8531,7 +8531,7 @@
 			)
 		)
 		(property "Description" "Light emitting diode"
-			(at 73.66 190.5 0)
+			(at 73.66 180.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8540,7 +8540,7 @@
 			)
 		)
 		(property "Sim.Pins" "1=K 2=A"
-			(at 73.66 190.5 0)
+			(at 73.66 180.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8549,7 +8549,7 @@
 			)
 		)
 		(property "Field5" ""
-			(at 73.66 190.5 0)
+			(at 73.66 180.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8558,7 +8558,7 @@
 			)
 		)
 		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/ams-osram-usa-inc/KS-EELP41-22-P1R2-58-A8J8-020-R18/24765247"
-			(at 73.66 190.5 0)
+			(at 73.66 180.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8567,7 +8567,7 @@
 			)
 		)
 		(property "DigiKey_Part" "KS EELP41.22-P1R2-58-A8J8-020-R18"
-			(at 73.66 190.5 0)
+			(at 73.66 180.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8584,7 +8584,7 @@
 		(instances
 			(project "pico2w_imu"
 				(path "/4038b6de-78f0-4f6b-8c4b-14dbdd02c193"
-					(reference "PG1")
+					(reference "LED_EOC1")
 					(unit 1)
 				)
 			)
@@ -8658,23 +8658,23 @@
 	)
 	(symbol
 		(lib_id "Device:LED")
-		(at 73.66 180.34 180)
+		(at 73.66 190.5 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
 		(uuid "265fb5fb-6cc1-4452-9255-534b80bef182")
-		(property "Reference" "100%1"
-			(at 72.136 176.53 0)
+		(property "Reference" "LED_PG1"
+			(at 72.136 186.69 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Value" "LED_EOC"
-			(at 77.47 176.276 0)
+		(property "Value" "LED_PG"
+			(at 77.47 186.436 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8682,7 +8682,7 @@
 			)
 		)
 		(property "Footprint" "LED_SMD:LED_0603_1608Metric"
-			(at 73.66 180.34 0)
+			(at 73.66 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8691,7 +8691,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 73.66 180.34 0)
+			(at 73.66 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8700,7 +8700,7 @@
 			)
 		)
 		(property "Description" "Light emitting diode"
-			(at 73.66 180.34 0)
+			(at 73.66 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8709,7 +8709,7 @@
 			)
 		)
 		(property "Sim.Pins" "1=K 2=A"
-			(at 73.66 180.34 0)
+			(at 73.66 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8718,7 +8718,7 @@
 			)
 		)
 		(property "Field5" ""
-			(at 73.66 180.34 0)
+			(at 73.66 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8727,7 +8727,7 @@
 			)
 		)
 		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/ams-osram-usa-inc/KT-EELP41-12-S2U1-25-2X4Y-5-R18/24765233"
-			(at 73.66 180.34 0)
+			(at 73.66 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8736,7 +8736,7 @@
 			)
 		)
 		(property "DigiKey_Part" "KT EELP41.12-S2U1-25-2X4Y-5-R18"
-			(at 73.66 180.34 0)
+			(at 73.66 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8753,7 +8753,7 @@
 		(instances
 			(project "pico2w_imu"
 				(path "/4038b6de-78f0-4f6b-8c4b-14dbdd02c193"
-					(reference "100%1")
+					(reference "LED_PG1")
 					(unit 1)
 				)
 			)
@@ -9845,7 +9845,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 90.17 180.34 90)
+		(at 90.17 190.5 90)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -9853,7 +9853,7 @@
 		(dnp no)
 		(uuid "61b13460-02ed-4e06-b092-39eb07aaa484")
 		(property "Reference" "R4"
-			(at 90.17 177.8 90)
+			(at 90.17 187.96 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9861,7 +9861,7 @@
 			)
 		)
 		(property "Value" "4347"
-			(at 90.17 182.626 90)
+			(at 90.17 192.786 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9869,7 +9869,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
-			(at 90.17 182.118 90)
+			(at 90.17 192.278 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9878,7 +9878,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 90.17 180.34 0)
+			(at 90.17 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9887,7 +9887,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 90.17 180.34 0)
+			(at 90.17 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9896,7 +9896,7 @@
 			)
 		)
 		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF4321X/192339"
-			(at 90.17 180.34 0)
+			(at 90.17 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9905,16 +9905,7 @@
 			)
 		)
 		(property "DigiKey_Part" "P4.32KLCT-ND"
-			(at 90.17 180.34 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Field5" ""
-			(at 90.17 180.34 90)
+			(at 90.17 190.5 0)
 			(effects
 				(font
 					(size 1.27 1.27)

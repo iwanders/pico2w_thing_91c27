@@ -71,15 +71,7 @@ Capacitor C8, decoupling on vbat:
 
 Verified pin inputs.
 
-## Battery input
-
-Following the guidance of the Pico 2W datasheet; `Diodes DMG2305UX`, just in SOT23 package.
-- `DMG2305UX-7DICT-ND`
-- https://www.digikey.ca/en/products/detail/diodes-incorporated/DMG2305UX-7/4340667
-
-Enlarged landing pads on footprint, made a new footprint for this. Verified Pins
-
-## LEDs
+### LEDs
 
 Lets go with [OSRAM SMARTLED® 0603](https://ams-osram.com/products/product-families/smartled-0603) series, they seem made for diffuse indicator lights. Effectively `Kx EELP41.xx` with x changing depending on the color. Digikey [filter link](https://www.digikey.ca/en/products/filter/led-indication-discrete/105?s=N4IgjCBcoLQCxVAYygMwIYBsDOBTANCAPZQDaIAbAExwDMtIAugL7OFVkgCiXAMgApNmQA); search on series and `EELP`.
 
@@ -88,8 +80,14 @@ This [application note](https://look.ams-osram.com/m/7936f76d4c70ced0/original/D
 
 Key takehome is that it is not known which brightness we get when ordering, but a particular reel has a particular brightness group. Using this code on the reel, one can pick the resistor value.
 
-### Power Good
-PG pin on battery charger, VBus is from USB, so 5V, the pin sinks.
+Lets go for a nice traffic light, easy to remember, and with battery disconnected we see a green LED:
+
+- Power Good: Green, PG pin on battery charger
+- Charging: Orange, STAT1 pin on battery charger
+- EOC: Red, STAT2 pin on battery charger
+
+#### Red
+VBus is from USB, so 5V, the pin sinks.
 
 - Color: `super red`:
 - `KS EELP41.22-P1R2-58-A8J8-020-R18`
@@ -113,8 +111,8 @@ Relative luminous intensity is a straight line. Lets say aim is 10mcd?
 - Avg needs 10/100 * 20mA = 2mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/4e-3` = 1500 ohm. 
 - R2 brightness group needs 10/150 * 20mA = 1.3mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/4e-3` = 2250 ohm.
 
-### Charging
-STAT1 pin on battery charger, VBus is from USB, so 5V, the pin sinks.
+#### Orange
+, VBus is from USB, so 5V, the pin sinks.
 
 - Color: `orange`:
 - `KO EELP41.22-Q1S2-25-A8J8-020-R18`
@@ -138,8 +136,8 @@ Relative luminous intensity is a straight line. Lets say aim is 10mcd?
 - Avg needs 10/166 * 20mA = 1.2mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/1.2e-3` = 2500 ohm. 
 - S2 brightness group needs 10/252 * 20mA = 0.8mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/0.8e-3` = 3750 ohm.
 
-### End of Charge
-STAT2 pin on battery charger, VBus is from USB, so 5V, the pin sinks.
+#### Green
+VBus is from USB, so 5V, the pin sinks.
 
 - Color: `green`:
 - `KT EELP41.12-S2U1-25-2X4Y-5-R18`
@@ -164,7 +162,15 @@ Relative luminous intensity is not a straight line, graph is non uniform, but no
 - Avg needs 10/378 * 20mA = 0.529mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2.7)/0.529e-3` = 4347 ohm. 
 - U2 brightness group needs 7.5/505 * 20mA = 0.3mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2.7)/0.3e-3` = 7666 ohm.
 
-### Indicator LED
+## Battery input
+
+Following the guidance of the Pico 2W datasheet; `Diodes DMG2305UX`, just in SOT23 package.
+- `DMG2305UX-7DICT-ND`
+- https://www.digikey.ca/en/products/detail/diodes-incorporated/DMG2305UX-7/4340667
+
+Enlarged landing pads on footprint, made a new footprint for this. Verified Pins
+
+## Indicator LED
 Connected to the uC, 3.3v driving voltage.
 
 - Color: `blue`:
