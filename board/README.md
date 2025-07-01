@@ -341,6 +341,8 @@ Backups:
 
 Actual info: [TDK AN-000393 IMU PCB Design and MEMS Assembly Guidelines](https://invensense.tdk.com/download-pdf/an-000393-imu-pcb-design-and-mems-assembly-guidelines/), for LGA they state the land should be different from the solder mask opening, solder mask being +0.1mm larger. Stencil thickness should be at least 100um. Not too much on stencil layout.
 
+That is the same as STMs `TN0018: Handling, mounting, and soldering guidelines for MEMS devices` pdf, which also states solder mask opening should be +0.1mm.
+
 Seems for 0402 one should subtract 1mil (0.0254mm) from the pad? Or about -10%?
 
 Murata [lists](https://www.murata.com/en-us/support/faqs/capacitor/siliconcapacitors/mnt/0005) for 0402 capacitors:
