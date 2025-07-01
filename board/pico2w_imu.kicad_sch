@@ -8383,8 +8383,8 @@
 				(justify right)
 			)
 		)
-		(property "Value" "5000"
-			(at 117.094 187.96 0)
+		(property "Value" "5k"
+			(at 119.634 187.706 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8980,8 +8980,8 @@
 				(justify right)
 			)
 		)
-		(property "Value" "5000"
-			(at 127 192.278 90)
+		(property "Value" "5k"
+			(at 126.238 187.96 0)
 			(effects
 				(font
 					(size 1.27 1.27)
