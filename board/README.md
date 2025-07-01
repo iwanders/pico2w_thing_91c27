@@ -2,6 +2,55 @@
 
 Notes for myself mostly.
 
+## Connections & Information
+
+Table of relevant connections & information.
+
+| Device| Pin(#) | Rpi Pin | Rpi GPIO/Fun | Comment |
+| --- |--- | --- | --- | --- |
+| Led Indicator | 31 | GPIO26/ADC0 | | Blue, center of board |
+| | | | |
+| ICM-42688 |AP_SDO (1) | 6 | GPIO4/SPI0_RX  | SPI Serial data output|
+| ICM-42688 |INT1 (4) | 9 | GPIO6  | Interrupt 1|
+| ICM-42688 |INT2 (9) | 2 | GPIO1 | Interrupt 2, push/pull or open drain|
+| ICM-42688 |AP_CS (12) | 7 | GPIO6/SPIO0_CSn | SPI Chip Select|
+| ICM-42688 |AP_SCL (13) | 4 | GPIO2/SPI0_SCK | SPI Serial Clock|
+| ICM-42688 |AP_SDI (14) | 5 | GPIO3/SPI0_TX | Spi Serial data Input|
+| | | | |
+| LSM6DSV320X | SDO (1) | 16 | GPIO12/SPI1_RX  | SPI Serial data output|
+| LSM6DSV320X | INT1 (4) | 19 | GPIO14 | Programmable Interrupt |
+| LSM6DSV320X | INT2 (9) | 20 | GPIO15 | Programmable Interrupt |
+| LSM6DSV320X | CS (12) | 17 | GPIO13 | SPI Chip select |
+| LSM6DSV320X | SCL (13) | 14 | GPIO10/SPI1_SCK | SPI Serial clock |
+| LSM6DSV320X | SDA (14) | 15 | GPIO11/SPI1_TX | SPI Serial Data Input |
+| | | | |
+| ICS-43434 | WS (1) | 10 | GPIO7  | Serial Data-Word Select I2S |
+| ICS-43434 | LR (2) |  | | Channel select solder jumper GND |
+| ICS-43434 | SCK (4) | 11 | GPIO8 | Serial Data Clock I2S |
+| ICS-43434 | SD (6) | 12 | GPIO9 | Serial Data Output I2S |
+| | | | |
+| BME280 | SDI(3) | 26  | GPIO20 /I2C0_SDA  | I2C SDA, 4.7k pullup |
+| BME280 | SCK(4) | 27  | GPIO21/I2C0_SCL   | I2C SCL, 4.7k pullup |
+| | | | |
+| MX25L25645GM2I | CS (1) | 22  | GPIO17 / SPI0_CSn| Chip Select |
+| MX25L25645GM2I | SO (2) | 21   | GPIO16 / SPI0_RX | Serial Data Output |
+| MX25L25645GM2I | SCLK (6) | 24 | GPIO18/SPI0_SCK | Clock Input |
+| MX25L25645GM2I | SI (5) |  25  | GPIO19/SPI0_TX  | Serial Data Input |
+| | | | |
+| SDCARD | CD (2) | 32  | GPIO27 / ADC1 | Chip Select |
+| SDCARD | CMD (3) | 25  | GPIO19/SPI0_TX  | Serial Data Input |
+| SDCARD | CLK (5) | 24 | GPIO18/SPI0_SCK | Clock Input |
+| SDCARD | DAT0 (7) | 21   | GPIO16 / SPI0_RX | Serial Data Output |
+| SDCARD | DET_A (10) | 29   | GPIO22  | Connects to GND with card (use internal pullup) |
+| | | | |
+| MCP73833| STAT1 (3) | | | Charging, Orange |
+| MCP73833| STAT2 (4) | | | End of Charge, Red |
+| MCP73833| PG (7) | | | Power Good, Green |
+| MCP73833| PROG (6) | | | Charge current, 2.5k with two parallel 5k, 400mA default, 200mA if trace cut|
+| | | | |
+
+
+
 ## Dimension notes
 
 Pin 1 is at the origin, such that we can conveniently use a 2.54mm grid. Note to self; nothing ended up aligned on a 2.54 grid.
