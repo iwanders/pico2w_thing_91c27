@@ -59,6 +59,8 @@ To get 200mA current, we need $R_\text{prog}$ to be 5k Ohm.
 
 To get 400mA current, we need $R_\text{prog}$ to be 2.5k Ohm.
 
+Modified this to be two resistors of 5k, with one trace that's easily cut to drop from 400mA to 200mA.
+
 > When the voltage at the VBAT pin reaches the regulation voltage, VREG, constant voltage regulation begins. The regulation voltage is factory set to 4.20V, 4.35V, 4.40V, or 4.50V with a tolerance of ± 0.75%. 
 
 > If temperature monitoring is not required, place a standard 10 kΩ resistor from THERM to VSS.
@@ -269,9 +271,10 @@ But [this filter](https://www.digikey.ca/en/products/filter/chip-resistor-surfac
 - R1, R2: 4.7k  -> `P4.70KLCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF4701X/1746231
 - R4, 4347 -> 4.3k `P4.32KLCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF4321X/192339
 - R5, 1500 -> 1.5k `P1.50KLCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF1501X/192060
-- R3, R6 2500 -> 2.49k `P2.49KLCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF2491X/192203
+- R3, 2500 -> 2.49k `P2.49KLCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF2491X/192203
 - R7,8,10 10k -> `P10.0KLCT-ND`,  https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF1002X/192073
 - R9, 137 -> `P137LCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF1370X/192127
+- R6, R11 -> 4.99k `10-ERA-2AEB4991XCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERA-2AEB4991X/2026116
 
 Backups:
 - R3: 1200 -> 1.21k, `P1.21KLCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF1211X/192051

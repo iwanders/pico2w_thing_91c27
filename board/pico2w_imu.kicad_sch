@@ -1885,7 +1885,6 @@
 						)
 					)
 					(alternate "" input line)
-					(alternate "" input line)
 					(alternate "I2C0_SDA" bidirectional line)
 					(alternate "PWM4_A" output line)
 					(alternate "SPI1_RX" input line)
@@ -1909,7 +1908,6 @@
 							)
 						)
 					)
-					(alternate "" input line)
 					(alternate "" input line)
 					(alternate "I2C0_SCL" bidirectional clock)
 					(alternate "PWM4_B" bidirectional line)
@@ -4261,6 +4259,16 @@
 		)
 		(uuid "2df29c89-9227-458d-9611-70f29b6248d4")
 	)
+	(text "One resistor can be cut off for 5k Ohm total instead of 2.5k.\nThat drops from 400mA charge to 200mA."
+		(exclude_from_sim no)
+		(at 122.682 193.294 0)
+		(effects
+			(font
+				(size 0.508 0.508)
+			)
+		)
+		(uuid "56d262d0-d4e6-48cb-8614-eb4028a9d947")
+	)
 	(text "BME280 in i2c config"
 		(exclude_from_sim no)
 		(at 263.398 21.082 0)
@@ -4306,6 +4314,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "003fc545-0d06-4b67-9224-102427fd80c0")
+	)
+	(junction
+		(at 127 190.5)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "06fc2490-3cd0-4e1c-85ae-44afa810a698")
 	)
 	(junction
 		(at 123.19 190.5)
@@ -4492,6 +4506,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "bf517d31-9f63-4a71-bacb-dbb0d7e285c2")
+	)
+	(junction
+		(at 123.19 182.88)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "c57f8cef-ee17-47c1-8caa-32dae6647129")
 	)
 	(junction
 		(at 242.57 43.18)
@@ -4955,7 +4975,7 @@
 	)
 	(wire
 		(pts
-			(xy 123.19 190.5) (xy 130.81 190.5)
+			(xy 123.19 190.5) (xy 127 190.5)
 		)
 		(stroke
 			(width 0)
@@ -5675,6 +5695,16 @@
 	)
 	(wire
 		(pts
+			(xy 127 190.5) (xy 130.81 190.5)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "76e1490f-1af1-4418-ba95-4e164f01ff47")
+	)
+	(wire
+		(pts
 			(xy 135.89 158.75) (xy 143.51 158.75)
 		)
 		(stroke
@@ -6102,6 +6132,16 @@
 			(type default)
 		)
 		(uuid "9eeb79c7-1767-40df-afb3-121c586021bc")
+	)
+	(wire
+		(pts
+			(xy 123.19 182.88) (xy 127 182.88)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9f9ccabd-f383-4ac4-a4ac-17a995bf23bf")
 	)
 	(wire
 		(pts
@@ -8343,7 +8383,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "2500"
+		(property "Value" "5000"
 			(at 117.094 187.96 0)
 			(effects
 				(font
@@ -8379,7 +8419,7 @@
 				(hide yes)
 			)
 		)
-		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF2491X/192203"
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERA-2AEB4991X/2026116"
 			(at 123.19 186.69 0)
 			(effects
 				(font
@@ -8388,7 +8428,7 @@
 				(hide yes)
 			)
 		)
-		(property "DigiKey_Part" "P2.49KLCT-ND"
+		(property "DigiKey_Part" "10-ERA-2AEB4991XCT-ND"
 			(at 123.19 186.69 0)
 			(effects
 				(font
@@ -8917,6 +8957,102 @@
 			(project "pico2w_imu"
 				(path "/4038b6de-78f0-4f6b-8c4b-14dbdd02c193"
 					(reference "C3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 127 186.69 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "2e320148-e8a8-4cf0-b237-5fce02b30eb0")
+		(property "Reference" "R11"
+			(at 125.222 185.674 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "5000"
+			(at 127 192.278 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0402_1005Metric"
+			(at 128.778 186.69 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 127 186.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 127 186.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERA-2AEB4991X/2026116"
+			(at 127 186.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DigiKey_Part" "10-ERA-2AEB4991XCT-ND"
+			(at 127 186.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 127 186.69 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "8672dbc7-1eed-45f1-b99a-b322a2f3f6ca")
+		)
+		(pin "1"
+			(uuid "49f97120-4d82-4bc5-a990-fa945661d357")
+		)
+		(instances
+			(project "pico2w_imu"
+				(path "/4038b6de-78f0-4f6b-8c4b-14dbdd02c193"
+					(reference "R11")
 					(unit 1)
 				)
 			)
