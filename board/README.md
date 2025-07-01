@@ -243,6 +243,8 @@ This comes from the uC, it can be PWM'd, but it does consume battery and the lik
 
 Nominal  $R=\frac{V_s - V_f}{I_f}$, `(3.3-2.75)/4e-3` = 137.5 ohm.
 
+At full brightness;`(3.3-2.75)/20e-3` = 27 ohm, 30 ohm is approx 18mA.
+
 
 ## LMS6DSV320X
 
@@ -333,6 +335,8 @@ Backups:
 - R4 3833 -> 3.83k, `P3.83KLCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF3831X/192287
 - R4 7666 -> 7.68k `P7.68KLCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF7681X/192458
 - R9 470 -> 470 `P470LCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF4700X/1746229
+- R9 30 -> `P30DDCT-ND`, https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERA-2AKD300X/1706065
+
 
 - 4.7uF in 0402; `1276-CL05A475KP5ZRNCCT-ND`, https://www.digikey.ca/en/products/detail/samsung-electro-mechanics/CL05A475KP5ZRNC/10478972
 
