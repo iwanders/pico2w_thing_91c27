@@ -361,7 +361,6 @@ Solder mask opening length is pad + 0.1mm, so grow of 0.05mm.  They do state to 
 
 Seems for 0402 one should subtract 1mil (0.0254mm) from the pad? Or about -10%?
 
-Murata [lists](https://www.murata.com/en-us/support/faqs/capacitor/siliconcapacitors/mnt/0005) for 0402 capacitors:
-> Stencil opening 369x260 um, stencil thickness 125um (for type 6 paste)
+Board Setup -> Solder Mask/Paste -> Solder Paste Settings -> Relative clearance -10%
 
 
