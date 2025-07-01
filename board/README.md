@@ -337,5 +337,13 @@ Backups:
 - 4.7uF in 0402; `1276-CL05A475KP5ZRNCCT-ND`, https://www.digikey.ca/en/products/detail/samsung-electro-mechanics/CL05A475KP5ZRNC/10478972
 
 
-## BOM
+## Stencil
+
+Actual info: [TDK AN-000393 IMU PCB Design and MEMS Assembly Guidelines](https://invensense.tdk.com/download-pdf/an-000393-imu-pcb-design-and-mems-assembly-guidelines/), for LGA they state the land should be different from the solder mask opening, solder mask being +0.1mm larger. Stencil thickness should be at least 100um. Not too much on stencil layout.
+
+Seems for 0402 one should subtract 1mil (0.0254mm) from the pad? Or about -10%?
+
+Murata [lists](https://www.murata.com/en-us/support/faqs/capacitor/siliconcapacitors/mnt/0005) for 0402 capacitors:
+> Stencil opening 369x260 um, stencil thickness 125um (for type 6 paste)
+
 
