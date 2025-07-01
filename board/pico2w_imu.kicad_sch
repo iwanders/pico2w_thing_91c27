@@ -5265,6 +5265,16 @@
 	)
 	(wire
 		(pts
+			(xy 116.84 36.83) (xy 111.76 36.83)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5052ecd8-c756-4599-b237-15bb863d4ae3")
+	)
+	(wire
+		(pts
 			(xy 116.84 69.85) (xy 113.03 69.85)
 		)
 		(stroke
@@ -6025,6 +6035,16 @@
 	)
 	(wire
 		(pts
+			(xy 111.76 36.83) (xy 111.76 30.48)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "972b365e-937c-4a7c-bbce-bc16f1f59c73")
+	)
+	(wire
+		(pts
 			(xy 121.92 172.72) (xy 138.43 172.72)
 		)
 		(stroke
@@ -6762,6 +6782,16 @@
 			(type default)
 		)
 		(uuid "e0dd337c-ebc1-490d-a4d8-ed88160d4fbe")
+	)
+	(wire
+		(pts
+			(xy 111.76 30.48) (xy 107.95 30.48)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e10bf560-b574-4491-b457-46092b06d5a6")
 	)
 	(wire
 		(pts
@@ -9560,6 +9590,72 @@
 		)
 	)
 	(symbol
+		(lib_id "power:GND")
+		(at 107.95 33.02 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "55f9a68f-89b2-47b3-91a5-af39c9785dc4")
+		(property "Reference" "#PWR023"
+			(at 107.95 39.37 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 107.95 38.1 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 107.95 33.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 107.95 33.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 107.95 33.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "cc9d7f27-2134-4a5c-9779-f90481bc76f2")
+		)
+		(instances
+			(project "pico2w_imu"
+				(path "/4038b6de-78f0-4f6b-8c4b-14dbdd02c193"
+					(reference "#PWR023")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Connector:Micro_SD_Card_Det2")
 		(at 261.62 77.47 0)
 		(unit 1)
@@ -11194,6 +11290,85 @@
 			(project "pico2w_imu"
 				(path "/4038b6de-78f0-4f6b-8c4b-14dbdd02c193"
 					(reference "Q1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:Conn_01x02_Pin")
+		(at 102.87 33.02 0)
+		(mirror x)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp yes)
+		(uuid "9f78ade2-ae8b-4e35-9e17-0abc12a3d530")
+		(property "Reference" "J4"
+			(at 101.6 30.4799 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "PinHeader"
+			(at 101.6 33.0199 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "ProjectFootprint:PinHeader_1x02_P2.54mm_Vertical_round_no_silk_courtyard"
+			(at 102.87 33.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 102.87 33.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Generic connector, single row, 01x02, script generated"
+			(at 102.87 33.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Field5" ""
+			(at 102.87 33.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "4221cbb1-ca73-4111-b7dc-a5eb0599b797")
+		)
+		(pin "1"
+			(uuid "4ec2b4db-83f6-49d8-a36d-c01ab7f0cbac")
+		)
+		(instances
+			(project "pico2w_imu"
+				(path "/4038b6de-78f0-4f6b-8c4b-14dbdd02c193"
+					(reference "J4")
 					(unit 1)
 				)
 			)
