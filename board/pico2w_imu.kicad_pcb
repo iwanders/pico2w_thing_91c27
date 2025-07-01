@@ -5016,6 +5016,7 @@
 		(property "Reference" "LSM6DSV320X1"
 			(at 0 -2.2 90)
 			(layer "F.SilkS")
+			(hide yes)
 			(uuid "89ed16d1-f189-41e6-83b3-68b97ee1e996")
 			(effects
 				(font
@@ -10107,6 +10108,7 @@
 		(property "Reference" "ICM-42688-P1"
 			(at 0 -2.2 90)
 			(layer "F.SilkS")
+			(hide yes)
 			(uuid "6871eff7-ecea-4b11-ab07-c588130a98cc")
 			(effects
 				(font
@@ -10945,6 +10947,7 @@
 		(property "Reference" "J1"
 			(at 0 7.18 0)
 			(layer "B.SilkS")
+			(hide yes)
 			(uuid "beae5d77-1733-4e38-bdd6-2efcf3ef29a8")
 			(effects
 				(font
@@ -11876,18 +11879,6 @@
 			(justify left bottom)
 		)
 	)
-	(gr_text "Pico Sensor Board\nv0.1"
-		(at 1.524 44.196 0)
-		(layer "F.SilkS")
-		(uuid "98374256-55d9-4fd7-adb8-885f55ff2e79")
-		(effects
-			(font
-				(size 1 1)
-				(thickness 0.15)
-			)
-			(justify left bottom)
-		)
-	)
 	(gr_text "GND"
 		(at 7.112 6.35 90)
 		(layer "F.SilkS")
@@ -11934,6 +11925,30 @@
 				(thickness 0.15)
 			)
 			(justify left bottom)
+		)
+	)
+	(gr_text "JLCJLCJLCJLC"
+		(at 13.716 22.098 0)
+		(layer "B.SilkS")
+		(uuid "384c759e-0e6e-4831-9a8b-89f6d99a6561")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom mirror)
+		)
+	)
+	(gr_text "Pico Sensor Board\nv0.1"
+		(at 15.748 43.942 0)
+		(layer "B.SilkS")
+		(uuid "d370db66-7a61-48ce-856b-9414f4d9bab2")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom mirror)
 		)
 	)
 	(segment
