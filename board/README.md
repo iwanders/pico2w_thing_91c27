@@ -343,6 +343,22 @@ Actual info: [TDK AN-000393 IMU PCB Design and MEMS Assembly Guidelines](https:/
 
 That is the same as STMs `TN0018: Handling, mounting, and soldering guidelines for MEMS devices` pdf, which also states solder mask opening should be +0.1mm.
 
+So the footprint should be:
+```
+For LGA pad spacing greater than 200 μm:
+A = PCB land length = LGA solder pad length + 0.1 mm
+B = PCB land width = LGA solder pad width + 0.1 mm
+```
+Pad is 0.25mm by 0.475mm, so pad should be 0.35mm by 0.575mm. Doesn't state to round corners. 
+
+And then the solder mask:
+```
+C = Solder mask opening length (where applicable) = PCB land length + 0.1 mm
+D = Solder mask opening width = PCB land width + 0.1 mm
+```
+
+Solder mask opening length is pad + 0.1mm, so grow of 0.05mm.  They do state to not put solder mask below the IMU's.
+
 Seems for 0402 one should subtract 1mil (0.0254mm) from the pad? Or about -10%?
 
 Murata [lists](https://www.murata.com/en-us/support/faqs/capacitor/siliconcapacitors/mnt/0005) for 0402 capacitors:

@@ -10625,7 +10625,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Package_LGA:LGA-14_3x2.5mm_P0.5mm_LayoutBorder3x4y"
+		(property "Footprint" "ProjectFootprint:LGA-14_3x2.5mm_P0.5mm_tospec"
 			(at 34.29 83.82 0)
 			(effects
 				(font
@@ -11216,7 +11216,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Package_LGA:LGA-14_3x2.5mm_P0.5mm_LayoutBorder3x4y"
+		(property "Footprint" "ProjectFootprint:LGA-14_3x2.5mm_P0.5mm_tospec"
 			(at 191.77 133.35 0)
 			(effects
 				(font
