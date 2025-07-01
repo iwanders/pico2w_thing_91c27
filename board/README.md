@@ -361,6 +361,12 @@ Solder mask opening length is pad + 0.1mm, so grow of 0.05mm.  They do state to 
 
 Seems for 0402 one should subtract 1mil (0.0254mm) from the pad? Or about -10%?
 
-Board Setup -> Solder Mask/Paste -> Solder Paste Settings -> Relative clearance -10%
+Lets go with:
+> Board Setup -> Solder Mask/Paste -> Solder Paste Settings -> Relative clearance -10%
 
 
+## Prep
+
+Trying jlcpcb instead of oshpark because they can produce a stencil. [Instructions](https://jlcpcb.com/help/article/how-to-generate-gerber-and-drill-files-in-kicad-8) for kicad export.
+
+PCB is 21 by 51mm,  lets do 100x120mm to ensure we have space for the paste and tape.
