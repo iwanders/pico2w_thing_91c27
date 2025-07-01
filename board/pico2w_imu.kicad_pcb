@@ -4989,7 +4989,7 @@
 			(at 0.889 -10.16 90)
 			(layer "F.SilkS")
 			(hide yes)
-			(uuid "e7d11fa9-af64-48b7-bd58-a90e6e401e0a")
+			(uuid "89ed16d1-f189-41e6-83b3-68b97ee1e996")
 			(effects
 				(font
 					(size 1 1)
@@ -5000,7 +5000,7 @@
 		(property "Value" "LSM6DSV320X1"
 			(at 0 2.2 90)
 			(layer "F.Fab")
-			(uuid "d92845d5-271d-4765-a1ef-af10b70f5a67")
+			(uuid "4f6755ac-b31b-4e26-bdcf-e365a570e6a5")
 			(effects
 				(font
 					(size 1 1)
@@ -5012,7 +5012,7 @@
 			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "0e1fa794-92e1-424d-a9e7-8d3d1bf8294b")
+			(uuid "66f4b4b9-5ed4-4d30-9dda-cf62370be41e")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -5024,7 +5024,7 @@
 			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "cddc04db-e572-402d-9675-fb342bf834b6")
+			(uuid "40c6fffa-4af6-407e-829b-80fcebedeb6e")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -6303,7 +6303,7 @@
 	(footprint "LED_SMD:LED_0603_1608Metric"
 		(layer "F.Cu")
 		(uuid "aa476854-331b-46cd-8c24-85503629ea22")
-		(at 3.976476 15.277868 180)
+		(at 4.239706 15.277868 180)
 		(descr "LED SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: http://www.tortai-tech.com/upload/download/2011102023233369053.pdf), generated with kicad-footprint-generator")
 		(tags "LED")
 		(property "Reference" "IND1"
