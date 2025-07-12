@@ -5,16 +5,22 @@
 #![no_std]
 #![no_main]
 
-use cyw43_pio::{DEFAULT_CLOCK_DIVIDER, PioSpi};
-use defmt::*;
+use cyw43_pio::{PioSpi, DEFAULT_CLOCK_DIVIDER, RM2_CLOCK_DIVIDER};
+use defmt::{info, unwrap};
 use embassy_executor::Spawner;
 use embassy_rp::bind_interrupts;
 use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, PIO0};
-use embassy_rp::pio::{InterruptHandler, Pio};
+use embassy_rp::pio::{InterruptHandler as PioInterruptHandler, Pio};
 use embassy_time::{Duration, Timer};
 use static_cell::StaticCell;
 use {defmt_rtt as _, panic_probe as _};
+
+use embassy_rp::peripherals::USB;
+use embassy_rp::usb::{Driver, Instance, InterruptHandler as UsbInterruptHandler};
+use embassy_usb::class::cdc_acm::{CdcAcmClass, State};
+use embassy_usb::driver::EndpointError;
+use embassy_usb::UsbDevice;
 
 // Program metadata for `picotool info`.
 // This isn't needed, but it's recommended to have these minimal entries.
@@ -31,7 +37,8 @@ pub static PICOTOOL_ENTRIES: [embassy_rp::binary_info::EntryAddr; 4] = [
 ];
 
 bind_interrupts!(struct Irqs {
-    PIO0_IRQ_0 => InterruptHandler<PIO0>;
+    PIO0_IRQ_0 => PioInterruptHandler<PIO0>;
+    USBCTRL_IRQ => UsbInterruptHandler<USB>;
 });
 
 #[embassy_executor::task]
@@ -44,40 +51,98 @@ async fn cyw43_task(
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
-    let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
-    let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
 
-    // To make flashing faster for development, you may want to flash the firmwares independently
-    // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
-    //     probe-rs download ../../cyw43-firmware/43439A0.bin --binary-format bin --chip RP235x --base-address 0x10100000
-    //     probe-rs download ../../cyw43-firmware/43439A0_clm.bin --binary-format bin --chip RP235x --base-address 0x10140000
-    //let fw = unsafe { core::slice::from_raw_parts(0x10100000 as *const u8, 230321) };
-    //let clm = unsafe { core::slice::from_raw_parts(0x10140000 as *const u8, 4752) };
+    /*
+        let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
+        let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
 
-    let pwr = Output::new(p.PIN_23, Level::Low);
-    let cs = Output::new(p.PIN_25, Level::High);
-    let mut pio = Pio::new(p.PIO0, Irqs);
-    let spi = PioSpi::new(
-        &mut pio.common,
-        pio.sm0,
-        DEFAULT_CLOCK_DIVIDER,
-        pio.irq0,
-        cs,
-        p.PIN_24,
-        p.PIN_29,
-        p.DMA_CH0,
-    );
+        // To make flashing faster for development, you may want to flash the firmwares independently
+        // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
+        //     probe-rs download ../../cyw43-firmware/43439A0.bin --binary-format bin --chip RP235x --base-address 0x10100000
+        //     probe-rs download ../../cyw43-firmware/43439A0_clm.bin --binary-format bin --chip RP235x --base-address 0x10140000
+        //let fw = unsafe { core::slice::from_raw_parts(0x10100000 as *const u8, 230321) };
+        //let clm = unsafe { core::slice::from_raw_parts(0x10140000 as *const u8, 4752) };
 
-    static STATE: StaticCell<cyw43::State> = StaticCell::new();
-    let state = STATE.init(cyw43::State::new());
-    let (_net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw).await;
-    unwrap!(spawner.spawn(cyw43_task(runner)));
+        let pwr = Output::new(p.PIN_23, Level::Low);
+        let cs = Output::new(p.PIN_25, Level::High);
+        let mut pio = Pio::new(p.PIO0, Irqs);
+        let spi = PioSpi::new(
+            &mut pio.common,
+            pio.sm0,
+            RM2_CLOCK_DIVIDER / 2,
+            pio.irq0,
+            cs,
+            p.PIN_24, // dio
+            p.PIN_29, // clk
+            p.DMA_CH0,
+        );
 
-    control.init(clm).await;
-    control
-        .set_power_management(cyw43::PowerManagementMode::PowerSave)
-        .await;
+        static STATE: StaticCell<cyw43::State> = StaticCell::new();
+        let state = STATE.init(cyw43::State::new());
+        let (_net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw).await;
+        unwrap!(spawner.spawn(cyw43_task(runner)));
 
+        control.init(clm).await;
+        control
+            .set_power_management(cyw43::PowerManagementMode::PowerSave)
+            .await;
+
+        // Create the driver, from the HAL.
+    */
+    // Create the driver, from the HAL.
+    let driver = Driver::new(p.USB, Irqs);
+
+    // Create embassy-usb Config
+    let config = {
+        let mut config = embassy_usb::Config::new(0xc0de, 0xcafe);
+        config.manufacturer = Some("Embassy");
+        config.product = Some("USB-serial example");
+        config.serial_number = Some("12345678");
+        config.max_power = 100;
+        config.max_packet_size_0 = 64;
+        config
+    };
+
+    // Create embassy-usb DeviceBuilder using the driver and config.
+    // It needs some buffers for building the descriptors.
+    let mut builder = {
+        static CONFIG_DESCRIPTOR: StaticCell<[u8; 256]> = StaticCell::new();
+        static BOS_DESCRIPTOR: StaticCell<[u8; 256]> = StaticCell::new();
+        static CONTROL_BUF: StaticCell<[u8; 64]> = StaticCell::new();
+
+        let builder = embassy_usb::Builder::new(
+            driver,
+            config,
+            CONFIG_DESCRIPTOR.init([0; 256]),
+            BOS_DESCRIPTOR.init([0; 256]),
+            &mut [], // no msos descriptors
+            CONTROL_BUF.init([0; 64]),
+        );
+        builder
+    };
+
+    // Create classes on the builder.
+    let mut class = {
+        static STATE: StaticCell<State> = StaticCell::new();
+        let state = STATE.init(State::new());
+        CdcAcmClass::new(&mut builder, state, 64)
+    };
+
+    // Build the builder.
+    let usb = builder.build();
+
+    // Run the USB device.
+    unwrap!(spawner.spawn(usb_task(usb)));
+
+    // Do stuff with the class!
+    loop {
+        class.wait_connection().await;
+        info!("Connected");
+        let _ = echo(&mut class).await;
+        info!("Disconnected");
+    }
+
+    /*
     let delay = Duration::from_millis(250);
     loop {
         info!("led on!");
@@ -87,5 +152,36 @@ async fn main(spawner: Spawner) {
         info!("led off!");
         control.gpio_set(0, false).await;
         Timer::after(delay).await;
+    }*/
+}
+
+type MyUsbDriver = Driver<'static, USB>;
+type MyUsbDevice = UsbDevice<'static, MyUsbDriver>;
+
+#[embassy_executor::task]
+async fn usb_task(mut usb: MyUsbDevice) -> ! {
+    usb.run().await
+}
+
+struct Disconnected {}
+
+impl From<EndpointError> for Disconnected {
+    fn from(val: EndpointError) -> Self {
+        match val {
+            EndpointError::BufferOverflow => panic!("Buffer overflow"),
+            EndpointError::Disabled => Disconnected {},
+        }
+    }
+}
+
+async fn echo<'d, T: Instance + 'd>(
+    class: &mut CdcAcmClass<'d, Driver<'d, T>>,
+) -> Result<(), Disconnected> {
+    let mut buf = [0; 64];
+    loop {
+        let n = class.read_packet(&mut buf).await?;
+        let data = &buf[..n];
+        info!("data: {:x}", data);
+        class.write_packet(data).await?;
     }
 }

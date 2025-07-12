@@ -22,5 +22,11 @@ going to try to use the 'upstream' supported tools to flash the device.
 
 Don't forget to install the udev rules from the picotool udev directory to `/etc/udev/rules.d/`.
 
+## Probe-rs
+Upstream version complains about glibc versions, so compile from source with;
+```
+cargo install probe-rs-tools --locked
+```
+
 # License
 License is [`BSD-3-Clause`](./LICENSE).
