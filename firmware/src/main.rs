@@ -5,7 +5,7 @@
 #![no_std]
 #![no_main]
 
-use cyw43_pio::{PioSpi, DEFAULT_CLOCK_DIVIDER, RM2_CLOCK_DIVIDER};
+use cyw43_pio::{PioSpi, RM2_CLOCK_DIVIDER};
 use defmt::{info, unwrap};
 use embassy_executor::Spawner;
 use embassy_rp::bind_interrupts;
@@ -21,6 +21,8 @@ use embassy_rp::usb::{Driver, Instance, InterruptHandler as UsbInterruptHandler}
 use embassy_usb::class::cdc_acm::{CdcAcmClass, State};
 use embassy_usb::driver::EndpointError;
 use embassy_usb::UsbDevice;
+
+mod usb_picotool_reset;
 
 // Program metadata for `picotool info`.
 // This isn't needed, but it's recommended to have these minimal entries.
