@@ -4,16 +4,51 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-embedded-hal = { features = [], version = "1.0.0" }
-nb = "1.0.0"
+embassy-embedded-hal = { version = "0.3.0", features = ["defmt"] }
+embassy-sync = { version = "0.7.0", features = ["defmt"] }
+embassy-executor = { version = "0.7.0", features = [
+  "arch-cortex-m",
+  "executor-thread",
+  "executor-interrupt",
+  "defmt",
+] }
+embassy-time = { version = "0.4.0", features = [
+  "defmt",
+  "defmt-timestamp-uptime",
+] }
+embassy-rp = { version = "0.4.0", features = [
+  "defmt",
+  "unstable-pac",
+  "time-driver",
+  "critical-section-impl",
+  "rp235xa",
+  "binary-info",
+] }
+embassy-usb = { version = "0.4.0", features = ["defmt"] }
+embassy-net = { version = "0.7.0", features = [
+  "defmt",
+  "icmp",
+  "tcp",
+  "udp",
+  "raw",
+  "dhcpv4",
+  "medium-ethernet",
+  "dns",
+  "proto-ipv4",
+  "proto-ipv6",
+  "multicast",
+] }
+embassy-net-wiznet = { version = "0.2.0", features = ["defmt"] }
+embassy-futures = { version = "0.1.0" }
+embassy-usb-logger = { version = "0.4.0" }
+cyw43 = { version = "0.3.0", features = ["defmt", "firmware-logs"] }
+cyw43-pio = { version = "0.4.0", features = ["defmt"] }
 
-cortex-m-rt = "0.7"
-cortex-m-rtic = "1.1.4"
+static_cell = "2.1"
 
-usb-device = "0.3.2"
-usbd-serial = "0.2.2"
-panic-halt = "0.2.0"
+defmt = "1.0.1"
+defmt-rtt = "1.0.0"
 
+panic-probe = { version = "1.0.0", features = ["print-defmt"] }
 
-# something something board support?
-rp235x-hal = { version = "0.3.0", features = ["critical-section-impl"] }
+cortex-m-rt = "0.7.0"
