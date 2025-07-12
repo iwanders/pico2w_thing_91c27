@@ -93,6 +93,12 @@ async fn main(spawner: Spawner) {
         CdcAcmClass::new(&mut builder, state, 64)
     };
 
+    let mut reset_class = {
+        static STATE: StaticCell<State> = StaticCell::new();
+        let state = STATE.init(State::new());
+        usb_picotool_reset::PicoResetClass::new(&mut builder, 64)
+    };
+
     // Build the builder.
     let usb = builder.build();
 
