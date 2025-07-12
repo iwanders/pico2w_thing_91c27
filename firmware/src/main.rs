@@ -61,7 +61,7 @@ async fn main(spawner: Spawner) {
         config.manufacturer = Some("Embassy");
         config.product = Some("USB-serial example");
         config.serial_number = Some("12345678");
-        config.max_power = 100;
+        config.max_power = 250;
         config.max_packet_size_0 = 64;
         config
     };
@@ -122,7 +122,8 @@ async fn main(spawner: Spawner) {
     let spi = PioSpi::new(
         &mut pio.common,
         pio.sm0,
-        RM2_CLOCK_DIVIDER / 2,
+        RM2_CLOCK_DIVIDER,
+        //DEFAULT_CLOCK_DIVIDER,
         pio.irq0,
         cs,
         p.PIN_24, // dio
