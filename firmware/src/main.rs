@@ -8,6 +8,6 @@ fn main() -> ! {
 }
 
 #[panic_handler]
-fn panic_hanlder<'a, 'b>(v: &'a core::panic::PanicInfo<'b>) -> ! {
+fn panic_hanlder<'a, 'b>(_v: &'a core::panic::PanicInfo<'b>) -> ! {
     loop {}
 }
