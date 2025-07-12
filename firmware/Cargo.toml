@@ -1,0 +1,15 @@
+[package]
+name = "firmware"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+embedded-hal = { features = [], version = "1.0.0" }
+nb = "1.0.0"
+
+
+usb-device = "0.3.2"
+usbd-serial = "0.2.2"
+
+# something something board support?
+rp235x-hal = "0.3.0"
