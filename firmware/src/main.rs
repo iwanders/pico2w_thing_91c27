@@ -52,43 +52,6 @@ async fn cyw43_task(
 async fn main(spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
 
-    /*
-        let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
-        let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
-
-        // To make flashing faster for development, you may want to flash the firmwares independently
-        // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
-        //     probe-rs download ../../cyw43-firmware/43439A0.bin --binary-format bin --chip RP235x --base-address 0x10100000
-        //     probe-rs download ../../cyw43-firmware/43439A0_clm.bin --binary-format bin --chip RP235x --base-address 0x10140000
-        //let fw = unsafe { core::slice::from_raw_parts(0x10100000 as *const u8, 230321) };
-        //let clm = unsafe { core::slice::from_raw_parts(0x10140000 as *const u8, 4752) };
-
-        let pwr = Output::new(p.PIN_23, Level::Low);
-        let cs = Output::new(p.PIN_25, Level::High);
-        let mut pio = Pio::new(p.PIO0, Irqs);
-        let spi = PioSpi::new(
-            &mut pio.common,
-            pio.sm0,
-            RM2_CLOCK_DIVIDER / 2,
-            pio.irq0,
-            cs,
-            p.PIN_24, // dio
-            p.PIN_29, // clk
-            p.DMA_CH0,
-        );
-
-        static STATE: StaticCell<cyw43::State> = StaticCell::new();
-        let state = STATE.init(cyw43::State::new());
-        let (_net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw).await;
-        unwrap!(spawner.spawn(cyw43_task(runner)));
-
-        control.init(clm).await;
-        control
-            .set_power_management(cyw43::PowerManagementMode::PowerSave)
-            .await;
-
-        // Create the driver, from the HAL.
-    */
     // Create the driver, from the HAL.
     let driver = Driver::new(p.USB, Irqs);
 
@@ -122,7 +85,7 @@ async fn main(spawner: Spawner) {
     };
 
     // Create classes on the builder.
-    let mut class = {
+    let mut cdc_class = {
         static STATE: StaticCell<State> = StaticCell::new();
         let state = STATE.init(State::new());
         CdcAcmClass::new(&mut builder, state, 64)
@@ -134,11 +97,84 @@ async fn main(spawner: Spawner) {
     // Run the USB device.
     unwrap!(spawner.spawn(usb_task(usb)));
 
+    for _i in 0..5 {
+        let delay = Duration::from_millis(250);
+        Timer::after(delay).await;
+        cdc_class
+            .write_packet("wait a bit\n".as_bytes())
+            .await
+            .unwrap();
+    }
+
+    let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
+    let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
+
+    // To make flashing faster for development, you may want to flash the firmwares independently
+    // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
+    //     probe-rs download ../../cyw43-firmware/43439A0.bin --binary-format bin --chip RP235x --base-address 0x10100000
+    //     probe-rs download ../../cyw43-firmware/43439A0_clm.bin --binary-format bin --chip RP235x --base-address 0x10140000
+    //let fw = unsafe { core::slice::from_raw_parts(0x10100000 as *const u8, 230321) };
+    //let clm = unsafe { core::slice::from_raw_parts(0x10140000 as *const u8, 4752) };
+
+    let pwr = Output::new(p.PIN_23, Level::Low);
+    let cs = Output::new(p.PIN_25, Level::High);
+    let mut pio = Pio::new(p.PIO0, Irqs);
+    let spi = PioSpi::new(
+        &mut pio.common,
+        pio.sm0,
+        RM2_CLOCK_DIVIDER / 2,
+        pio.irq0,
+        cs,
+        p.PIN_24, // dio
+        p.PIN_29, // clk
+        p.DMA_CH0,
+    );
+
+    cdc_class
+        .write_packet("doing things\n".as_bytes())
+        .await
+        .unwrap();
+
+    static STATE: StaticCell<cyw43::State> = StaticCell::new();
+    let state = STATE.init(cyw43::State::new());
+    cdc_class
+        .write_packet("cell made\n".as_bytes())
+        .await
+        .unwrap();
+    // This looks to be where the firmware upload happens.
+    let (_net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw).await;
+    cdc_class
+        .write_packet("new cyw43\n".as_bytes())
+        .await
+        .unwrap();
+    // This is where we stall.
+    let s = spawner.spawn(cyw43_task(runner));
+    if let Err(e) = s {
+        cdc_class
+            .write_packet("setup failed: {}\n".as_bytes())
+            .await
+            .unwrap();
+    } else {
+        cdc_class
+            .write_packet("setup good.\n".as_bytes())
+            .await
+            .unwrap();
+    }
+
+    control.init(clm).await;
+    control
+        .set_power_management(cyw43::PowerManagementMode::PowerSave)
+        .await;
+
+    // Create the driver, from the HAL.
+    /*
+     */
+
     // Do stuff with the class!
     loop {
-        class.wait_connection().await;
+        cdc_class.wait_connection().await;
         info!("Connected");
-        let _ = echo(&mut class).await;
+        let _ = echo(&mut cdc_class).await;
         info!("Disconnected");
     }
 
