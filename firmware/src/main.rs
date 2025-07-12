@@ -171,14 +171,14 @@ async fn main(spawner: Spawner) {
      */
 
     // Do stuff with the class!
+    /*
     loop {
         cdc_class.wait_connection().await;
         info!("Connected");
         let _ = echo(&mut cdc_class).await;
         info!("Disconnected");
     }
-
-    /*
+    */
     let delay = Duration::from_millis(250);
     loop {
         info!("led on!");
@@ -188,7 +188,8 @@ async fn main(spawner: Spawner) {
         info!("led off!");
         control.gpio_set(0, false).await;
         Timer::after(delay).await;
-    }*/
+    }
+    /**/
 }
 
 type MyUsbDriver = Driver<'static, USB>;
