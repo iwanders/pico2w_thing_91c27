@@ -7,9 +7,13 @@ edition = "2024"
 embedded-hal = { features = [], version = "1.0.0" }
 nb = "1.0.0"
 
+cortex-m-rt = "0.7"
+cortex-m-rtic = "1.1.4"
 
 usb-device = "0.3.2"
 usbd-serial = "0.2.2"
+panic-halt = "0.2.0"
+
 
 # something something board support?
-rp235x-hal = "0.3.0"
+rp235x-hal = { version = "0.3.0", features = ["critical-section-impl"] }
