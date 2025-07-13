@@ -94,7 +94,8 @@ async fn main(spawner: Spawner) {
     let mut cdc_class = {
         static STATE: StaticCell<CdcState> = StaticCell::new();
         let state = STATE.init(CdcState::new());
-        CdcAcmClass::new(&mut builder, state, 64)
+        let s = CdcAcmClass::new(&mut builder, state, 64);
+        s
     };
 
     let reset_class = {
@@ -112,10 +113,11 @@ async fn main(spawner: Spawner) {
     for _i in 0..5 {
         let delay = Duration::from_millis(250);
         Timer::after(delay).await;
-        cdc_class
-            .write_packet("wait a bit\n".as_bytes())
-            .await
-            .unwrap();
+        let _ = embassy_time::with_timeout(
+            Duration::from_millis(5),
+            cdc_class.write_packet("wait a bit\n".as_bytes()),
+        )
+        .await;
     }
 
     let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
@@ -145,35 +147,43 @@ async fn main(spawner: Spawner) {
         p.DMA_CH0,
     );
 
-    cdc_class
-        .write_packet("doing things\n".as_bytes())
-        .await
-        .unwrap();
+    let _ = embassy_time::with_timeout(
+        Duration::from_millis(5),
+        cdc_class.write_packet("doing things\n".as_bytes()),
+    )
+    .await;
 
     static STATE: StaticCell<cyw43::State> = StaticCell::new();
     let state = STATE.init(cyw43::State::new());
-    cdc_class
-        .write_packet("cell made\n".as_bytes())
-        .await
-        .unwrap();
+
+    let _ = embassy_time::with_timeout(
+        Duration::from_millis(5),
+        cdc_class.write_packet("cell made\n".as_bytes()),
+    )
+    .await;
+
     // This looks to be where the firmware upload happens.
     let (_net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw).await;
-    cdc_class
-        .write_packet("new cyw43\n".as_bytes())
-        .await
-        .unwrap();
+
+    let _ = embassy_time::with_timeout(
+        Duration::from_millis(5),
+        cdc_class.write_packet("new cyw43\n".as_bytes()),
+    )
+    .await;
     // This is where we stall.
     let s = spawner.spawn(cyw43_task(runner));
     if let Err(e) = s {
-        cdc_class
-            .write_packet("setup failed: {}\n".as_bytes())
-            .await
-            .unwrap();
+        let _ = embassy_time::with_timeout(
+            Duration::from_millis(5),
+            cdc_class.write_packet("setup failed\n".as_bytes()),
+        )
+        .await;
     } else {
-        cdc_class
-            .write_packet("setup good.\n".as_bytes())
-            .await
-            .unwrap();
+        let _ = embassy_time::with_timeout(
+            Duration::from_millis(5),
+            cdc_class.write_packet("setup good\n".as_bytes()),
+        )
+        .await;
     }
 
     control.init(clm).await;
