@@ -18,7 +18,7 @@ use {defmt_rtt as _, panic_probe as _};
 
 use embassy_rp::peripherals::USB;
 use embassy_rp::usb::{Driver, Instance, InterruptHandler as UsbInterruptHandler};
-use embassy_usb::class::cdc_acm::{CdcAcmClass, State};
+use embassy_usb::class::cdc_acm::{CdcAcmClass, State as CdcState};
 use embassy_usb::driver::EndpointError;
 use embassy_usb::UsbDevice;
 
@@ -88,15 +88,15 @@ async fn main(spawner: Spawner) {
 
     // Create classes on the builder.
     let mut cdc_class = {
-        static STATE: StaticCell<State> = StaticCell::new();
-        let state = STATE.init(State::new());
+        static STATE: StaticCell<CdcState> = StaticCell::new();
+        let state = STATE.init(CdcState::new());
         CdcAcmClass::new(&mut builder, state, 64)
     };
 
     let mut reset_class = {
-        static STATE: StaticCell<State> = StaticCell::new();
-        let state = STATE.init(State::new());
-        usb_picotool_reset::PicoResetClass::new(&mut builder, 64)
+        static STATE: StaticCell<usb_picotool_reset::State> = StaticCell::new();
+        let state = STATE.init(usb_picotool_reset::State::new());
+        usb_picotool_reset::PicoResetClass::new(&mut builder, state)
     };
 
     // Build the builder.
@@ -114,8 +114,10 @@ async fn main(spawner: Spawner) {
             .unwrap();
     }
 
-    let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
-    let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
+    //let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
+    //let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
+    let fw = &[];
+    let clm = &[];
 
     // To make flashing faster for development, you may want to flash the firmwares independently
     // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
