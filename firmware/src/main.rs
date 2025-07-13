@@ -225,7 +225,8 @@ async fn main(spawner: Spawner) {
                 cdc_class.write_packet("trying reboot, here's hoping.\n".as_bytes()),
             )
             .await;
-            usb_picotool_reset::boot_to_bootsel(Some(&mut watchdog));
+            //usb_picotool_reset::boot_to_bootsel_watchdog(&mut watchdog);
+            usb_picotool_reset::boot_to_bootsel();
         }
     }
     /**/

@@ -43,7 +43,25 @@ impl Control {
     }
 }
 
-pub fn boot_to_bootsel(w: Option<&mut embassy_rp::watchdog::Watchdog>) -> ! {
+#[allow(unused)]
+pub fn boot_to_bootsel_watchdog(w: &mut embassy_rp::watchdog::Watchdog) -> ! {
+    // boot flags
+    w.set_scratch(2, PICO_BOOTROM_REBOOT_FLAGS_BOOTSEL_P1_DISABLE_MSD);
+    // gpio index.
+    w.set_scratch(3, 0);
+
+    // Magic values to trigger bootrom method.
+    w.set_scratch(4, 0xb007c0d3);
+    w.set_scratch(5, 0x4ff83f2du32.bitxor(0xb007c0d3));
+    w.set_scratch(6, 2);
+    w.set_scratch(7, 0xb007c0d3);
+
+    // Invoke the watchdog
+    w.trigger_reset();
+    loop {}
+}
+
+pub fn boot_to_bootsel() -> ! {
     // Now we need to do the equivalent of;
     // rom_reset_usb_boot_extra(gpio, (request->wValue & 0x7f) | PICO_STDIO_USB_RESET_BOOTSEL_INTERFACE_DISABLE_MASK, active_low);
     // Well, that exists for the rp2040;
@@ -60,19 +78,9 @@ pub fn boot_to_bootsel(w: Option<&mut embassy_rp::watchdog::Watchdog>) -> ! {
     // by the boot path code.
     //
     //
-    /*
-     // This works, seems P0 and P1 need to be swapped?
-    if let Some(w) = w {
-        w.set_scratch(2, P1_BOOT_PROPERTIES);
-        w.set_scratch(3, P1_BOOT_PROPERTIES);
 
-        w.set_scratch(4, 0xb007c0d3);
-        w.set_scratch(5, 0x4ff83f2du32.bitxor(0xb007c0d3));
-        w.set_scratch(6, 2);
-        w.set_scratch(7, 0xb007c0d3);
-        w.trigger_reset();
-    }*/
-
+    // I think the datasheet is wrong, it doesn't agree with pico-sdk, the following works to inhibit the MSD.
+    // https://github.com/raspberrypi/pico-feedback/issues/466
     embassy_rp::rom_data::reboot(BOOTSEL_MAIN, DELAY_MS, P1_BOOT_PROPERTIES, P0_GPIO_PIN);
 
     // This is never reached.
@@ -86,7 +94,7 @@ impl Handler for Control {
         const RESET_REQUEST_FLASH: u16 = 0x02;
         if req.value == RESET_REQUEST_BOOTSEL || true {
             // sdk does some stuff with bootsel activity leds, probably unnecessary.
-            boot_to_bootsel(None);
+            boot_to_bootsel();
         }
         return Some(InResponse::Accepted(&[]));
     }
