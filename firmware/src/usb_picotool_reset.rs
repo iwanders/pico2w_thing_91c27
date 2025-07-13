@@ -60,6 +60,8 @@ pub fn boot_to_bootsel(w: Option<&mut embassy_rp::watchdog::Watchdog>) -> ! {
     // by the boot path code.
     //
     //
+    /*
+     // This works, seems P0 and P1 need to be swapped?
     if let Some(w) = w {
         w.set_scratch(2, P1_BOOT_PROPERTIES);
         w.set_scratch(3, P1_BOOT_PROPERTIES);
@@ -69,9 +71,9 @@ pub fn boot_to_bootsel(w: Option<&mut embassy_rp::watchdog::Watchdog>) -> ! {
         w.set_scratch(6, 2);
         w.set_scratch(7, 0xb007c0d3);
         w.trigger_reset();
-    }
+    }*/
 
-    //embassy_rp::rom_data::reboot(BOOTSEL_MAIN, DELAY_MS, P0_GPIO_PIN, P1_BOOT_PROPERTIES);
+    embassy_rp::rom_data::reboot(BOOTSEL_MAIN, DELAY_MS, P1_BOOT_PROPERTIES, P0_GPIO_PIN);
 
     // This is never reached.
     loop {}
