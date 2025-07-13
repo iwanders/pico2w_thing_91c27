@@ -7,6 +7,7 @@ use core::marker::PhantomData;
 
 use embassy_usb::control::{InResponse, Recipient, Request, RequestType};
 use embassy_usb::driver::{Driver, Endpoint, EndpointError, EndpointIn, EndpointOut};
+use embassy_usb::types::StringIndex;
 use embassy_usb::{Builder, Handler};
 
 const CS_INTERFACE: u8 = 0x24;
@@ -29,6 +30,10 @@ impl Control {
 impl Handler for Control {
     fn control_in(&mut self, req: Request, _data: &mut [u8]) -> Option<InResponse<'_>> {
         return Some(InResponse::Accepted(&[]));
+    }
+    fn get_string(&mut self, index: StringIndex, lang_id: u16) -> Option<&str> {
+        let _ = (index, lang_id);
+        Some(&"Reset")
     }
 }
 
@@ -58,6 +63,7 @@ pub struct PicoResetClass<'d, D: Driver<'d>> {
 
 impl<'d, D: Driver<'d>> PicoResetClass<'d, D> {
     pub fn new(builder: &mut Builder<'d, D>, state: &'d mut State) {
+        let str_idx = builder.string();
         let mut func = builder.function(
             PICO_RESET_CLASS,
             PICO_RESET_SUBCLASS,
@@ -72,12 +78,10 @@ impl<'d, D: Driver<'d>> PicoResetClass<'d, D> {
             PICO_RESET_CLASS,
             PICO_RESET_SUBCLASS,
             PICO_RESET_INTERFACE_PROTOCOL,
-            None,
+            Some(str_idx), // or do I need to register this?
         );
-        alt.descriptor(
-            CS_INTERFACE,
-            &[HEADER_SUBTYPE, 0x00, 0x01, 0x09, 0x00, 0x01, midi_if],
-        );
+
+        /**/
 
         let control = state.control.write(Control::new());
 

@@ -59,7 +59,11 @@ async fn main(spawner: Spawner) {
 
     // Create embassy-usb Config
     let config = {
-        let mut config = embassy_usb::Config::new(0xc0de, 0xcafe);
+        // https://github.com/raspberrypi/picotool/blob/de8ae5ac334e1126993f72a5c67949712fd1e1a4/picoboot_connection/picoboot_connection.c#L94
+        // https://github.com/raspberrypi/picotool/blob/de8ae5ac334e1126993f72a5c67949712fd1e1a4/picoboot_connection/picoboot_connection.h#L24
+        const RPI_VENDOR_ID: u16 = 0x2e8a;
+        const RPI_PRODUCT_ID: u16 = 0x0009;
+        let mut config = embassy_usb::Config::new(RPI_VENDOR_ID, RPI_PRODUCT_ID);
         config.manufacturer = Some("Embassy");
         config.product = Some("USB-serial example");
         config.serial_number = Some("12345678");
@@ -93,7 +97,7 @@ async fn main(spawner: Spawner) {
         CdcAcmClass::new(&mut builder, state, 64)
     };
 
-    let mut reset_class = {
+    let reset_class = {
         static STATE: StaticCell<usb_picotool_reset::State> = StaticCell::new();
         let state = STATE.init(usb_picotool_reset::State::new());
         usb_picotool_reset::PicoResetClass::new(&mut builder, state)
