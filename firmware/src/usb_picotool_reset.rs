@@ -61,7 +61,7 @@ pub fn boot_to_bootsel(w: Option<&mut embassy_rp::watchdog::Watchdog>) -> ! {
     //
     //
     if let Some(w) = w {
-        w.set_scratch(2, P0_GPIO_PIN);
+        w.set_scratch(2, P1_BOOT_PROPERTIES);
         w.set_scratch(3, P1_BOOT_PROPERTIES);
 
         w.set_scratch(4, 0xb007c0d3);
