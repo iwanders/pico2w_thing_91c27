@@ -3,16 +3,13 @@
 // https://github.com/raspberrypi/pico-sdk/blob/9a4113fbbae65ee82d8cd6537963bc3d3b14bcca/src/common/pico_usb_reset_interface_headers/include/pico/usb_reset_interface.h
 // Do we need the whole Microsoft OS 2.0 descriptor stuff??
 //
-use core::marker::PhantomData;
+
 use core::ops::BitXor;
 
-use embassy_usb::control::{InResponse, Recipient, Request, RequestType};
-use embassy_usb::driver::{Driver, Endpoint, EndpointError, EndpointIn, EndpointOut};
-use embassy_usb::types::StringIndex;
-use embassy_usb::{Builder, Handler};
+use embassy_usb::control::{InResponse, Request};
+use embassy_usb::driver::Driver;
 
-const CS_INTERFACE: u8 = 0x24;
-const HEADER_SUBTYPE: u8 = 0x01;
+use embassy_usb::{Builder, Handler};
 
 pub const PICO_RESET_CLASS: u8 = 0xFF;
 pub const PICO_RESET_SUBCLASS: u8 = 0x00;
@@ -20,8 +17,6 @@ pub const PICO_RESET_INTERFACE_PROTOCOL: u8 = 0x01;
 
 use core::mem::MaybeUninit;
 
-// This was helpful:
-// https://github.com/wezterm/picocalc-wezterm/blob/8dcf8aae0598afdeaf0ed2ba50c39dea6e30c011/src/keyboard.rs#L409
 // Section 5.4.8.24. reboot, page 395
 // Normal:
 const PICO_BOOTROM_REBOOT_FLAGS_NORMAL: u32 = 0x0000;
@@ -92,7 +87,7 @@ impl Handler for Control {
         // https://github.com/raspberrypi/pico-sdk/blob/9a4113fbbae65ee82d8cd6537963bc3d3b14bcca/src/common/pico_usb_reset_interface_headers/include/pico/usb_reset_interface.h
         const RESET_REQUEST_BOOTSEL: u16 = 0x01;
         const RESET_REQUEST_FLASH: u16 = 0x02;
-        if req.value == RESET_REQUEST_BOOTSEL || true {
+        if req.value == RESET_REQUEST_BOOTSEL {
             // sdk does some stuff with bootsel activity leds, probably unnecessary.
             boot_to_bootsel();
         }
@@ -131,10 +126,7 @@ impl<'d, D: Driver<'d>> PicoResetClass<'d, D> {
             PICO_RESET_SUBCLASS,
             PICO_RESET_INTERFACE_PROTOCOL,
         );
-
-        // Audio control interface
         let mut iface = func.interface();
-        let audio_if = iface.interface_number();
         let mut alt = iface.alt_setting(
             PICO_RESET_CLASS,
             PICO_RESET_SUBCLASS,

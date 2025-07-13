@@ -5,6 +5,8 @@
 #![no_std]
 #![no_main]
 
+mod defmt_serial;
+
 use cyw43_pio::{PioSpi, RM2_CLOCK_DIVIDER};
 use defmt::{info, unwrap};
 use embassy_executor::Spawner;
@@ -13,8 +15,9 @@ use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, PIO0};
 use embassy_rp::pio::{InterruptHandler as PioInterruptHandler, Pio};
 use embassy_time::{Duration, Timer};
+use panic_probe as _;
+//use defmt_rtt as _;
 use static_cell::StaticCell;
-use {defmt_rtt as _, panic_probe as _};
 
 use embassy_rp::peripherals::USB;
 use embassy_rp::usb::{Driver, Instance, InterruptHandler as UsbInterruptHandler};
@@ -92,7 +95,7 @@ async fn main(spawner: Spawner) {
     };
 
     // Create classes on the builder.
-    let mut cdc_class = {
+    let mut cdc_class_full = {
         static STATE: StaticCell<CdcState> = StaticCell::new();
         let state = STATE.init(CdcState::new());
         let s = CdcAcmClass::new(&mut builder, state, 64);
@@ -111,120 +114,106 @@ async fn main(spawner: Spawner) {
     // Run the USB device.
     unwrap!(spawner.spawn(usb_task(usb)));
 
+    let (tx, mut rx) = cdc_class_full.split();
+
+    use embedded_io_async::Write;
+    //defmt_serial::runner(spawner, defmt_serial::WritableSerial::new(tx)).await;
+
     for _i in 0..5 {
         let delay = Duration::from_millis(250);
         Timer::after(delay).await;
-        let _ = embassy_time::with_timeout(
-            Duration::from_millis(5),
-            cdc_class.write_packet("wait a bit\n".as_bytes()),
-        )
-        .await;
+        info!("wait a bit");
     }
 
-    if false {
-        let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
-        let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
-        //let fw = &[];
-        //let clm = &[];
+    let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
+    let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
+    //let fw = &[];
+    //let clm = &[];
 
-        // To make flashing faster for development, you may want to flash the firmwares independently
-        // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
-        //     probe-rs download ../../cyw43-firmware/43439A0.bin --binary-format bin --chip RP235x --base-address 0x10100000
-        //     probe-rs download ../../cyw43-firmware/43439A0_clm.bin --binary-format bin --chip RP235x --base-address 0x10140000
-        //let fw = unsafe { core::slice::from_raw_parts(0x10100000 as *const u8, 230321) };
-        //let clm = unsafe { core::slice::from_raw_parts(0x10140000 as *const u8, 4752) };
+    // To make flashing faster for development, you may want to flash the firmwares independently
+    // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
+    //     probe-rs download ../../cyw43-firmware/43439A0.bin --binary-format bin --chip RP235x --base-address 0x10100000
+    //     probe-rs download ../../cyw43-firmware/43439A0_clm.bin --binary-format bin --chip RP235x --base-address 0x10140000
+    //let fw = unsafe { core::slice::from_raw_parts(0x10100000 as *const u8, 230321) };
+    //let clm = unsafe { core::slice::from_raw_parts(0x10140000 as *const u8, 4752) };
 
-        let pwr = Output::new(p.PIN_23, Level::Low);
-        let cs = Output::new(p.PIN_25, Level::High);
-        let mut pio = Pio::new(p.PIO0, Irqs);
-        let spi = PioSpi::new(
-            &mut pio.common,
-            pio.sm0,
-            RM2_CLOCK_DIVIDER,
-            //DEFAULT_CLOCK_DIVIDER,
-            pio.irq0,
-            cs,
-            p.PIN_24, // dio
-            p.PIN_29, // clk
-            p.DMA_CH0,
-        );
+    let pwr = Output::new(p.PIN_23, Level::Low);
+    let cs = Output::new(p.PIN_25, Level::High);
+    let mut pio = Pio::new(p.PIO0, Irqs);
+    let spi = PioSpi::new(
+        &mut pio.common,
+        pio.sm0,
+        RM2_CLOCK_DIVIDER,
+        //DEFAULT_CLOCK_DIVIDER,
+        pio.irq0,
+        cs,
+        p.PIN_24, // dio
+        p.PIN_29, // clk
+        p.DMA_CH0,
+    );
 
-        let _ = embassy_time::with_timeout(
-            Duration::from_millis(5),
-            cdc_class.write_packet("doing things\n".as_bytes()),
-        )
-        .await;
+    info!("doing things");
 
-        static STATE: StaticCell<cyw43::State> = StaticCell::new();
-        let state = STATE.init(cyw43::State::new());
+    static STATE: StaticCell<cyw43::State> = StaticCell::new();
+    let state = STATE.init(cyw43::State::new());
 
-        let _ = embassy_time::with_timeout(
-            Duration::from_millis(5),
-            cdc_class.write_packet("cell made\n".as_bytes()),
-        )
-        .await;
+    info!("cell made");
 
-        // This looks to be where the firmware upload happens.
-        let (_net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw).await;
+    // This looks to be where the firmware upload happens.
+    let (_net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw).await;
 
-        let _ = embassy_time::with_timeout(
-            Duration::from_millis(5),
-            cdc_class.write_packet("new cyw43\n".as_bytes()),
-        )
-        .await;
-        // This is where we stall.
-        let s = spawner.spawn(cyw43_task(runner));
-        if let Err(e) = s {
-            let _ = embassy_time::with_timeout(
-                Duration::from_millis(5),
-                cdc_class.write_packet("setup failed\n".as_bytes()),
-            )
-            .await;
-        } else {
-            let _ = embassy_time::with_timeout(
-                Duration::from_millis(5),
-                cdc_class.write_packet("setup good\n".as_bytes()),
-            )
-            .await;
-        }
+    info!("new cyw43");
 
-        control.init(clm).await;
-        control
-            .set_power_management(cyw43::PowerManagementMode::PowerSave)
-            .await;
-
-        // Create the driver, from the HAL.
-        /*
-         */
-
-        // Do stuff with the class!
-        /*
-        loop {
-            cdc_class.wait_connection().await;
-            info!("Connected");
-            let _ = echo(&mut cdc_class).await;
-            info!("Disconnected");
-        }
-        */
+    // This is where we stall.
+    let s = spawner.spawn(cyw43_task(runner));
+    if let Err(e) = s {
+        info!("setup failed");
+    } else {
+        info!("setup good");
     }
+
+    control.init(clm).await;
+    control
+        .set_power_management(cyw43::PowerManagementMode::PowerSave)
+        .await;
+
+    // Create the driver, from the HAL.
+    /*
+     */
+
+    // Do stuff with the class!
+    /*
+    loop {
+        cdc_class.wait_connection().await;
+        info!("Connected");
+        let _ = echo(&mut cdc_class).await;
+        info!("Disconnected");
+    }
+    */
+
     let delay = Duration::from_millis(250);
     let mut counter = 0;
     loop {
         info!("led on!");
-        //control.gpio_set(0, true).await;
+        control.gpio_set(0, true).await;
         Timer::after(delay).await;
 
         info!("led off!");
-        //control.gpio_set(0, false).await;
+        control.gpio_set(0, false).await;
         Timer::after(delay).await;
 
+        let mut buf: [u8; 64] = [0u8; 64];
+        if let Ok(Ok(n)) =
+            embassy_time::with_timeout(Duration::from_millis(100), rx.read_packet(&mut buf)).await
+        {
+            let data = &buf[..n];
+            info!("data: {:x}", data);
+        }
+
         counter += 1;
-        if counter > 5 {
-            let _ = embassy_time::with_timeout(
-                Duration::from_millis(5),
-                cdc_class.write_packet("trying reboot, here's hoping.\n".as_bytes()),
-            )
-            .await;
+        if counter > 100 {
+            info!("reboot");
+
             //usb_picotool_reset::boot_to_bootsel_watchdog(&mut watchdog);
             usb_picotool_reset::boot_to_bootsel();
         }
