@@ -23,5 +23,6 @@ fn main() {
     f.write_all(rp235x_riscv_x).unwrap();
     println!("cargo:rerun-if-changed=rp235x_riscv.x");
 
+    println!("cargo:rustc-link-arg-bins=-Tdefmt.x");
     println!("cargo:rerun-if-changed=build.rs");
 }

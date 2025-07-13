@@ -53,6 +53,11 @@ async fn cyw43_task(
     runner.run().await
 }
 
+#[embassy_executor::task]
+async fn defmt_serial_task(serial_logger: defmt_serial::SerialLogger) -> ! {
+    defmt_serial::run(serial_logger).await
+}
+
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
@@ -118,6 +123,13 @@ async fn main(spawner: Spawner) {
 
     use embedded_io_async::Write;
     //defmt_serial::runner(spawner, defmt_serial::WritableSerial::new(tx)).await;
+    let logger = defmt_serial::SerialLogger::new(tx);
+    let s = spawner.spawn(defmt_serial_task(logger));
+    if let Err(e) = s {
+        info!("setup failed");
+    } else {
+        info!("setup good");
+    }
 
     for _i in 0..5 {
         let delay = Duration::from_millis(250);

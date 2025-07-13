@@ -45,6 +45,7 @@ embassy-usb-logger = { version = "0.4.0" }
 embedded-io-async = "0.6.1"
 cyw43 = { version = "0.3.0", features = ["defmt", "firmware-logs"] }
 cyw43-pio = { version = "0.4.0", features = ["defmt"] }
+critical-section = "1.2.0"
 
 static_cell = "2.1"
 
@@ -55,6 +56,7 @@ panic-probe = { version = "1.0.0", features = ["print-defmt"] }
 
 cortex-m = { version = "0.7.6", features = ["inline-asm"] }
 cortex-m-rt = "0.7.0"
+heapless = "0.8.0"
 
 [profile.release]
 lto = true
