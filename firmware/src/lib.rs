@@ -27,6 +27,8 @@ use embassy_usb::class::cdc_acm::{CdcAcmClass, State as CdcState};
 use embassy_usb::driver::EndpointError;
 use embassy_usb::UsbDevice;
 
+use crate::rp2350_util::reboot::RebootSettings;
+
 mod usb_picotool_reset;
 
 // Program metadata for `picotool info`.
@@ -68,8 +70,8 @@ pub async fn main(spawner: Spawner) {
     let driver = Driver::new(p.USB, Irqs);
 
     let serial_id_string = {
-        let chipinfo = rp2350_util::get_chip_info();
-        static STATE: StaticCell<rp2350_util::SerialAscii> = StaticCell::new();
+        let chipinfo = rp2350_util::chip_info::get_chip_info();
+        static STATE: StaticCell<rp2350_util::chip_info::SerialAscii> = StaticCell::new();
         STATE.init(chipinfo.serial_ascii())
     };
 
@@ -143,7 +145,7 @@ pub async fn main(spawner: Spawner) {
         info!("wait a bit");
     }
 
-    info!("sys id: {:?}", rp2350_util::get_chip_info());
+    info!("sys id: {:?}", rp2350_util::chip_info::get_chip_info());
     let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
     let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
     //let fw = &[];
@@ -235,7 +237,7 @@ pub async fn main(spawner: Spawner) {
             Timer::after(delay).await;
 
             //usb_picotool_reset::boot_to_bootsel_watchdog(&mut watchdog);
-            usb_picotool_reset::boot_to_bootsel();
+            rp2350_util::reboot::reboot(RebootSettings::flash(), Duration::from_millis(100));
         }
     }
     /**/
