@@ -374,3 +374,9 @@ Lets go with:
 Trying jlcpcb instead of oshpark because they can produce a stencil. [Instructions](https://jlcpcb.com/help/article/how-to-generate-gerber-and-drill-files-in-kicad-8) for kicad export.
 
 PCB is 21 by 51mm,  lets do 100x120mm to ensure we have space for the paste and tape.
+
+## Notes on v1
+
+- ICM-42688-p pin 8 should've exited straight (towards charge ic), there's space and currently the solder mask is over the trace which may pull the IC to the side.
+- Microphone hole looks like it could've been larger.
+
