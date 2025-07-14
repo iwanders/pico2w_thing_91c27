@@ -8,7 +8,7 @@
 mod defmt_serial;
 
 use cyw43_pio::{PioSpi, RM2_CLOCK_DIVIDER};
-use defmt::{info, unwrap};
+use defmt::{error, info, println, unwrap, warn};
 use embassy_executor::Spawner;
 use embassy_rp::bind_interrupts;
 use embassy_rp::gpio::{Level, Output};
@@ -66,6 +66,12 @@ async fn main(spawner: Spawner) {
     // Create the driver, from the HAL.
     let driver = Driver::new(p.USB, Irqs);
 
+    let serial_id_string = {
+        let chipinfo = usb_picotool_reset::get_chip_info();
+        static STATE: StaticCell<usb_picotool_reset::SerialAscii> = StaticCell::new();
+        STATE.init(chipinfo.serial_ascii())
+    };
+
     // Create embassy-usb Config
     let config = {
         // https://github.com/raspberrypi/picotool/blob/de8ae5ac334e1126993f72a5c67949712fd1e1a4/picoboot_connection/picoboot_connection.c#L94
@@ -75,7 +81,7 @@ async fn main(spawner: Spawner) {
         let mut config = embassy_usb::Config::new(RPI_VENDOR_ID, RPI_PRODUCT_ID);
         config.manufacturer = Some("Embassy");
         config.product = Some("USB-serial example");
-        config.serial_number = Some("12345678");
+        config.serial_number = Some(serial_id_string.as_str());
         config.max_power = 250;
         config.max_packet_size_0 = 64;
         config
@@ -121,7 +127,6 @@ async fn main(spawner: Spawner) {
 
     let (tx, mut rx) = cdc_class_full.split();
 
-    use embedded_io_async::Write;
     //defmt_serial::runner(spawner, defmt_serial::WritableSerial::new(tx)).await;
     let logger = defmt_serial::SerialLogger::new(tx);
     let s = spawner.spawn(defmt_serial_task(logger));
@@ -137,6 +142,7 @@ async fn main(spawner: Spawner) {
         info!("wait a bit");
     }
 
+    info!("sys id: {:?}", usb_picotool_reset::get_chip_info());
     let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
     let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
     //let fw = &[];
@@ -223,8 +229,9 @@ async fn main(spawner: Spawner) {
         }
 
         counter += 1;
-        if counter > 100 {
-            info!("reboot");
+        if counter > 8 {
+            error!("reboot in {}", delay);
+            Timer::after(delay).await;
 
             //usb_picotool_reset::boot_to_bootsel_watchdog(&mut watchdog);
             usb_picotool_reset::boot_to_bootsel();
