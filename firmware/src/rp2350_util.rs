@@ -39,7 +39,7 @@ pub mod chip_info {
             serial_number_bytes[4..].copy_from_slice(&self.wafer_id.to_le_bytes());
             serial_number_bytes[0..4].copy_from_slice(&self.device_id.to_le_bytes());
 
-            for i in (0..(res.0.len() / 2)) {
+            for i in 0..(res.0.len() / 2) {
                 let low = serial_number_bytes[i] & 0xF;
                 let high = (serial_number_bytes[i] >> 4) & 0xF;
                 res.0[res.0.len() - i * 2 - 1] = LOOKUP[low as usize];
@@ -86,7 +86,7 @@ pub mod chip_info {
 }
 
 pub mod reboot {
-    use embassy_rp::rom_data;
+
     use embassy_time::Duration;
 
     use core::ops::BitXor;

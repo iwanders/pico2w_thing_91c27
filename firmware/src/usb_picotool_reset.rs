@@ -4,11 +4,11 @@
 // Do we need the whole Microsoft OS 2.0 descriptor stuff??
 //
 
-use defmt::{error, info, println, warn};
+use defmt::error;
 
 use crate::rp2350_util::reboot;
 use embassy_time::Duration;
-use embassy_usb::control::{InResponse, OutResponse, Request};
+use embassy_usb::control::{OutResponse, Request};
 use embassy_usb::driver::Driver;
 
 use embassy_usb::{Builder, Handler};
@@ -89,7 +89,7 @@ impl<'d, D: Driver<'d>> PicoResetClass<'d, D> {
         );
         let mut iface = func.interface();
         let count = iface.interface_number().0;
-        let mut alt = iface.alt_setting(
+        let mut _alt = iface.alt_setting(
             PICO_RESET_CLASS,
             PICO_RESET_SUBCLASS,
             PICO_RESET_INTERFACE_PROTOCOL,

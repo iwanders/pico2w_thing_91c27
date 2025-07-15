@@ -10,7 +10,7 @@ mod defmt_serial;
 pub mod rp2350_util;
 
 use cyw43_pio::{PioSpi, RM2_CLOCK_DIVIDER};
-use defmt::{error, info, println, unwrap, warn};
+use defmt::{error, info, unwrap};
 use embassy_executor::Spawner;
 use embassy_rp::bind_interrupts;
 use embassy_rp::gpio::{Level, Output};
@@ -22,9 +22,8 @@ use panic_probe as _;
 use static_cell::StaticCell;
 
 use embassy_rp::peripherals::USB;
-use embassy_rp::usb::{Driver, Instance, InterruptHandler as UsbInterruptHandler};
+use embassy_rp::usb::{Driver, InterruptHandler as UsbInterruptHandler};
 use embassy_usb::class::cdc_acm::{CdcAcmClass, State as CdcState};
-use embassy_usb::driver::EndpointError;
 use embassy_usb::UsbDevice;
 
 use crate::rp2350_util::reboot::RebootSettings;
@@ -62,10 +61,17 @@ async fn defmt_serial_task(serial_logger: defmt_serial::SerialLogger) -> ! {
     defmt_serial::run(serial_logger).await
 }
 
+type MyUsbDriver = Driver<'static, USB>;
+type MyUsbDevice = UsbDevice<'static, MyUsbDriver>;
+
+#[embassy_executor::task]
+async fn usb_task(mut usb: MyUsbDevice) -> ! {
+    usb.run().await
+}
+
 pub async fn main(spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
 
-    let mut watchdog = embassy_rp::watchdog::Watchdog::new(p.WATCHDOG);
     // Create the driver, from the HAL.
     let driver = Driver::new(p.USB, Irqs);
 
@@ -109,14 +115,14 @@ pub async fn main(spawner: Spawner) {
     };
 
     // Create classes on the builder.
-    let mut cdc_class_full = {
+    let cdc_class_full = {
         static STATE: StaticCell<CdcState> = StaticCell::new();
         let state = STATE.init(CdcState::new());
         let s = CdcAcmClass::new(&mut builder, state, 64);
         s
     };
 
-    let reset_class = {
+    let _reset_class = {
         static STATE: StaticCell<usb_picotool_reset::State> = StaticCell::new();
         let state = STATE.init(usb_picotool_reset::State::new());
         usb_picotool_reset::PicoResetClass::new(&mut builder, state)
@@ -134,7 +140,7 @@ pub async fn main(spawner: Spawner) {
     let logger = defmt_serial::SerialLogger::new(tx);
     let s = spawner.spawn(defmt_serial_task(logger));
     if let Err(e) = s {
-        info!("setup failed");
+        info!("setup failed: {:?}", e);
     } else {
         info!("setup good");
     }
@@ -188,7 +194,7 @@ pub async fn main(spawner: Spawner) {
     // This is where we stall.
     let s = spawner.spawn(cyw43_task(runner));
     if let Err(e) = s {
-        info!("setup failed");
+        info!("setup failed: {:?}", e);
     } else {
         info!("setup good");
     }
@@ -241,35 +247,4 @@ pub async fn main(spawner: Spawner) {
         }
     }
     /**/
-}
-
-type MyUsbDriver = Driver<'static, USB>;
-type MyUsbDevice = UsbDevice<'static, MyUsbDriver>;
-
-#[embassy_executor::task]
-async fn usb_task(mut usb: MyUsbDevice) -> ! {
-    usb.run().await
-}
-
-struct Disconnected {}
-
-impl From<EndpointError> for Disconnected {
-    fn from(val: EndpointError) -> Self {
-        match val {
-            EndpointError::BufferOverflow => panic!("Buffer overflow"),
-            EndpointError::Disabled => Disconnected {},
-        }
-    }
-}
-
-async fn echo<'d, T: Instance + 'd>(
-    class: &mut CdcAcmClass<'d, Driver<'d, T>>,
-) -> Result<(), Disconnected> {
-    let mut buf = [0; 64];
-    loop {
-        let n = class.read_packet(&mut buf).await?;
-        let data = &buf[..n];
-        info!("data: {:x}", data);
-        class.write_packet(data).await?;
-    }
 }

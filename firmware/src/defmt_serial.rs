@@ -1,27 +1,26 @@
-use defmt::{info, unwrap};
-use embassy_executor::Spawner;
+// We allow static mut refs here because we need to access a global in a non-thread-safe way, we do so from a critical
+// section.
+#![allow(static_mut_refs)]
+
 use embassy_rp::peripherals::USB;
 use embassy_rp::usb::Driver;
 use static_cell::StaticCell;
 
 // Modelled after
 // https://github.com/knurling-rs/defmt/blob/8e517f8d7224237893e39337a61de8ef98b341f2/firmware/defmt-itm/src/lib.rs#L44
-//
-
-use core::{
-    mem::MaybeUninit,
-    sync::atomic::{AtomicBool, Ordering},
-};
-use embassy_usb::class::cdc_acm::Sender;
-
+// Is this useful?
 // https://github.com/embassy-rs/embassy/blob/9651cfca51a273ba46d34ce8197fc0e63389b09e/examples/rp/src/bin/assign_resources.rs
+
+use core::sync::atomic::{AtomicBool, Ordering};
+use embassy_usb::class::cdc_acm::Sender;
 
 pub struct SerialLogger {
     s: Sender<'static, Driver<'static, USB>>,
 }
-//static GLOBAL_LOGGER: StaticCell<SerialLogger> = StaticCell::new();
+
 static mut ENCODER: defmt::Encoder = defmt::Encoder::new();
 
+static DEFMT_OVERRUN: AtomicBool = AtomicBool::new(false);
 static TAKEN: AtomicBool = AtomicBool::new(false);
 static mut CS_RESTORE: critical_section::RestoreState = critical_section::RestoreState::invalid();
 
@@ -31,12 +30,13 @@ impl SerialLogger {
     }
 }
 
-use core::cell::RefCell;
-use critical_section::Mutex;
 use embassy_time::{Duration, Timer};
 
-type Queue = heapless::spsc::Queue<u8, 1024>;
-type Producer = heapless::spsc::Producer<'static, u8, 1024>;
+// Buffer for defmt messages.
+const DEFMT_SERIAL_BUFFER: usize = 4096;
+
+type Queue = heapless::spsc::Queue<u8, DEFMT_SERIAL_BUFFER>;
+type Producer = heapless::spsc::Producer<'static, u8, DEFMT_SERIAL_BUFFER>;
 
 static mut TX_THING: Option<Producer> = None;
 
@@ -54,19 +54,36 @@ pub async fn run(logger: SerialLogger) -> ! {
 
     loop {
         // Take stuff from rx and shove into serial port.
-        if rx.ready() {
-            let mut buffer = [0u8; 1024];
-            let count = rx.len();
-            for i in 0..count {
-                if let Some(v) = rx.dequeue() {
-                    buffer[i] = v;
+
+        // Swap the overrun buffer to alert user of an overrun.
+        if DEFMT_OVERRUN.swap(false, Ordering::Relaxed) {
+            defmt::error!("overrun");
+        }
+
+        // Consume all data and shove it onto the serial port using its max packet size.
+        let mut have_data = rx.ready();
+        if have_data {
+            while have_data {
+                const USB_CDC_MAX_PACKET_SIZE_LIMIT: usize = 64;
+                let mut buffer = [0u8; USB_CDC_MAX_PACKET_SIZE_LIMIT];
+                let count = rx.len();
+                let this_packet_len = count.min(logger.s.max_packet_size() as usize);
+
+                // Drain the queue for this packet length bytes.
+                for i in 0..this_packet_len {
+                    if let Some(v) = rx.dequeue() {
+                        buffer[i] = v;
+                    }
                 }
-            }
-            if let Err(_e) = logger.s.write_packet(&buffer[0..count]).await {
-                // ehh... panic?
+                if let Err(e) = logger.s.write_packet(&buffer[0..this_packet_len]).await {
+                    // ehh... panic? Maybe it's transient? Lets just push a message about it.
+                    defmt::error!("failed writing: {:?}", e);
+                }
+                have_data = rx.ready();
             }
         } else {
-            let delay = Duration::from_millis(10);
+            // No data, wait for a millisecond
+            let delay = Duration::from_millis(1);
             Timer::after(delay).await;
         }
     }
@@ -80,7 +97,11 @@ fn do_write(bytes: &[u8]) {
     unsafe {
         if let Some(tx) = TX_THING.as_mut() {
             for b in bytes {
-                tx.enqueue(*b);
+                if let Err(v) = tx.enqueue(*b) {
+                    let _discard = v;
+                    // Store that we had a buffer overrun, much sad, no recovery here.
+                    DEFMT_OVERRUN.store(true, Ordering::Relaxed);
+                }
             }
         }
     }
@@ -137,50 +158,3 @@ unsafe impl defmt::Logger for Logger {
         }
     }
 }
-
-/*
-use embassy_usb::class::cdc_acm::Sender;
-use embassy_usb::driver::{Driver, EndpointError};
-pub struct WritableSerial<'d, D: Driver<'d>> {
-    d: Sender<'d, D>,
-    //_foo: core::marker::PhantomData<&'d ()>,
-}
-impl<'d, D: Driver<'d>> WritableSerial<'d, D> {
-    pub fn new(d: Sender<'d, D>) -> Self {
-        Self { d }
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
-pub struct WrappedEndpointError(EndpointError);
-impl embedded_io_async::Error for WrappedEndpointError {
-    fn kind(&self) -> embedded_io_async::ErrorKind {
-        match self.0 {
-            EndpointError::BufferOverflow => embedded_io_async::ErrorKind::OutOfMemory,
-            EndpointError::Disabled => embedded_io_async::ErrorKind::NotConnected,
-        }
-    }
-}
-
-// I'm on the latest released verison, so we need this newtype thing.
-impl<'d, D: Driver<'d>> embedded_io_async::ErrorType for WritableSerial<'d, D> {
-    type Error = WrappedEndpointError;
-}
-
-impl<'d, D: Driver<'d>> embedded_io_async::Write for WritableSerial<'d, D> {
-    async fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
-        let len = core::cmp::min(buf.len(), self.d.max_packet_size() as usize);
-        self.d
-            .write_packet(&buf[..len])
-            .await
-            .map_err(|z| WrappedEndpointError(z))?;
-        Ok(len)
-    }
-}
-
-pub async fn runner<'d, D: Driver<'d>>(_spawner: Spawner, w: WritableSerial<'d, D>) {
-    loop {
-        info!("toggling leds");
-    }
-}
-*/
