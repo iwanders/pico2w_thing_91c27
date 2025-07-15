@@ -35,11 +35,8 @@ mod usb_picotool_reset;
 #[unsafe(link_section = ".bi_entries")]
 #[used]
 pub static PICOTOOL_ENTRIES: [embassy_rp::binary_info::EntryAddr; 4] = [
-    embassy_rp::binary_info::rp_program_name!(c"Blinky Example"),
-    embassy_rp::binary_info::rp_program_description!(
-        c"This example tests the RP Pico 2 W's onboard LED, connected to GPIO 0 of the cyw43 \
-        (WiFi chip) via PIO 0 over the SPI bus."
-    ),
+    embassy_rp::binary_info::rp_program_name!(c"Pico Sensor Board"),
+    embassy_rp::binary_info::rp_program_description!(c"Pico2w_thingy_91c27"),
     embassy_rp::binary_info::rp_cargo_version!(),
     embassy_rp::binary_info::rp_program_build_attribute!(),
 ];
@@ -75,6 +72,7 @@ pub async fn main(spawner: Spawner) {
     // Create the driver, from the HAL.
     let driver = Driver::new(p.USB, Irqs);
 
+    // Create the USB serial id used.
     let serial_id_string = {
         let chipinfo = rp2350_util::chip_info::get_chip_info();
         static STATE: StaticCell<rp2350_util::chip_info::SerialAscii> = StaticCell::new();
@@ -88,8 +86,9 @@ pub async fn main(spawner: Spawner) {
         const RPI_VENDOR_ID: u16 = 0x2e8a;
         const RPI_PRODUCT_ID: u16 = 0x0009;
         let mut config = embassy_usb::Config::new(RPI_VENDOR_ID, RPI_PRODUCT_ID);
-        config.manufacturer = Some("Embassy");
-        config.product = Some("USB-serial example");
+        // Maybe this will find some fun bugs xD
+        config.manufacturer = Some(core::str::from_utf8(&[0xf0u8, 0x9f, 0x8e, 0x89]).unwrap());
+        config.product = Some("Pico Sensor Board");
         config.serial_number = Some(serial_id_string.as_str());
         config.max_power = 250;
         config.max_packet_size_0 = 64;

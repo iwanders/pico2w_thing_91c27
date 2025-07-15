@@ -41,7 +41,7 @@ impl Handler for Control {
             if req.request == RESET_REQUEST_BOOTSEL {
                 // Flags from request seems irrelevant?
                 let _flags_from_request = (req.value & 0x7f) as u32;
-                error!("Flash Reboot!"); // Our dying breath!
+                error!("Flash Reboot!"); // Our dying breath, which doesn't make it out.
                 reboot::reboot(RebootSettings::flash(), Duration::from_millis(100));
                 // never reached, reboot blocks.
             }
@@ -56,7 +56,6 @@ impl Handler for Control {
     }
 }
 
-/// Internal state for WebUSB
 pub struct State {
     control: MaybeUninit<Control>,
 }
@@ -68,7 +67,6 @@ impl Default for State {
 }
 
 impl State {
-    /// Create a new `State`.
     pub const fn new() -> Self {
         State {
             control: MaybeUninit::uninit(),

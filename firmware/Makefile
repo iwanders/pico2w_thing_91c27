@@ -2,7 +2,8 @@
 SHELL=/bin/bash
 SERIAL_PORT ?= /dev/ttyACM1
 
-
+reboot:
+	picotool reboot
 
 flash:
 	cargo run-arm --release

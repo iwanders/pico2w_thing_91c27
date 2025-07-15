@@ -17,22 +17,26 @@ use embassy_usb::class::cdc_acm::Sender;
 pub struct SerialLogger {
     s: Sender<'static, Driver<'static, USB>>,
 }
-
-static mut ENCODER: defmt::Encoder = defmt::Encoder::new();
-
-static DEFMT_OVERRUN: AtomicBool = AtomicBool::new(false);
-static TAKEN: AtomicBool = AtomicBool::new(false);
-static mut CS_RESTORE: critical_section::RestoreState = critical_section::RestoreState::invalid();
-
 impl SerialLogger {
     pub fn new(s: Sender<'static, Driver<'static, USB>>) -> Self {
         Self { s }
     }
 }
 
+/// Encoder for defmt messages.
+static mut ENCODER: defmt::Encoder = defmt::Encoder::new();
+
+/// Boolean set to true if an overrun occurs, which means the queue was full and it prevented bytes from being
+/// appended to it.
+static DEFMT_OVERRUN: AtomicBool = AtomicBool::new(false);
+
+// Private globals for critical section handling.
+static TAKEN: AtomicBool = AtomicBool::new(false);
+static mut CS_RESTORE: critical_section::RestoreState = critical_section::RestoreState::invalid();
+
 use embassy_time::{Duration, Timer};
 
-// Buffer for defmt messages.
+/// Buffer for defmt messages, if this is too small overruns occur.
 const DEFMT_SERIAL_BUFFER: usize = 4096;
 
 type Queue = heapless::spsc::Queue<u8, DEFMT_SERIAL_BUFFER>;
