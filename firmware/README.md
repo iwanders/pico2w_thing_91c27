@@ -43,3 +43,7 @@ From https://crates.io/crates/defmt-print, install with `cargo install defmt-pri
 ```
 defmt-print  -e ./target/thumbv8m.main-none-eabihf/release/firmware serial --path /dev/ttyACM
 ```
+
+# Wifi / Bluetooth firmware
+
+Figure out how these flash partitions work, can we do something similar to [this PR](https://github.com/raspberrypi/pico-sdk/pull/1969)?
