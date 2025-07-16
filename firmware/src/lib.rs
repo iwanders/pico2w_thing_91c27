@@ -17,7 +17,7 @@ use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, PIO0};
 use embassy_rp::pio::{InterruptHandler as PioInterruptHandler, Pio};
 use embassy_time::{Duration, Timer};
-use panic_probe as _;
+
 //use defmt_rtt as _;
 use static_cell::StaticCell;
 
@@ -150,6 +150,12 @@ pub async fn main(spawner: Spawner) {
         info!("wait a bit");
     }
 
+    {
+        let mut w = embassy_rp::watchdog::Watchdog::new(p.WATCHDOG);
+        let old = w.get_scratch(6);
+        info!("Old scratch: {}", old);
+    }
+
     info!("sys id: {:?}", rp2350_util::chip_info::get_chip_info());
     let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
     let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
@@ -237,7 +243,10 @@ pub async fn main(spawner: Spawner) {
         }
 
         counter += 1;
-        if counter > 8 {
+        if counter > 20 {
+            panic!();
+        }
+        if counter > 80 {
             error!("reboot in {}", delay);
             Timer::after(delay).await;
 

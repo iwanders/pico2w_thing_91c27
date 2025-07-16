@@ -212,3 +212,17 @@ pub mod reboot {
         loop {}
     }
 }
+
+#[panic_handler]
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    use crate::rp2350_util::reboot::RebootSettings;
+    use embassy_time::Duration;
+    // Obviously, this panic handler is superior.
+    unsafe {
+        let p = embassy_rp::Peripherals::steal();
+        let mut w = embassy_rp::watchdog::Watchdog::new(p.WATCHDOG);
+        let old = w.get_scratch(6);
+        w.set_scratch(6, old + 1);
+    }
+    reboot::reboot(RebootSettings::Normal, Duration::from_millis(100));
+}
