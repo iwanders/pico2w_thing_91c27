@@ -1,7 +1,3 @@
-use core::fmt::Write;
-
-use embassy_rp::watchdog::Watchdog;
-
 pub mod chip_info {
     use embassy_rp::rom_data;
     // The serial number provided before reboot must match the serial number that becomes available.
@@ -217,92 +213,149 @@ pub mod reboot {
     }
 }
 
-const PANIC_STORAGE_SIZE: usize = 32;
-#[repr(C, align(4))]
-#[derive(Debug, Copy, Clone, Default, Eq, PartialEq, defmt::Format)]
-pub struct PanicStorage {
-    // First register holds line & column.
-    pub line: u16,
-    pub column: u16,
-    // Remainder holds the panic storage minus the above.
-    pub file: [u8; PANIC_STORAGE_SIZE - (2 + 2)],
-}
-const _: () = [(); 1][(core::mem::size_of::<PanicStorage>() == PANIC_STORAGE_SIZE) as usize ^ 1];
+pub mod panic_info_scratch {
+    #![allow(static_mut_refs)]
 
-impl PanicStorage {
-    pub const fn size() -> usize {
-        core::mem::size_of::<PanicStorage>()
+    use super::reboot;
+    use core::num::NonZeroU8;
+    use embassy_rp::watchdog::Watchdog;
+    // We cannot use the entire watchdog's scratch registers, and we don't currently have access to the scratch registers
+    // from POWMAN because they're just not exposed in the HAL yet.
+    // Instead, lets just keep track of files by a single byte.
+    //
+
+    // Global that holds the strings used to create the file index.
+    static mut PANIC_FILE_STRINGS: Option<&[&'static str]> = None;
+
+    #[derive(Debug, Copy, Clone, Default, Eq, PartialEq, defmt::Format)]
+    pub struct PanicStorage {
+        /// The line number at which the panic occured.
+        line: u16,
+        /// The file index in which the panic occured.
+        file: Option<NonZeroU8>,
+        _pad: u8,
     }
-    pub fn instantiate(buffer: &[u8]) -> Option<&PanicStorage> {
-        if buffer.len() != Self::size() {
-            None
-        } else {
-            unsafe { core::mem::transmute::<_, *const PanicStorage>(buffer.as_ptr()).as_ref() }
+
+    impl PanicStorage {
+        /// The line number on which the panic occured.
+        pub fn line(&self) -> u16 {
+            self.line
         }
-    }
-
-    pub fn to_array(&self) -> [u8; PANIC_STORAGE_SIZE] {
-        // get a byte pointer to self.
-        let selfptr = self as *const PanicStorage;
-        let self_u8 = selfptr.cast::<u8>();
-        let self_slice = unsafe { core::slice::from_raw_parts(self_u8, PANIC_STORAGE_SIZE) };
-        let mut res: [u8; PANIC_STORAGE_SIZE] = Default::default();
-        res.copy_from_slice(self_slice);
-        res
-    }
-
-    pub fn from_panic(info: &core::panic::PanicInfo) -> PanicStorage {
-        let mut storage = PanicStorage::default();
-        storage.line = 1; // force something to be non-zero.
-        if let Some(location) = info.location() {
-            storage.line = location.line() as u16;
-            storage.column = location.column() as u16;
-
-            // Take the last part of the string if the file is too long (which it probalby is)
-            let x = location.file().as_bytes();
-            for (i, c) in x
-                .iter()
-                .skip((x.len() as isize - storage.file.len() as isize).max(0) as usize)
-                .enumerate()
-            {
-                storage.file[i] = *c;
+        /// Returns the string from the panic file strings for which the file index matches.
+        pub fn file(&self) -> Option<&str> {
+            unsafe {
+                if let Some(index) = self.file {
+                    PANIC_FILE_STRINGS
+                        .map(|x| x.get(index.get() as usize - 1))
+                        .flatten()
+                        .copied()
+                } else {
+                    None
+                }
             }
         }
-        storage
+
+        /// Returns whether this PanicStorage actually panicked.
+        pub fn is_panicked(&self) -> bool {
+            self.line != 0 && self.line != 0xfffe // value after flashing.
+        }
+        /// Instantiates the PanicStorage from the 4 byte buffer.
+        pub fn from_buffer(buffer: [u8; 4]) -> PanicStorage {
+            let line = u16::from_le_bytes([buffer[0], buffer[1]]);
+            let file_value = buffer[2];
+            let file = if file_value != 0 {
+                Some(NonZeroU8::new(file_value).unwrap())
+            } else {
+                None
+            };
+            let _pad = buffer[3];
+            Self { line, file, _pad }
+        }
+
+        /// Converts the PanicStorage to the 4 byte buffer.
+        pub fn to_buffer(&self) -> [u8; 4] {
+            let mut res: [u8; 4] = Default::default();
+            let l = self.line().to_le_bytes();
+            res[0] = l[0];
+            res[1] = l[1];
+            if let Some(v) = self.file.as_ref() {
+                res[2] = v.get();
+            }
+
+            res
+        }
+
+        /// Constructs a PanicStorage from the panic information, using the PANIC_FILE_STRINGS to look up the files.
+        pub fn from_panic(info: &core::panic::PanicInfo) -> PanicStorage {
+            let mut storage = PanicStorage::default();
+            storage.line = 1; // force something to be non-zero, even if no storage.
+            if let Some(location) = info.location() {
+                storage.line = location.line() as u16;
+
+                // Determine the file index by matching from the rear.
+                let filename = location.file();
+                if let Some(static_files) = unsafe { PANIC_FILE_STRINGS } {
+                    for (si, s) in static_files.iter().enumerate() {
+                        let si = si + 1; // ensure nonzero.
+                        if filename.ends_with(s) {
+                            storage.file = Some(NonZeroU8::new(si as u8).unwrap());
+                            break;
+                        }
+                    }
+                } else {
+                    defmt::error!("no panic file strings set");
+                }
+            }
+            storage
+        }
     }
-}
 
-pub fn write_scratch(w: &mut Watchdog, data: [u8; 32]) {
-    for (i, v) in data.chunks(4).enumerate() {
-        let mut u32b: [u8; 4] = Default::default();
-        u32b.copy_from_slice(v);
-        w.set_scratch(i, u32::from_le_bytes(u32b));
+    // 5 Seems to be emptied on a fresh boot, which is nice, and a constant value after flashing.
+    pub const PANIC_INFO_WATCHDOG_SCRATCH: usize = 5;
+
+    /// Take the panic from the storage location and return it if it has panicked.
+    pub fn take_panic(w: &mut Watchdog) -> Option<PanicStorage> {
+        let v = w.get_scratch(PANIC_INFO_WATCHDOG_SCRATCH);
+        w.set_scratch(PANIC_INFO_WATCHDOG_SCRATCH, 0);
+        let storage = PanicStorage::from_buffer(v.to_le_bytes());
+        if storage.is_panicked() {
+            Some(storage)
+        } else {
+            None
+        }
     }
-}
-pub fn read_scratch(w: &mut Watchdog) -> [u8; 32] {
-    let mut res: [u8; 32] = Default::default();
-    for i in 0..8 {
-        let v = w.get_scratch(i);
-        res[i * 4..(i + 1) * 4].copy_from_slice(&v.to_le_bytes());
+
+    /// Should be called once with a static array of strings that hold the filenames. Filenames are matched from right,
+    /// first matching filename wins.
+    pub fn set_panic_files(s: &'static [&'static str]) {
+        unsafe {
+            if PANIC_FILE_STRINGS.is_some() {
+                defmt::error!("setting panic strings while already set, ignoring");
+            } else {
+                PANIC_FILE_STRINGS = Some(s);
+            }
+        }
     }
-    res
-}
 
-pub const PANIC_INFO_WATCHDOG_SCRATCH: usize = 1;
-
-#[panic_handler]
-fn panic(info: &core::panic::PanicInfo) -> ! {
-    use crate::rp2350_util::reboot::RebootSettings;
-    use embassy_time::Duration;
-
-    let storage = PanicStorage::from_panic(info);
-
-    // Obviously, this panic handler is superior.
-    unsafe {
-        let p = embassy_rp::Peripherals::steal();
-        let mut w = embassy_rp::watchdog::Watchdog::new(p.WATCHDOG);
-        let data = storage.to_array();
-        write_scratch(&mut w, data);
+    // Just to easily have one in another file.
+    pub fn trigger_panic() {
+        panic!();
     }
-    reboot::reboot(RebootSettings::Normal, Duration::from_millis(100));
+
+    /// Panic handler that stores the panic information into a watchdog register and reboots the device.
+    #[panic_handler]
+    fn panic(info: &core::panic::PanicInfo) -> ! {
+        use crate::rp2350_util::reboot::RebootSettings;
+        use embassy_time::Duration;
+
+        let storage = PanicStorage::from_panic(info);
+
+        unsafe {
+            let p = embassy_rp::Peripherals::steal();
+            let mut w = embassy_rp::watchdog::Watchdog::new(p.WATCHDOG);
+            let data = storage.to_buffer();
+            w.set_scratch(PANIC_INFO_WATCHDOG_SCRATCH, u32::from_le_bytes(data));
+        }
+        reboot::reboot(RebootSettings::Normal, Duration::from_millis(100));
+    }
 }

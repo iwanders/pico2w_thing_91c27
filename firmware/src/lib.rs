@@ -66,8 +66,18 @@ async fn usb_task(mut usb: MyUsbDevice) -> ! {
     usb.run().await
 }
 
+// List of files in this project (yes it could be created from build.rs), but this is fine for now.
+// These files are used to look up against when a panic happens.
+const PANIC_HANDLER_FILE_LIST: &'static [&'static str] = &[
+    "lib.rs",
+    "defmt_serial.rs",
+    "rp2350_util.rs",
+    "usb_picotool_reset.rs",
+];
+
 pub async fn main(spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
+    rp2350_util::panic_info_scratch::set_panic_files(PANIC_HANDLER_FILE_LIST);
 
     // Create the driver, from the HAL.
     let driver = Driver::new(p.USB, Irqs);
@@ -150,20 +160,13 @@ pub async fn main(spawner: Spawner) {
         info!("wait a bit");
     }
 
-    if true {
-        let mut w = embassy_rp::watchdog::Watchdog::new(p.WATCHDOG);
-        let data = rp2350_util::read_scratch(&mut w);
-        let panic_info = rp2350_util::PanicStorage::instantiate(&data).unwrap();
-        rp2350_util::write_scratch(&mut w, Default::default());
+    let mut w = embassy_rp::watchdog::Watchdog::new(p.WATCHDOG);
 
-        if panic_info.line != 0 {
-            error!("a: {:#?}", defmt::Debug2Format(&panic_info));
-            error!("b: {:#?}", panic_info);
-            error!("zzz ");
-            //error!("Had panic: {:#?}", panic_info);
-            let delay = Duration::from_millis(10);
-            Timer::after(delay).await;
-        }
+    // Serial is live, check if we previously had a panic, if so print its information.
+    if let Some(panic_info) = rp2350_util::panic_info_scratch::take_panic(&mut w) {
+        error!("Panicked:  {}:{}", panic_info.file(), panic_info.line());
+        let delay = Duration::from_millis(5000);
+        Timer::after(delay).await;
     }
 
     let delay = Duration::from_millis(500);
