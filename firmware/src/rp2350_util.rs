@@ -218,20 +218,21 @@ pub mod reboot {
 }
 
 const PANIC_STORAGE_SIZE: usize = 32;
-#[repr(C)]
+#[repr(C, align(4))]
 #[derive(Debug, Copy, Clone, Default, Eq, PartialEq, defmt::Format)]
 pub struct PanicStorage {
-    // First register.
-    pub populated: u32,
-    // Second register.
+    // First register holds line & column.
     pub line: u16,
     pub column: u16,
-    // next 6 registers, 6 * 4 = 24.
-    pub file: [u8; PANIC_STORAGE_SIZE - (4 + 2 + 2)],
+    // Remainder holds the panic storage minus the above.
+    pub file: [u8; PANIC_STORAGE_SIZE - (2 + 2)],
 }
 const _: () = [(); 1][(core::mem::size_of::<PanicStorage>() == PANIC_STORAGE_SIZE) as usize ^ 1];
 
 impl PanicStorage {
+    pub const fn size() -> usize {
+        core::mem::size_of::<PanicStorage>()
+    }
     pub fn instantiate(buffer: &[u8]) -> Option<&PanicStorage> {
         if buffer.len() != Self::size() {
             None
@@ -250,38 +251,24 @@ impl PanicStorage {
         res
     }
 
-    pub const fn size() -> usize {
-        core::mem::size_of::<PanicStorage>()
-    }
-
     pub fn from_panic(info: &core::panic::PanicInfo) -> PanicStorage {
         let mut storage = PanicStorage::default();
+        storage.line = 1; // force something to be non-zero.
         if let Some(location) = info.location() {
-            storage.populated = 1;
             storage.line = location.line() as u16;
             storage.column = location.column() as u16;
-            let f = location.file();
-            // Take the last part of the string if the file is too long.
 
-            for (i, c) in f
-                .chars()
-                .skip((f.len() as isize - storage.file.len() as isize).max(0) as usize)
+            // Take the last part of the string if the file is too long (which it probalby is)
+            let x = location.file().as_bytes();
+            for (i, c) in x
+                .iter()
+                .skip((x.len() as isize - storage.file.len() as isize).max(0) as usize)
                 .enumerate()
             {
-                c.encode_utf8(&mut storage.file[i..(i + 1)]);
+                storage.file[i] = *c;
             }
         }
-
-        // If this fails... well tough luck, we are already in a panic handler.
-        //storage.fmt_error = write!(storage.message, "{}", info.message()).is_err();
         storage
-    }
-
-    pub fn from_address(address: usize) -> PanicStorage {
-        unsafe {
-            let sl = core::slice::from_raw_parts(address as *const u8, Self::size());
-            Self::instantiate(sl).unwrap().clone()
-        }
     }
 }
 

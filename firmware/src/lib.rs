@@ -156,7 +156,7 @@ pub async fn main(spawner: Spawner) {
         let panic_info = rp2350_util::PanicStorage::instantiate(&data).unwrap();
         rp2350_util::write_scratch(&mut w, Default::default());
 
-        if panic_info.populated != 0 {
+        if panic_info.line != 0 {
             error!("a: {:#?}", defmt::Debug2Format(&panic_info));
             error!("b: {:#?}", panic_info);
             error!("zzz ");
