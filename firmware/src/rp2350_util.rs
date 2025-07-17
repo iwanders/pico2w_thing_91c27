@@ -1,5 +1,7 @@
 use core::fmt::Write;
 
+use embassy_rp::watchdog::Watchdog;
+
 pub mod chip_info {
     use embassy_rp::rom_data;
     // The serial number provided before reboot must match the serial number that becomes available.
@@ -215,17 +217,20 @@ pub mod reboot {
     }
 }
 
+const PANIC_STORAGE_SIZE: usize = 32;
 #[repr(C)]
-#[derive(Debug, Clone, Default, Eq, PartialEq, defmt::Format)]
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq, defmt::Format)]
 pub struct PanicStorage {
-    pub line: u32,
-    pub column: u32,
-    pub is_populated: bool,
-    pub has_location: bool,
-    pub fmt_error: bool,
-    //pub message: heapless::String<128>,
-    //pub file: heapless::String<128>,
+    // First register.
+    pub populated: u32,
+    // Second register.
+    pub line: u16,
+    pub column: u16,
+    // next 6 registers, 6 * 4 = 24.
+    pub file: [u8; PANIC_STORAGE_SIZE - (4 + 2 + 2)],
 }
+const _: () = [(); 1][(core::mem::size_of::<PanicStorage>() == PANIC_STORAGE_SIZE) as usize ^ 1];
+
 impl PanicStorage {
     pub fn instantiate(buffer: &[u8]) -> Option<&PanicStorage> {
         if buffer.len() != Self::size() {
@@ -235,6 +240,16 @@ impl PanicStorage {
         }
     }
 
+    pub fn to_array(&self) -> [u8; PANIC_STORAGE_SIZE] {
+        // get a byte pointer to self.
+        let selfptr = self as *const PanicStorage;
+        let self_u8 = selfptr.cast::<u8>();
+        let self_slice = unsafe { core::slice::from_raw_parts(self_u8, PANIC_STORAGE_SIZE) };
+        let mut res: [u8; PANIC_STORAGE_SIZE] = Default::default();
+        res.copy_from_slice(self_slice);
+        res
+    }
+
     pub const fn size() -> usize {
         core::mem::size_of::<PanicStorage>()
     }
@@ -242,18 +257,19 @@ impl PanicStorage {
     pub fn from_panic(info: &core::panic::PanicInfo) -> PanicStorage {
         let mut storage = PanicStorage::default();
         if let Some(location) = info.location() {
-            storage.has_location = true;
-            storage.line = location.line();
-            storage.column = location.column();
+            storage.populated = 1;
+            storage.line = location.line() as u16;
+            storage.column = location.column() as u16;
             let f = location.file();
             // Take the last part of the string if the file is too long.
-            /*
-            for c in f
+
+            for (i, c) in f
                 .chars()
-                .skip((f.len() as isize - storage.message.len() as isize).max(0) as usize)
+                .skip((f.len() as isize - storage.file.len() as isize).max(0) as usize)
+                .enumerate()
             {
-                let _ = storage.message.push(c);
-            }*/
+                c.encode_utf8(&mut storage.file[i..(i + 1)]);
+            }
         }
 
         // If this fails... well tough luck, we are already in a panic handler.
@@ -269,6 +285,22 @@ impl PanicStorage {
     }
 }
 
+pub fn write_scratch(w: &mut Watchdog, data: [u8; 32]) {
+    for (i, v) in data.chunks(4).enumerate() {
+        let mut u32b: [u8; 4] = Default::default();
+        u32b.copy_from_slice(v);
+        w.set_scratch(i, u32::from_le_bytes(u32b));
+    }
+}
+pub fn read_scratch(w: &mut Watchdog) -> [u8; 32] {
+    let mut res: [u8; 32] = Default::default();
+    for i in 0..8 {
+        let v = w.get_scratch(i);
+        res[i * 4..(i + 1) * 4].copy_from_slice(&v.to_le_bytes());
+    }
+    res
+}
+
 pub const PANIC_INFO_WATCHDOG_SCRATCH: usize = 1;
 
 #[panic_handler]
@@ -282,8 +314,8 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     unsafe {
         let p = embassy_rp::Peripherals::steal();
         let mut w = embassy_rp::watchdog::Watchdog::new(p.WATCHDOG);
-        let storage_ptr = &storage as *const PanicStorage;
-        w.set_scratch(PANIC_INFO_WATCHDOG_SCRATCH, storage_ptr.addr() as u32);
+        let data = storage.to_array();
+        write_scratch(&mut w, data);
     }
     reboot::reboot(RebootSettings::Normal, Duration::from_millis(100));
 }

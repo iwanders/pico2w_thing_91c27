@@ -152,15 +152,14 @@ pub async fn main(spawner: Spawner) {
 
     if true {
         let mut w = embassy_rp::watchdog::Watchdog::new(p.WATCHDOG);
-        let old = w.get_scratch(rp2350_util::PANIC_INFO_WATCHDOG_SCRATCH);
-        w.set_scratch(rp2350_util::PANIC_INFO_WATCHDOG_SCRATCH, 0);
-        error!("old {:#?}", old);
-        if old != 0 {
-            error!("zzzz ");
-            let panic_info = rp2350_util::PanicStorage::from_address(old as usize);
-            //let panic_info = rp2350_util::PanicStorage::default();
-            error!("pa: {:#?}", defmt::Debug2Format(&panic_info));
-            error!("a ");
+        let data = rp2350_util::read_scratch(&mut w);
+        let panic_info = rp2350_util::PanicStorage::instantiate(&data).unwrap();
+        rp2350_util::write_scratch(&mut w, Default::default());
+
+        if panic_info.populated != 0 {
+            error!("a: {:#?}", defmt::Debug2Format(&panic_info));
+            error!("b: {:#?}", panic_info);
+            error!("zzz ");
             //error!("Had panic: {:#?}", panic_info);
             let delay = Duration::from_millis(10);
             Timer::after(delay).await;
