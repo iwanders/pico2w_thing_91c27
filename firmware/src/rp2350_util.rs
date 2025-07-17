@@ -1,3 +1,5 @@
+use core::fmt::Write;
+
 pub mod chip_info {
     use embassy_rp::rom_data;
     // The serial number provided before reboot must match the serial number that becomes available.
@@ -213,16 +215,75 @@ pub mod reboot {
     }
 }
 
+#[repr(C)]
+#[derive(Debug, Clone, Default, Eq, PartialEq, defmt::Format)]
+pub struct PanicStorage {
+    pub line: u32,
+    pub column: u32,
+    pub is_populated: bool,
+    pub has_location: bool,
+    pub fmt_error: bool,
+    //pub message: heapless::String<128>,
+    //pub file: heapless::String<128>,
+}
+impl PanicStorage {
+    pub fn instantiate(buffer: &[u8]) -> Option<&PanicStorage> {
+        if buffer.len() != Self::size() {
+            None
+        } else {
+            unsafe { core::mem::transmute::<_, *const PanicStorage>(buffer.as_ptr()).as_ref() }
+        }
+    }
+
+    pub const fn size() -> usize {
+        core::mem::size_of::<PanicStorage>()
+    }
+
+    pub fn from_panic(info: &core::panic::PanicInfo) -> PanicStorage {
+        let mut storage = PanicStorage::default();
+        if let Some(location) = info.location() {
+            storage.has_location = true;
+            storage.line = location.line();
+            storage.column = location.column();
+            let f = location.file();
+            // Take the last part of the string if the file is too long.
+            /*
+            for c in f
+                .chars()
+                .skip((f.len() as isize - storage.message.len() as isize).max(0) as usize)
+            {
+                let _ = storage.message.push(c);
+            }*/
+        }
+
+        // If this fails... well tough luck, we are already in a panic handler.
+        //storage.fmt_error = write!(storage.message, "{}", info.message()).is_err();
+        storage
+    }
+
+    pub fn from_address(address: usize) -> PanicStorage {
+        unsafe {
+            let sl = core::slice::from_raw_parts(address as *const u8, Self::size());
+            Self::instantiate(sl).unwrap().clone()
+        }
+    }
+}
+
+pub const PANIC_INFO_WATCHDOG_SCRATCH: usize = 1;
+
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     use crate::rp2350_util::reboot::RebootSettings;
     use embassy_time::Duration;
+
+    let storage = PanicStorage::from_panic(info);
+
     // Obviously, this panic handler is superior.
     unsafe {
         let p = embassy_rp::Peripherals::steal();
         let mut w = embassy_rp::watchdog::Watchdog::new(p.WATCHDOG);
-        let old = w.get_scratch(6);
-        w.set_scratch(6, old + 1);
+        let storage_ptr = &storage as *const PanicStorage;
+        w.set_scratch(PANIC_INFO_WATCHDOG_SCRATCH, storage_ptr.addr() as u32);
     }
     reboot::reboot(RebootSettings::Normal, Duration::from_millis(100));
 }

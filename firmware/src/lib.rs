@@ -144,18 +144,31 @@ pub async fn main(spawner: Spawner) {
         info!("setup good");
     }
 
-    for _i in 0..5 {
+    for _i in 0..15 {
         let delay = Duration::from_millis(250);
         Timer::after(delay).await;
         info!("wait a bit");
     }
 
-    {
+    if true {
         let mut w = embassy_rp::watchdog::Watchdog::new(p.WATCHDOG);
-        let old = w.get_scratch(6);
-        info!("Old scratch: {}", old);
+        let old = w.get_scratch(rp2350_util::PANIC_INFO_WATCHDOG_SCRATCH);
+        w.set_scratch(rp2350_util::PANIC_INFO_WATCHDOG_SCRATCH, 0);
+        error!("old {:#?}", old);
+        if old != 0 {
+            error!("zzzz ");
+            let panic_info = rp2350_util::PanicStorage::from_address(old as usize);
+            //let panic_info = rp2350_util::PanicStorage::default();
+            error!("pa: {:#?}", defmt::Debug2Format(&panic_info));
+            error!("a ");
+            //error!("Had panic: {:#?}", panic_info);
+            let delay = Duration::from_millis(10);
+            Timer::after(delay).await;
+        }
     }
 
+    let delay = Duration::from_millis(500);
+    Timer::after(delay).await;
     info!("sys id: {:?}", rp2350_util::chip_info::get_chip_info());
     let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
     let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
