@@ -137,6 +137,9 @@ Lets go for a nice traffic light, easy to remember, and with battery disconnecte
 - Charging: Orange, STAT1 pin on battery charger
 - EOC: Red, STAT2 pin on battery charger
 
+
+Positive voltage at the 'round' pin, negative voltage at the flat side.
+
 #### Red
 VBus is from USB, so 5V, the pin sinks.
 
@@ -159,8 +162,10 @@ Nominal is 2V.
 Relative luminous intensity is a straight line. Lets say aim is 10mcd?
 
 - P1 brightness group needs 10/50 * 20mA = 4mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/4e-3` = 750 ohm.
-- Avg needs 10/100 * 20mA = 2mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/4e-3` = 1500 ohm. 
-- R2 brightness group needs 10/150 * 20mA = 1.3mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/4e-3` = 2250 ohm.
+- Avg needs 10/100 * 20mA = 2mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/2e-3` = 1500 ohm. 
+- R2 brightness group needs 10/150 * 20mA = 1.3mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/1.3e-3` = 2250 ohm.
+
+Note; 3.3k ohm seems to be more than bright enough. 6.8k also works. 10k is dim, but still easily visisble, makes the 'dot' visible.
 
 #### Orange
 , VBus is from USB, so 5V, the pin sinks.
@@ -186,6 +191,8 @@ Relative luminous intensity is a straight line. Lets say aim is 10mcd?
 - Q1 brightness group needs 10/80 * 20mA = 2.5mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/2.5e-3` = 1200 ohm.
 - Avg needs 10/166 * 20mA = 1.2mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/1.2e-3` = 2500 ohm. 
 - S2 brightness group needs 10/252 * 20mA = 0.8mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/0.8e-3` = 3750 ohm.
+
+10k is dim, but still easily visisble, makes the 'dot' visible. 5.1k is present, but not overly bright. 3.3k is also fine. Doesn't seem to be super bright like the green one is. 2k is definitely getting to 'no longer an indicator light'
 
 #### Green
 VBus is from USB, so 5V, the pin sinks.
@@ -213,6 +220,8 @@ Relative luminous intensity is not a straight line, graph is non uniform, but no
 - Avg needs 10/378 * 20mA = 0.529mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2.7)/0.529e-3` = 4347 ohm. 
 - U2 brightness group needs 7.5/505 * 20mA = 0.3mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2.7)/0.3e-3` = 7666 ohm.
 
+
+3.3k is still very very bright. 6.8 is still bright, 10k is nice for an always on light.
 ## Battery input
 
 Following the guidance of the Pico 2W datasheet; `Diodes DMG2305UX`, just in SOT23 package.
@@ -244,6 +253,8 @@ This comes from the uC, it can be PWM'd, but it does consume battery and the lik
 Nominal  $R=\frac{V_s - V_f}{I_f}$, `(3.3-2.75)/4e-3` = 137.5 ohm.
 
 At full brightness;`(3.3-2.75)/20e-3` = 27 ohm, 30 ohm is approx 18mA.
+
+Well, 3.3k is perfectly fine for an indicator led. 200 ohm is bright enough to be uncomfortable (47 even more so), 2k is also fine.
 
 
 ## LMS6DSV320X
