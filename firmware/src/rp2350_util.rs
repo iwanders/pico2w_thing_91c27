@@ -65,7 +65,7 @@ pub mod chip_info {
     pub fn get_chip_info() -> ChipInfo {
         const SYS_INFO_CHIP_INFO: u32 = 0x0001;
         const FLAGS: u32 = SYS_INFO_CHIP_INFO;
-        let mut words: [u32; 9] = Default::default();
+        let mut words: [u32; 4] = Default::default();
         let rc = unsafe { rom_data::get_sys_info(words.as_mut_ptr(), words.len(), FLAGS) };
         if rc < 0 {
             panic!("get sys info failed; {rc}");
@@ -81,6 +81,60 @@ pub mod chip_info {
             package_sel: words[1],
             device_id: words[2],
             wafer_id: words[3],
+        }
+    }
+
+    #[derive(Debug, Copy, Clone, Default, defmt::Format)]
+    pub struct FlashDeviceInfo {
+        pub cs0_size_bits: u32,
+        pub cs1_size_bits: u32,
+        pub d8h_support_erase: bool,
+    }
+
+    /// Get the flash device info, which can only express up to 2megabytes of storage...
+    pub fn get_flash_dev_info() -> FlashDeviceInfo {
+        const SYS_FLASH_DEVICE_INFO: u32 = 0x0008;
+        const FLAGS: u32 = SYS_FLASH_DEVICE_INFO;
+        let mut words: [u32; 2] = Default::default();
+        let rc = unsafe { rom_data::get_sys_info(words.as_mut_ptr(), words.len(), FLAGS) };
+        if rc < 0 {
+            panic!("get sys info failed; {rc}");
+        }
+        if rc != 2 {
+            panic!("get sys info returned unexpected count; {rc}");
+        }
+        if (words[0] & SYS_FLASH_DEVICE_INFO) == 0 {
+            panic!("get sys info did not return chip info {}", words[0]);
+        }
+        // bits 31:16 are reserved, lets mask those out.
+        let data = words[1] & 0xFFFF;
+        // Then, 4 bytes for each chip select.
+        let cs1 = (data >> 12) & 0b1111;
+        let cs0 = (data >> 8) & 0b1111;
+        let cs0_size_bits = if cs0 == 0 { 0 } else { 4096 << cs0 };
+        let cs1_size_bits = if cs1 == 0 { 0 } else { 4096 << cs1 };
+        let d8h_support_erase = ((data >> 7) & 0b1) == 1;
+
+        // Okay, now finally we can read the data, since chip info is always the first entry in the returned data.
+        FlashDeviceInfo {
+            cs0_size_bits,
+            cs1_size_bits,
+            d8h_support_erase,
+        }
+    }
+}
+
+pub mod otp {
+    const OTP_DATA_BASE: *const u32 = 0x40130000 as *const u32;
+    // First byte seems to be good, matches the serial.
+    pub fn get_otp_chipid() -> [u32; 4] {
+        unsafe {
+            [
+                *OTP_DATA_BASE.offset(0),
+                *OTP_DATA_BASE.offset(1),
+                *OTP_DATA_BASE.offset(2),
+                *OTP_DATA_BASE.offset(3),
+            ]
         }
     }
 }

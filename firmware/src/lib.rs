@@ -155,7 +155,7 @@ pub async fn main(spawner: Spawner) {
         info!("setup good");
     }
 
-    for _i in 0..15 {
+    for _i in 0..5 {
         let delay = Duration::from_millis(250);
         Timer::after(delay).await;
         info!("wait a bit");
@@ -173,57 +173,70 @@ pub async fn main(spawner: Spawner) {
     let delay = Duration::from_millis(500);
     Timer::after(delay).await;
     info!("sys id: {:?}", rp2350_util::chip_info::get_chip_info());
-    let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
-    let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
-    //let fw = &[];
-    //let clm = &[];
-
-    // To make flashing faster for development, you may want to flash the firmwares independently
-    // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
-    //     probe-rs download ../../cyw43-firmware/43439A0.bin --binary-format bin --chip RP235x --base-address 0x10100000
-    //     probe-rs download ../../cyw43-firmware/43439A0_clm.bin --binary-format bin --chip RP235x --base-address 0x10140000
-    //let fw = unsafe { core::slice::from_raw_parts(0x10100000 as *const u8, 230321) };
-    //let clm = unsafe { core::slice::from_raw_parts(0x10140000 as *const u8, 4752) };
-
-    let pwr = Output::new(p.PIN_23, Level::Low);
-    let cs = Output::new(p.PIN_25, Level::High);
-    let mut pio = Pio::new(p.PIO0, Irqs);
-    let spi = PioSpi::new(
-        &mut pio.common,
-        pio.sm0,
-        RM2_CLOCK_DIVIDER,
-        //DEFAULT_CLOCK_DIVIDER,
-        pio.irq0,
-        cs,
-        p.PIN_24, // dio
-        p.PIN_29, // clk
-        p.DMA_CH0,
+    let chipid = rp2350_util::otp::get_otp_chipid();
+    info!(
+        "sys id: {:x} {:x} {:x} {:x}",
+        chipid[0], chipid[1], chipid[2], chipid[3]
     );
 
-    info!("doing things");
+    //let flash_dev_info = rp2350_util::chip_info::get_flash_dev_info();
+    //info!("flash_dev_info id: {:?}", flash_dev_info);
 
-    static STATE: StaticCell<cyw43::State> = StaticCell::new();
-    let state = STATE.init(cyw43::State::new());
+    //let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
+    //let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
+    //
+    const ENABLE_WIFI_LED: bool = false;
+    if ENABLE_WIFI_LED {
+        let fw = &[];
+        let clm = &[];
 
-    info!("cell made");
+        // To make flashing faster for development, you may want to flash the firmwares independently
+        // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
+        //     probe-rs download ../../cyw43-firmware/43439A0.bin --binary-format bin --chip RP235x --base-address 0x10100000
+        //     probe-rs download ../../cyw43-firmware/43439A0_clm.bin --binary-format bin --chip RP235x --base-address 0x10140000
+        //let fw = unsafe { core::slice::from_raw_parts(0x10100000 as *const u8, 230321) };
+        //let clm = unsafe { core::slice::from_raw_parts(0x10140000 as *const u8, 4752) };
 
-    // This looks to be where the firmware upload happens.
-    let (_net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw).await;
+        let pwr = Output::new(p.PIN_23, Level::Low);
+        let cs = Output::new(p.PIN_25, Level::High);
+        let mut pio = Pio::new(p.PIO0, Irqs);
+        let spi = PioSpi::new(
+            &mut pio.common,
+            pio.sm0,
+            RM2_CLOCK_DIVIDER,
+            //cyw43_pio::DEFAULT_CLOCK_DIVIDER,
+            pio.irq0,
+            cs,
+            p.PIN_24, // dio
+            p.PIN_29, // clk
+            p.DMA_CH0,
+        );
 
-    info!("new cyw43");
+        info!("doing things");
 
-    // This is where we stall.
-    let s = spawner.spawn(cyw43_task(runner));
-    if let Err(e) = s {
-        info!("setup failed: {:?}", e);
-    } else {
-        info!("setup good");
+        static STATE: StaticCell<cyw43::State> = StaticCell::new();
+        let state = STATE.init(cyw43::State::new());
+
+        info!("cell made");
+
+        // This looks to be where the firmware upload happens.
+        let (_net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw).await;
+
+        info!("new cyw43");
+
+        // This is where we stall.
+        let s = spawner.spawn(cyw43_task(runner));
+        if let Err(e) = s {
+            info!("setup failed: {:?}", e);
+        } else {
+            info!("setup good");
+        }
+
+        control.init(clm).await;
+        control
+            .set_power_management(cyw43::PowerManagementMode::PowerSave)
+            .await;
     }
-
-    control.init(clm).await;
-    control
-        .set_power_management(cyw43::PowerManagementMode::PowerSave)
-        .await;
 
     // Create the driver, from the HAL.
     /*
@@ -243,11 +256,13 @@ pub async fn main(spawner: Spawner) {
     let mut counter = 0;
     loop {
         info!("led on!");
-        control.gpio_set(0, true).await;
+
+        //control.gpio_set(0, true).await;
+
         Timer::after(delay).await;
 
         info!("led off!");
-        control.gpio_set(0, false).await;
+        //control.gpio_set(0, false).await;
         Timer::after(delay).await;
 
         let mut buf: [u8; 64] = [0u8; 64];
