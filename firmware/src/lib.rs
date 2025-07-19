@@ -12,7 +12,7 @@ pub mod rp2350_util;
 use cyw43_pio::{PioSpi, RM2_CLOCK_DIVIDER};
 use defmt::{error, info, unwrap};
 use embassy_executor::Spawner;
-use embassy_rp::gpio::{Level, Output};
+use embassy_rp::gpio::{Input, Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, PIN_1, PIO0, SPI0};
 use embassy_rp::pio::{InterruptHandler as PioInterruptHandler, Pio};
 
@@ -280,6 +280,41 @@ async fn test_flash(p: FlashPinTransfer) {
     }
 }
 
+struct SdCardPinTransfer {
+    spi: embassy_rp::peripherals::SPI0,
+    cs: embassy_rp::peripherals::PIN_27,
+    clk: embassy_rp::peripherals::PIN_18,
+    mosi: embassy_rp::peripherals::PIN_19,
+    miso: embassy_rp::peripherals::PIN_16,
+    detect: embassy_rp::peripherals::PIN_22,
+}
+async fn test_sdcard(p: SdCardPinTransfer) {
+    use embassy_rp::spi::{Config, Phase, Spi};
+    use embedded_hal_bus::spi::ExclusiveDevice;
+
+    //use embedded_hal_bus::spi::ExclusiveDevice;
+    use embedded_sdmmc::sdcard::{DummyCsPin, SdCard};
+    let detect = Input::new(p.detect, embassy_rp::gpio::Pull::Up);
+    // Real cs pin
+    let cs = Output::new(p.cs, Level::High);
+    let detect_state = detect.get_level();
+    let mut config = Config::default();
+    config.frequency = 1_000_000; // 133MHz max!?
+    defmt::info!("sd card detect pin high: {:?}", detect_state == Level::High);
+
+    if detect_state == Level::Low {
+        //let mut cs = Output::new(p.cs, Level::High);
+        let spi = Spi::new_blocking(p.spi, p.clk, p.mosi, p.miso, config);
+        // Use a dummy cs pin here, for embedded-hal SpiDevice compatibility reasons
+        let spi_dev = ExclusiveDevice::new_no_delay(spi, DummyCsPin);
+        //
+        let sdcard = SdCard::new(spi_dev, cs, embassy_time::Delay);
+        defmt::info!("Card size is {} bytes", sdcard.num_bytes().unwrap());
+    } else {
+        defmt::warn!("No SD card detected, can't test sd card functionaltiy.");
+    }
+}
+
 pub async fn main(spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
     rp2350_util::panic_info_scratch::set_panic_files(PANIC_HANDLER_FILE_LIST);
@@ -407,7 +442,8 @@ pub async fn main(spawner: Spawner) {
     const TEST_ICM: bool = false;
     const TEST_LSM: bool = false;
     const TEST_BME: bool = false;
-    const TEST_FLASH: bool = true;
+    const TEST_FLASH: bool = false;
+    const TEST_SDCARD: bool = true;
 
     if TEST_ICM {
         test_icm(IcmPinTransfer {
@@ -426,6 +462,16 @@ pub async fn main(spawner: Spawner) {
             clk: p.PIN_18,
             mosi: p.PIN_19,
             miso: p.PIN_16,
+        })
+        .await;
+    } else if TEST_SDCARD {
+        test_sdcard(SdCardPinTransfer {
+            spi: p.SPI0,
+            cs: p.PIN_27,
+            clk: p.PIN_18,
+            mosi: p.PIN_19,
+            miso: p.PIN_16,
+            detect: p.PIN_22,
         })
         .await;
     }

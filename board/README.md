@@ -407,3 +407,4 @@ Both JST plugs I have have opposite polarity from my board...
 - LSM6dsv320x is responsive through exclusive SPI1, who am I register.
 - BME280 responds the Chip ID register.
 - Flash is responsive, reading JEDEC register works.
+- SDCard is functional (though at low clock rate?), card detect also works.
