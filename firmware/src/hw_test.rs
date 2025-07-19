@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+
+use embassy_executor::Spawner;
 use embassy_rp::gpio::{Input, Level, Output};
 use embassy_rp::{bind_interrupts, Peripherals};
 use embassy_time::{Duration, Timer};
@@ -83,7 +86,7 @@ struct BmePinTransfer {
 }
 async fn test_bme(p: BmePinTransfer) {
     use embassy_rp::i2c::{Config, I2c};
-    let mut config = Config::default();
+    let config = Config::default();
     //config.frequency = 100_000;
     let mut i2c = I2c::new_blocking(p.i2c, p.scl, p.sda, config);
 
@@ -93,7 +96,7 @@ async fn test_bme(p: BmePinTransfer) {
     let mut buf = [0u8; 1];
     buf[0] = REG_CHIP_ID;
     let z = i2c.blocking_write_read(I2C_BUS_ADDRESS, &buf, &mut read);
-    let z = 3;
+
     defmt::info!("BME who am i: {:?} {:x}", z, read);
     if read[0] == 0x60 {
         defmt::info!("BME is responsive!");
@@ -109,7 +112,7 @@ struct FlashPinTransfer {
     miso: embassy_rp::peripherals::PIN_16,
 }
 async fn test_flash(p: FlashPinTransfer) {
-    use embassy_rp::spi::{Config, Phase, Spi};
+    use embassy_rp::spi::{Config, Spi};
     let mut cs = Output::new(p.cs, Level::High);
     let mut config = Config::default();
     config.frequency = 10_000_000; // 133MHz max!?
@@ -154,7 +157,7 @@ struct SdCardPinTransfer {
     detect: embassy_rp::peripherals::PIN_22,
 }
 async fn test_sdcard(p: SdCardPinTransfer) {
-    use embassy_rp::spi::{Config, Phase, Spi};
+    use embassy_rp::spi::{Config, Spi};
     use embedded_hal_bus::spi::ExclusiveDevice;
 
     //use embedded_hal_bus::spi::ExclusiveDevice;
@@ -177,6 +180,91 @@ async fn test_sdcard(p: SdCardPinTransfer) {
         defmt::info!("Card size is {} bytes", sdcard.num_bytes().unwrap());
     } else {
         defmt::warn!("No SD card detected, can't test sd card functionaltiy.");
+    }
+}
+
+use cyw43_pio::PioSpi;
+use embassy_rp::peripherals::{DMA_CH0, PIO0};
+#[embassy_executor::task]
+async fn cyw43_task(
+    runner: cyw43::Runner<'static, Output<'static>, PioSpi<'static, PIO0, 0, DMA_CH0>>,
+) -> ! {
+    runner.run().await
+}
+
+pub async fn test_wifi(p: Peripherals, spawner: Spawner) -> ! {
+    use cyw43_pio::{PioSpi, RM2_CLOCK_DIVIDER};
+    use defmt::info;
+    use embassy_rp::peripherals::PIO0;
+    use embassy_rp::pio::{InterruptHandler as PioInterruptHandler, Pio};
+    bind_interrupts!(struct Irqs {
+        PIO0_IRQ_0 => PioInterruptHandler<PIO0>;
+    });
+    use static_cell::StaticCell;
+    let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
+    let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
+    //
+    //let fw = &[];
+    //let clm = &[];
+
+    // To make flashing faster for development, you may want to flash the firmwares independently
+    // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
+    //     probe-rs download ../../cyw43-firmware/43439A0.bin --binary-format bin --chip RP235x --base-address 0x10100000
+    //     probe-rs download ../../cyw43-firmware/43439A0_clm.bin --binary-format bin --chip RP235x --base-address 0x10140000
+    //let fw = unsafe { core::slice::from_raw_parts(0x10100000 as *const u8, 230321) };
+    //let clm = unsafe { core::slice::from_raw_parts(0x10140000 as *const u8, 4752) };
+
+    let pwr = Output::new(p.PIN_23, Level::Low);
+    let cs = Output::new(p.PIN_25, Level::High);
+    let mut pio = Pio::new(p.PIO0, Irqs);
+    let spi = PioSpi::new(
+        &mut pio.common,
+        pio.sm0,
+        RM2_CLOCK_DIVIDER,
+        //cyw43_pio::DEFAULT_CLOCK_DIVIDER,
+        pio.irq0,
+        cs,
+        p.PIN_24, // dio
+        p.PIN_29, // clk
+        p.DMA_CH0,
+    );
+
+    info!("doing things");
+
+    static STATE: StaticCell<cyw43::State> = StaticCell::new();
+    let state = STATE.init(cyw43::State::new());
+
+    info!("cell made");
+
+    // This looks to be where the firmware upload happens.
+    let (_net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw).await;
+
+    info!("new cyw43");
+
+    // This is where we stall.
+    let s = spawner.spawn(cyw43_task(runner));
+    if let Err(e) = s {
+        info!("setup failed: {:?}", e);
+    } else {
+        info!("setup good");
+    }
+
+    control.init(clm).await;
+    control
+        .set_power_management(cyw43::PowerManagementMode::PowerSave)
+        .await;
+
+    let delay = Duration::from_millis(250);
+    loop {
+        defmt::info!("led on!");
+
+        control.gpio_set(0, true).await;
+
+        Timer::after(delay).await;
+
+        defmt::info!("led off!");
+        control.gpio_set(0, false).await;
+        Timer::after(delay).await;
     }
 }
 
