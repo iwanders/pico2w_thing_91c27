@@ -403,4 +403,5 @@ Both JST plugs I have have opposite polarity from my board...
   - Battery 280mAh initially at 4.0v, red turns off when battery connected, orange stays on. Red turned off, with battery at 4.15v.
   - Battery does start the program on the board.
   - Big 1200mAh battery start at 3.7v, IC does heat up, but nothing excessive.
-- ICM42688 is responsive through exclusive SPI0.
+- ICM42688 is responsive through exclusive SPI0, who am I register.
+- LSM6dsv320x is responsive through exclusive SPI1, who am I register.

@@ -16,6 +16,7 @@ use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, PIN_1, PIO0, SPI0};
 use embassy_rp::pio::{InterruptHandler as PioInterruptHandler, Pio};
 
+use embassy_rp::spi::Polarity;
 use embassy_rp::{bind_interrupts, Peripherals};
 use embassy_time::{Duration, Timer};
 
@@ -145,7 +146,7 @@ struct IcmPinTransfer {
 }
 
 async fn test_icm(p: IcmPinTransfer) {
-    use embassy_rp::spi::{Blocking, Config, Phase, Polarity, Spi};
+    use embassy_rp::spi::{Config, Spi};
     let mut cs = Output::new(p.cs, Level::High);
     let mut config = Config::default();
     config.frequency = 24_000_000;
@@ -168,6 +169,45 @@ async fn test_icm(p: IcmPinTransfer) {
     defmt::info!("ICM who am i: {:?} {:x}", z, read);
     if read[1] == 0x47 {
         defmt::info!("ICM is responsive!");
+    } else {
+        defmt::error!("ICM test failed!");
+    }
+}
+
+struct LSM6DSV320XPinTransfer {
+    spi: embassy_rp::peripherals::SPI1,
+    cs: embassy_rp::peripherals::PIN_13,
+    clk: embassy_rp::peripherals::PIN_10,
+    mosi: embassy_rp::peripherals::PIN_11,
+    miso: embassy_rp::peripherals::PIN_12,
+}
+async fn test_lsm(p: LSM6DSV320XPinTransfer) {
+    use embassy_rp::spi::{Config, Spi};
+    let mut cs = Output::new(p.cs, Level::High);
+    let mut config = Config::default();
+
+    config.frequency = 10_000_000;
+
+    // page 26
+    // CS goes low for selection.
+    // Data is latched on the rising edge of SCLK, max clock is 24 MHz O_o
+    // Reads are two or more bytes, first byte is SPI address, following is the data.
+    // First bit of the first byte indicates read, then following 7 bites are register address.
+    let mut spi = Spi::new_blocking(p.spi, p.clk, p.mosi, p.miso, config);
+    const REGISTER_READ: u8 = 1 << 7;
+    const REG_WHO_AM_I: u8 = 0x0F;
+
+    let mut read = [0u8; 2];
+    let mut buf = [0u8; 2];
+    buf[0] = REGISTER_READ | REG_WHO_AM_I;
+    cs.set_low();
+    let z = spi.blocking_transfer(&mut read, &buf);
+    cs.set_high();
+    defmt::info!("LSM who am i: {:?} {:x}", z, read);
+    if read[1] == 0x73 {
+        defmt::info!("LSM is responsive!");
+    } else {
+        defmt::error!("LSM test failed!");
     }
 }
 
@@ -301,6 +341,15 @@ pub async fn main(spawner: Spawner) {
         clk: p.PIN_2,
         mosi: p.PIN_3,
         miso: p.PIN_4,
+    })
+    .await;
+
+    test_lsm(LSM6DSV320XPinTransfer {
+        spi: p.SPI1,
+        cs: p.PIN_13,
+        clk: p.PIN_10,
+        mosi: p.PIN_11,
+        miso: p.PIN_12,
     })
     .await;
 
