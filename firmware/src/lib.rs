@@ -66,6 +66,66 @@ async fn usb_task(mut usb: MyUsbDevice) -> ! {
     usb.run().await
 }
 
+fn setup_wifi() {
+    /*
+    let mut p : Peripherals = unimplemented!();
+    //let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
+    //let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
+    //
+    const ENABLE_WIFI_LED: bool = false;
+    if ENABLE_WIFI_LED {
+        let fw = &[];
+        let clm = &[];
+
+        // To make flashing faster for development, you may want to flash the firmwares independently
+        // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
+        //     probe-rs download ../../cyw43-firmware/43439A0.bin --binary-format bin --chip RP235x --base-address 0x10100000
+        //     probe-rs download ../../cyw43-firmware/43439A0_clm.bin --binary-format bin --chip RP235x --base-address 0x10140000
+        //let fw = unsafe { core::slice::from_raw_parts(0x10100000 as *const u8, 230321) };
+        //let clm = unsafe { core::slice::from_raw_parts(0x10140000 as *const u8, 4752) };
+
+        let pwr = Output::new(p.PIN_23, Level::Low);
+        let cs = Output::new(p.PIN_25, Level::High);
+        let mut pio = Pio::new(p.PIO0, Irqs);
+        let spi = PioSpi::new(
+            &mut pio.common,
+            pio.sm0,
+            RM2_CLOCK_DIVIDER,
+            //cyw43_pio::DEFAULT_CLOCK_DIVIDER,
+            pio.irq0,
+            cs,
+            p.PIN_24, // dio
+            p.PIN_29, // clk
+            p.DMA_CH0,
+        );
+
+        info!("doing things");
+
+        static STATE: StaticCell<cyw43::State> = StaticCell::new();
+        let state = STATE.init(cyw43::State::new());
+
+        info!("cell made");
+
+        // This looks to be where the firmware upload happens.
+        let (_net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw).await;
+
+        info!("new cyw43");
+
+        // This is where we stall.
+        let s = spawner.spawn(cyw43_task(runner));
+        if let Err(e) = s {
+            info!("setup failed: {:?}", e);
+        } else {
+            info!("setup good");
+        }
+
+        control.init(clm).await;
+        control
+            .set_power_management(cyw43::PowerManagementMode::PowerSave)
+            .await;
+    }*/
+}
+
 // List of files in this project (yes it could be created from build.rs), but this is fine for now.
 // These files are used to look up against when a panic happens.
 const PANIC_HANDLER_FILE_LIST: &'static [&'static str] = &[
@@ -182,62 +242,6 @@ pub async fn main(spawner: Spawner) {
     //let flash_dev_info = rp2350_util::chip_info::get_flash_dev_info();
     //info!("flash_dev_info id: {:?}", flash_dev_info);
 
-    //let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
-    //let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
-    //
-    const ENABLE_WIFI_LED: bool = false;
-    if ENABLE_WIFI_LED {
-        let fw = &[];
-        let clm = &[];
-
-        // To make flashing faster for development, you may want to flash the firmwares independently
-        // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
-        //     probe-rs download ../../cyw43-firmware/43439A0.bin --binary-format bin --chip RP235x --base-address 0x10100000
-        //     probe-rs download ../../cyw43-firmware/43439A0_clm.bin --binary-format bin --chip RP235x --base-address 0x10140000
-        //let fw = unsafe { core::slice::from_raw_parts(0x10100000 as *const u8, 230321) };
-        //let clm = unsafe { core::slice::from_raw_parts(0x10140000 as *const u8, 4752) };
-
-        let pwr = Output::new(p.PIN_23, Level::Low);
-        let cs = Output::new(p.PIN_25, Level::High);
-        let mut pio = Pio::new(p.PIO0, Irqs);
-        let spi = PioSpi::new(
-            &mut pio.common,
-            pio.sm0,
-            RM2_CLOCK_DIVIDER,
-            //cyw43_pio::DEFAULT_CLOCK_DIVIDER,
-            pio.irq0,
-            cs,
-            p.PIN_24, // dio
-            p.PIN_29, // clk
-            p.DMA_CH0,
-        );
-
-        info!("doing things");
-
-        static STATE: StaticCell<cyw43::State> = StaticCell::new();
-        let state = STATE.init(cyw43::State::new());
-
-        info!("cell made");
-
-        // This looks to be where the firmware upload happens.
-        let (_net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw).await;
-
-        info!("new cyw43");
-
-        // This is where we stall.
-        let s = spawner.spawn(cyw43_task(runner));
-        if let Err(e) = s {
-            info!("setup failed: {:?}", e);
-        } else {
-            info!("setup good");
-        }
-
-        control.init(clm).await;
-        control
-            .set_power_management(cyw43::PowerManagementMode::PowerSave)
-            .await;
-    }
-
     // Create the driver, from the HAL.
     /*
      */
@@ -252,17 +256,19 @@ pub async fn main(spawner: Spawner) {
     }
     */
 
+    let mut indicator = Output::new(p.PIN_26, Level::Low);
     let delay = Duration::from_millis(250);
     let mut counter = 0;
     loop {
         info!("led on!");
 
-        //control.gpio_set(0, true).await;
+        indicator.set_high();
 
         Timer::after(delay).await;
 
         info!("led off!");
-        //control.gpio_set(0, false).await;
+
+        indicator.set_low();
         Timer::after(delay).await;
 
         let mut buf: [u8; 64] = [0u8; 64];
@@ -272,18 +278,20 @@ pub async fn main(spawner: Spawner) {
             let data = &buf[..n];
             info!("data: {:x}", data);
         }
+        defmt::info!("counter: {}", counter);
 
+        /*
         counter += 1;
-        if counter > 20 {
+        if counter > 20 && false {
             panic!();
         }
-        if counter > 80 {
+        if counter > 80 && false {
             error!("reboot in {}", delay);
             Timer::after(delay).await;
 
             //usb_picotool_reset::boot_to_bootsel_watchdog(&mut watchdog);
             rp2350_util::reboot::reboot(RebootSettings::flash(), Duration::from_millis(100));
-        }
+        }*/
     }
     /**/
 }
