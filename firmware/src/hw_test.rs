@@ -183,6 +183,15 @@ async fn test_sdcard(p: SdCardPinTransfer) {
     }
 }
 
+struct MicPinTransfer {
+    ws: embassy_rp::peripherals::PIN_7,
+    clk: embassy_rp::peripherals::PIN_8,
+    data: embassy_rp::peripherals::PIN_9,
+}
+async fn test_mic(p: MicPinTransfer) {
+    defmt::error!("Microphone test with i2s and all that.");
+}
+
 use cyw43_pio::PioSpi;
 use embassy_rp::peripherals::{DMA_CH0, PIO0};
 #[embassy_executor::task]
@@ -276,7 +285,8 @@ pub async fn hw_test(p: Peripherals) -> ! {
     const TEST_BME: bool = false;
     const TEST_FLASH: bool = false;
     const TEST_SDCARD: bool = false;
-    const TEST_BATTERY_VOLTAGE: bool = true;
+    const TEST_BATTERY_VOLTAGE: bool = false;
+    const TEST_MIC: bool = true;
 
     if TEST_ICM {
         test_icm(IcmPinTransfer {
@@ -356,6 +366,15 @@ pub async fn hw_test(p: Peripherals) -> ! {
             defmt::info!("Temp: {} degrees", convert_to_celsius(temp));
             Timer::after_secs(1).await;
         }
+    }
+
+    if TEST_MIC {
+        test_mic(MicPinTransfer {
+            ws: p.PIN_7,
+            clk: p.PIN_8,
+            data: p.PIN_9,
+        })
+        .await;
     }
 
     let mut indicator = Output::new(p.PIN_26, Level::Low);

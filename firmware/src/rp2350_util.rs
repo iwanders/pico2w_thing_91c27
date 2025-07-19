@@ -341,8 +341,11 @@ pub mod panic_info_scratch {
 
         /// Constructs a PanicStorage from the panic information, using the PANIC_FILE_STRINGS to look up the files.
         pub fn from_panic(info: &core::panic::PanicInfo) -> PanicStorage {
-            let mut storage = PanicStorage::default();
-            storage.line = 1; // force something to be non-zero, even if no storage.
+            let mut storage = PanicStorage {
+                line: 1, // force something to be non-zero, even if no storage.
+                ..Default::default()
+            };
+
             if let Some(location) = info.location() {
                 storage.line = location.line() as u16;
 

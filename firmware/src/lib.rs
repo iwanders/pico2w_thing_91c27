@@ -28,11 +28,12 @@ mod usb_picotool_reset;
 
 // List of files in this project (yes it could be created from build.rs), but this is fine for now.
 // These files are used to look up against when a panic happens.
-const PANIC_HANDLER_FILE_LIST: &'static [&'static str] = &[
+const PANIC_HANDLER_FILE_LIST: &[&str] = &[
     "lib.rs",
     "defmt_serial.rs",
     "rp2350_util.rs",
     "usb_picotool_reset.rs",
+    "hw_test.rs",
 ];
 
 // Program metadata for `picotool info`.
@@ -121,7 +122,7 @@ pub async fn main(spawner: Spawner) {
         s
     };
 
-    let _reset_class = {
+    {
         static STATE: StaticCell<usb_picotool_reset::State> = StaticCell::new();
         let state = STATE.init(usb_picotool_reset::State::new());
         usb_picotool_reset::PicoResetClass::new(&mut builder, state)
@@ -184,8 +185,13 @@ pub async fn main(spawner: Spawner) {
         info!("Disconnected");
     }
     */
+
+    // Test section
+    /*
+    //use embassy_rp::Peripherals;
     //hw_test::hw_test(unsafe { Peripherals::steal() }).await;
     //hw_test::test_wifi(unsafe { Peripherals::steal() }, spawner).await;
+     */
 
     let mut indicator = Output::new(p.PIN_26, Level::Low);
     let delay = Duration::from_millis(250);
