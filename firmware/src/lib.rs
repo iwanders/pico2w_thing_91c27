@@ -12,10 +12,11 @@ pub mod rp2350_util;
 use cyw43_pio::{PioSpi, RM2_CLOCK_DIVIDER};
 use defmt::{error, info, unwrap};
 use embassy_executor::Spawner;
-use embassy_rp::bind_interrupts;
 use embassy_rp::gpio::{Level, Output};
-use embassy_rp::peripherals::{DMA_CH0, PIO0};
+use embassy_rp::peripherals::{DMA_CH0, PIN_1, PIO0, SPI0};
 use embassy_rp::pio::{InterruptHandler as PioInterruptHandler, Pio};
+
+use embassy_rp::{bind_interrupts, Peripherals};
 use embassy_time::{Duration, Timer};
 
 //use defmt_rtt as _;
@@ -29,6 +30,15 @@ use embassy_usb::UsbDevice;
 use crate::rp2350_util::reboot::RebootSettings;
 
 mod usb_picotool_reset;
+
+// List of files in this project (yes it could be created from build.rs), but this is fine for now.
+// These files are used to look up against when a panic happens.
+const PANIC_HANDLER_FILE_LIST: &'static [&'static str] = &[
+    "lib.rs",
+    "defmt_serial.rs",
+    "rp2350_util.rs",
+    "usb_picotool_reset.rs",
+];
 
 // Program metadata for `picotool info`.
 // This isn't needed, but it's recommended to have these minimal entries.
@@ -126,14 +136,40 @@ fn setup_wifi() {
     }*/
 }
 
-// List of files in this project (yes it could be created from build.rs), but this is fine for now.
-// These files are used to look up against when a panic happens.
-const PANIC_HANDLER_FILE_LIST: &'static [&'static str] = &[
-    "lib.rs",
-    "defmt_serial.rs",
-    "rp2350_util.rs",
-    "usb_picotool_reset.rs",
-];
+struct IcmPinTransfer {
+    spi: embassy_rp::peripherals::SPI0,
+    cs: embassy_rp::peripherals::PIN_5,
+    clk: embassy_rp::peripherals::PIN_2,
+    mosi: embassy_rp::peripherals::PIN_3,
+    miso: embassy_rp::peripherals::PIN_4,
+}
+
+async fn test_icm(p: IcmPinTransfer) {
+    use embassy_rp::spi::{Blocking, Config, Phase, Polarity, Spi};
+    let mut cs = Output::new(p.cs, Level::High);
+    let mut config = Config::default();
+    config.frequency = 24_000_000;
+
+    // Page 53
+    // CS goes low for selection.
+    // Data is latched on the rising edge of SCLK, max clock is 24 MHz O_o
+    // Reads are two or more bytes, first byte is SPI address, following is the data.
+    // First bit of the first byte indicates read, then following 7 bites are register address.
+    let mut spi = Spi::new_blocking(p.spi, p.clk, p.mosi, p.miso, config);
+    const REGISTER_READ: u8 = 1 << 7;
+    const REG_WHO_AM_I: u8 = 0x75;
+
+    let mut read = [0u8; 2];
+    let mut buf = [0u8; 2];
+    buf[0] = REGISTER_READ | REG_WHO_AM_I;
+    cs.set_low();
+    let z = spi.blocking_transfer(&mut read, &buf);
+    cs.set_high();
+    defmt::info!("ICM who am i: {:?} {:x}", z, read);
+    if read[1] == 0x47 {
+        defmt::info!("ICM is responsive!");
+    }
+}
 
 pub async fn main(spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
@@ -258,6 +294,16 @@ pub async fn main(spawner: Spawner) {
 
     let mut indicator = Output::new(p.PIN_26, Level::Low);
     let delay = Duration::from_millis(250);
+
+    test_icm(IcmPinTransfer {
+        spi: p.SPI0,
+        cs: p.PIN_5,
+        clk: p.PIN_2,
+        mosi: p.PIN_3,
+        miso: p.PIN_4,
+    })
+    .await;
+
     let mut counter = 0;
     loop {
         info!("led on!");
@@ -279,9 +325,9 @@ pub async fn main(spawner: Spawner) {
             info!("data: {:x}", data);
         }
         defmt::info!("counter: {}", counter);
+        counter += 1;
 
         /*
-        counter += 1;
         if counter > 20 && false {
             panic!();
         }

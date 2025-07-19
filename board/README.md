@@ -397,8 +397,10 @@ PCB is 21 by 51mm,  lets do 100x120mm to ensure we have space for the paste and 
 
 Both JST plugs I have have opposite polarity from my board...
 
+- Swapped ICM 2.2uF and 100nF (C1 & C2) during assembly.
 - Indicator led works, reasonable brightness for an indicator.
 - Battery charger: no battery; all leds on. Green LED could've been less bright. Can power the board with battery.
   - Battery 280mAh initially at 4.0v, red turns off when battery connected, orange stays on. Red turned off, with battery at 4.15v.
   - Battery does start the program on the board.
   - Big 1200mAh battery start at 3.7v, IC does heat up, but nothing excessive.
+- ICM42688 is responsive through exclusive SPI0.
