@@ -236,6 +236,49 @@ async fn test_bme(p: BmePinTransfer) {
         defmt::error!("BME test failed!");
     }
 }
+struct FlashPinTransfer {
+    spi: embassy_rp::peripherals::SPI0,
+    cs: embassy_rp::peripherals::PIN_17,
+    clk: embassy_rp::peripherals::PIN_18,
+    mosi: embassy_rp::peripherals::PIN_19,
+    miso: embassy_rp::peripherals::PIN_16,
+}
+async fn test_flash(p: FlashPinTransfer) {
+    use embassy_rp::spi::{Config, Phase, Spi};
+    let mut cs = Output::new(p.cs, Level::High);
+    let mut config = Config::default();
+    config.frequency = 10_000_000; // 133MHz max!?
+    let mut spi = Spi::new_blocking(p.spi, p.clk, p.mosi, p.miso, config);
+
+    const REG_JEDEC_ID: u8 = 0x9F;
+
+    let mut read = [0u8; 4];
+    let mut buf = [0u8; 4];
+
+    // Jedec;
+    // [0, c2, 20, 19]
+    // Manufacturer id does not match 0xEF??
+    // Oh, its not a winbond chip.
+    // Macronix MX25L25645G... 256 MBIT
+
+    buf[0] = REG_JEDEC_ID;
+    cs.set_low();
+    let z = spi.blocking_transfer(&mut read, &buf);
+    cs.set_high();
+    defmt::info!("Flash jedec: {:?} {:x}", z, read);
+    const JEDEC_MACRONIX_ID: u8 = 0xC2;
+    const JEDEC_MEMORY_TYPE_MX25L25645G: u8 = 0x20;
+    const JEDEC_MEMORY_DENSITY_MX25L25645G: u8 = 0x19;
+    // Macronix has manufacturer ID c2.
+    if read[1] == JEDEC_MACRONIX_ID
+        && read[2] == JEDEC_MEMORY_TYPE_MX25L25645G
+        && read[3] == JEDEC_MEMORY_DENSITY_MX25L25645G
+    {
+        defmt::info!("Flash is responsive!");
+    } else {
+        defmt::error!("Flash test failed!");
+    }
+}
 
 pub async fn main(spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
@@ -361,32 +404,53 @@ pub async fn main(spawner: Spawner) {
     let mut indicator = Output::new(p.PIN_26, Level::Low);
     let delay = Duration::from_millis(250);
 
-    test_icm(IcmPinTransfer {
-        spi: p.SPI0,
-        cs: p.PIN_5,
-        clk: p.PIN_2,
-        mosi: p.PIN_3,
-        miso: p.PIN_4,
-    })
-    .await;
+    const TEST_ICM: bool = false;
+    const TEST_LSM: bool = false;
+    const TEST_BME: bool = false;
+    const TEST_FLASH: bool = true;
 
-    Timer::after(delay).await;
-    test_lsm(LSM6DSV320XPinTransfer {
-        spi: p.SPI1,
-        cs: p.PIN_13,
-        clk: p.PIN_10,
-        mosi: p.PIN_11,
-        miso: p.PIN_12,
-    })
-    .await;
+    if TEST_ICM {
+        test_icm(IcmPinTransfer {
+            spi: p.SPI0,
+            cs: p.PIN_5,
+            clk: p.PIN_2,
+            mosi: p.PIN_3,
+            miso: p.PIN_4,
+        })
+        .await;
+    } else if TEST_FLASH {
+        Timer::after(delay).await;
+        test_flash(FlashPinTransfer {
+            spi: p.SPI0,
+            cs: p.PIN_17,
+            clk: p.PIN_18,
+            mosi: p.PIN_19,
+            miso: p.PIN_16,
+        })
+        .await;
+    }
 
-    Timer::after(delay).await;
-    test_bme(BmePinTransfer {
-        i2c: p.I2C0,
-        sda: p.PIN_20,
-        scl: p.PIN_21,
-    })
-    .await;
+    if TEST_LSM {
+        Timer::after(delay).await;
+        test_lsm(LSM6DSV320XPinTransfer {
+            spi: p.SPI1,
+            cs: p.PIN_13,
+            clk: p.PIN_10,
+            mosi: p.PIN_11,
+            miso: p.PIN_12,
+        })
+        .await;
+    }
+
+    if TEST_BME {
+        Timer::after(delay).await;
+        test_bme(BmePinTransfer {
+            i2c: p.I2C0,
+            sda: p.PIN_20,
+            scl: p.PIN_21,
+        })
+        .await;
+    }
 
     let mut counter = 0;
     loop {

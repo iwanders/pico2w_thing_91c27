@@ -406,3 +406,4 @@ Both JST plugs I have have opposite polarity from my board...
 - ICM42688 is responsive through exclusive SPI0, who am I register.
 - LSM6dsv320x is responsive through exclusive SPI1, who am I register.
 - BME280 responds the Chip ID register.
+- Flash is responsive, reading JEDEC register works.
