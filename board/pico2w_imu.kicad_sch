@@ -8191,7 +8191,7 @@
 				)
 			)
 		)
-		(property "Value" "1500"
+		(property "Value" "4.3k"
 			(at 90.17 182.88 90)
 			(effects
 				(font
@@ -8226,7 +8226,7 @@
 				(hide yes)
 			)
 		)
-		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF1501X/192060"
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF4321X/192339"
 			(at 90.17 180.34 0)
 			(effects
 				(font
@@ -8235,7 +8235,7 @@
 				(hide yes)
 			)
 		)
-		(property "DigiKey_Part" "P1.50KLCT-ND"
+		(property "DigiKey_Part" "P4.32KLCT-ND"
 			(at 90.17 180.34 0)
 			(effects
 				(font
@@ -9996,7 +9996,7 @@
 				)
 			)
 		)
-		(property "Value" "4347"
+		(property "Value" "10k"
 			(at 90.17 192.786 90)
 			(effects
 				(font
@@ -10031,7 +10031,7 @@
 				(hide yes)
 			)
 		)
-		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF4321X/192339"
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF1002X/192073"
 			(at 90.17 190.5 0)
 			(effects
 				(font
@@ -10040,7 +10040,7 @@
 				(hide yes)
 			)
 		)
-		(property "DigiKey_Part" "P4.32KLCT-ND"
+		(property "DigiKey_Part" "P10.0KLCT-ND"
 			(at 90.17 190.5 0)
 			(effects
 				(font
@@ -12090,7 +12090,7 @@
 				)
 			)
 		)
-		(property "Value" "2500"
+		(property "Value" "4.9k"
 			(at 90.17 173.736 90)
 			(effects
 				(font
@@ -12125,7 +12125,7 @@
 				(hide yes)
 			)
 		)
-		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF2491X/192203"
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERA-2AEB4991X/2026116"
 			(at 90.17 171.45 0)
 			(effects
 				(font
@@ -12134,7 +12134,7 @@
 				(hide yes)
 			)
 		)
-		(property "DigiKey_Part" "P2.49KLCT-ND"
+		(property "DigiKey_Part" "10-ERA-2AEB4991XCT-ND"
 			(at 90.17 171.45 0)
 			(effects
 				(font
@@ -12373,7 +12373,7 @@
 				)
 			)
 		)
-		(property "Value" "137"
+		(property "Value" "2.2k"
 			(at 95.25 21.59 90)
 			(effects
 				(font
@@ -12408,7 +12408,7 @@
 				(hide yes)
 			)
 		)
-		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF1370X/192127"
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF2201X/1746150"
 			(at 95.25 17.78 0)
 			(effects
 				(font
@@ -12417,7 +12417,7 @@
 				(hide yes)
 			)
 		)
-		(property "DigiKey_Part" "P137LCT-ND"
+		(property "DigiKey_Part" "P2.20KLCT-ND"
 			(at 95.25 17.78 0)
 			(effects
 				(font

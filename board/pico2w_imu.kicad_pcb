@@ -1705,7 +1705,7 @@
 				)
 			)
 		)
-		(property "Value" "2500"
+		(property "Value" "4.9k"
 			(at 1.590108 0.059763 0)
 			(layer "F.Fab")
 			(uuid "d03ef9b5-0f4c-4405-b0a8-76ce19dc6462")
@@ -1740,7 +1740,7 @@
 				)
 			)
 		)
-		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF2491X/192203"
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERA-2AEB4991X/2026116"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -1753,7 +1753,7 @@
 				)
 			)
 		)
-		(property "DigiKey_Part" "P2.49KLCT-ND"
+		(property "DigiKey_Part" "10-ERA-2AEB4991XCT-ND"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -4382,7 +4382,7 @@
 				)
 			)
 		)
-		(property "Value" "4347"
+		(property "Value" "10k"
 			(at 0.052472 -0.681925 180)
 			(layer "F.Fab")
 			(uuid "0cbadc8f-c4b6-4ed4-b07f-415bb756cd48")
@@ -4417,7 +4417,7 @@
 				)
 			)
 		)
-		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF4321X/192339"
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF1002X/192073"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -4430,7 +4430,7 @@
 				)
 			)
 		)
-		(property "DigiKey_Part" "P4.32KLCT-ND"
+		(property "DigiKey_Part" "P10.0KLCT-ND"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -5369,7 +5369,7 @@
 				)
 			)
 		)
-		(property "Value" "137"
+		(property "Value" "2.2k"
 			(at 1.47186 -0.024678 180)
 			(layer "F.Fab")
 			(uuid "19bec9da-7019-426f-ab3a-27aeffbda291")
@@ -5404,7 +5404,7 @@
 				)
 			)
 		)
-		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF1370X/192127"
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF2201X/1746150"
 			(at 0 0 180)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -5417,7 +5417,7 @@
 				)
 			)
 		)
-		(property "DigiKey_Part" "P137LCT-ND"
+		(property "DigiKey_Part" "P2.20KLCT-ND"
 			(at 0 0 180)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -9836,8 +9836,8 @@
 				)
 			)
 		)
-		(property "Value" "1500"
-			(at -1.018 -0.254 180)
+		(property "Value" "4.3k"
+			(at -1.272 0 180)
 			(layer "F.Fab")
 			(uuid "b23c527c-bfd5-4419-857a-ccf01061e8ea")
 			(effects
@@ -9871,7 +9871,7 @@
 				)
 			)
 		)
-		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF1501X/192060"
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF4321X/192339"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -9884,7 +9884,7 @@
 				)
 			)
 		)
-		(property "DigiKey_Part" "P1.50KLCT-ND"
+		(property "DigiKey_Part" "P4.32KLCT-ND"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")

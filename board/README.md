@@ -110,7 +110,7 @@ To get 400mA current, we need $R_\text{prog}$ to be 2.5k Ohm.
 
 Modified this to be two resistors of 5k, with one trace that's easily cut to drop from 400mA to 200mA.
 
-> When the voltage at the VBAT pin reaches the regulation voltage, VREG, constant voltage regulation begins. The regulation voltage is factory set to 4.20V, 4.35V, 4.40V, or 4.50V with a tolerance of ± 0.75%. 
+> When the voltage at the VBAT pin reaches the regulation voltage, VREG, constant voltage regulation begins. The regulation voltage is factory set to 4.20V, 4.35V, 4.40V, or 4.50V with a tolerance of ± 0.75%.
 
 > If temperature monitoring is not required, place a standard 10 kΩ resistor from THERM to VSS.
 
@@ -162,10 +162,10 @@ Nominal is 2V.
 Relative luminous intensity is a straight line. Lets say aim is 10mcd?
 
 - P1 brightness group needs 10/50 * 20mA = 4mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/4e-3` = 750 ohm.
-- Avg needs 10/100 * 20mA = 2mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/2e-3` = 1500 ohm. 
+- Avg needs 10/100 * 20mA = 2mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/2e-3` = 1500 ohm.
 - R2 brightness group needs 10/150 * 20mA = 1.3mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/1.3e-3` = 2250 ohm.
 
-Note; 3.3k ohm seems to be more than bright enough. 6.8k also works. 10k is dim, but still easily visisble, makes the 'dot' visible.
+Note; 3.3k ohm seems to be more than bright enough. 6.8k also works. 10k is dim, but still easily visisble, makes the 'dot' visible. Lets go with 4.3k
 
 #### Orange
 , VBus is from USB, so 5V, the pin sinks.
@@ -189,7 +189,7 @@ Nominal is 2V.
 Relative luminous intensity is a straight line. Lets say aim is 10mcd?
 
 - Q1 brightness group needs 10/80 * 20mA = 2.5mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/2.5e-3` = 1200 ohm.
-- Avg needs 10/166 * 20mA = 1.2mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/1.2e-3` = 2500 ohm. 
+- Avg needs 10/166 * 20mA = 1.2mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/1.2e-3` = 2500 ohm.
 - S2 brightness group needs 10/252 * 20mA = 0.8mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2)/0.8e-3` = 3750 ohm.
 
 10k is dim, but still easily visisble, makes the 'dot' visible. 5.1k is present, but not overly bright. 3.3k is also fine. Doesn't seem to be super bright like the green one is. 2k is definitely getting to 'no longer an indicator light'
@@ -217,7 +217,7 @@ Nominal is 2.7V.
 Relative luminous intensity is not a straight line, graph is non uniform, but not by much... 7.5mcd goal?
 
 - S2 brightness group needs 7.5/252 * 20mA = 0.6mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2.7)/0.6e-3` = 3833 ohm.
-- Avg needs 10/378 * 20mA = 0.529mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2.7)/0.529e-3` = 4347 ohm. 
+- Avg needs 10/378 * 20mA = 0.529mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2.7)/0.529e-3` = 4347 ohm.
 - U2 brightness group needs 7.5/505 * 20mA = 0.3mA, so $R=\frac{V_s - V_f}{I_f}$, `(5-2.7)/0.3e-3` = 7666 ohm.
 
 
@@ -297,7 +297,7 @@ Decoupling cap is 100nF, see above.
 
 Verified pins.
 
-## Memory 
+## Memory
 
 Decoupling cap is 100nF, see above.
 
@@ -364,7 +364,7 @@ For LGA pad spacing greater than 200 μm:
 A = PCB land length = LGA solder pad length + 0.1 mm
 B = PCB land width = LGA solder pad width + 0.1 mm
 ```
-Pad is 0.25mm by 0.475mm, so pad should be 0.35mm by 0.575mm. Doesn't state to round corners. 
+Pad is 0.25mm by 0.475mm, so pad should be 0.35mm by 0.575mm. Doesn't state to round corners.
 
 And then the solder mask:
 ```
@@ -390,4 +390,3 @@ PCB is 21 by 51mm,  lets do 100x120mm to ensure we have space for the paste and 
 
 - ICM-42688-p pin 8 should've exited straight (towards charge ic), there's space and currently the solder mask is over the trace which may pull the IC to the side.
 - Microphone hole looks like it could've been larger.
-
