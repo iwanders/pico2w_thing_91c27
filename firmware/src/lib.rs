@@ -211,6 +211,32 @@ async fn test_lsm(p: LSM6DSV320XPinTransfer) {
     }
 }
 
+struct BmePinTransfer {
+    i2c: embassy_rp::peripherals::I2C0,
+    sda: embassy_rp::peripherals::PIN_20,
+    scl: embassy_rp::peripherals::PIN_21,
+}
+async fn test_bme(p: BmePinTransfer) {
+    use embassy_rp::i2c::{Config, I2c};
+    let mut config = Config::default();
+    //config.frequency = 100_000;
+    let mut i2c = I2c::new_blocking(p.i2c, p.scl, p.sda, config);
+
+    const I2C_BUS_ADDRESS: u8 = 0x76;
+    const REG_CHIP_ID: u8 = 0xD0;
+    let mut read = [0u8; 1];
+    let mut buf = [0u8; 1];
+    buf[0] = REG_CHIP_ID;
+    let z = i2c.blocking_write_read(I2C_BUS_ADDRESS, &buf, &mut read);
+    let z = 3;
+    defmt::info!("BME who am i: {:?} {:x}", z, read);
+    if read[0] == 0x60 {
+        defmt::info!("BME is responsive!");
+    } else {
+        defmt::error!("BME test failed!");
+    }
+}
+
 pub async fn main(spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
     rp2350_util::panic_info_scratch::set_panic_files(PANIC_HANDLER_FILE_LIST);
@@ -344,12 +370,21 @@ pub async fn main(spawner: Spawner) {
     })
     .await;
 
+    Timer::after(delay).await;
     test_lsm(LSM6DSV320XPinTransfer {
         spi: p.SPI1,
         cs: p.PIN_13,
         clk: p.PIN_10,
         mosi: p.PIN_11,
         miso: p.PIN_12,
+    })
+    .await;
+
+    Timer::after(delay).await;
+    test_bme(BmePinTransfer {
+        i2c: p.I2C0,
+        sda: p.PIN_20,
+        scl: p.PIN_21,
     })
     .await;
 
