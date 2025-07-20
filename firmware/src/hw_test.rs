@@ -220,6 +220,7 @@ async fn test_mic(p: MicPinTransfer) {
     //let target_clock_delay_ns = nanos_per_second / (48_000 * 64);
     let clock_half = Duration::from_nanos(600);
     defmt::info!("clock_half: {:#?}", clock_half);
+    Timer::after_millis(100).await;
 
     let mut buffer = [0u32; 64];
     let mut counter = 0;
@@ -227,24 +228,43 @@ async fn test_mic(p: MicPinTransfer) {
     const BIT_DEPTH: u32 = 16;
     const CHANNELS: u32 = 2;
 
+    Timer::after_millis(100).await;
+    defmt::debug!("after setup");
     bind_interrupts!(struct Irqs {
-        PIO1_IRQ_0 => InterruptHandler<PIO1>;
+
+        PIO1_IRQ_0 => embassy_rp::pio:: InterruptHandler<embassy_rp::peripherals::PIO1>;
     });
 
     // Setup pio state machine for i2s output
     let Pio {
-        mut common, sm0, ..
+        mut common, sm1, ..
     } = Pio::new(p.pio_dev, Irqs);
 
+    Timer::after_millis(100).await;
+    defmt::debug!("pio created");
     let bit_clock_pin = p.clk;
     let left_right_clock_pin = p.ws;
     let data_pin = p.data;
 
+    Timer::after_millis(100).await;
+    defmt::debug!("loading program");
     use crate::i2s_input::{PioI2sIn, PioI2sInProgram};
     let program = PioI2sInProgram::new(&mut common);
+
+    for _ in 0..5 {
+        Timer::after_millis(100).await;
+        defmt::debug!("after program");
+    }
+
+    Timer::after_millis(100).await;
+    for _ in 0..5 {
+        Timer::after_millis(100).await;
+        defmt::debug!("making i2s new in");
+    }
+
     let mut i2s = PioI2sIn::new(
         &mut common,
-        sm0,
+        sm1,
         p.dma_chan,
         data_pin,
         bit_clock_pin,
@@ -254,6 +274,11 @@ async fn test_mic(p: MicPinTransfer) {
         CHANNELS,
         &program,
     );
+    Timer::after_millis(100).await;
+    for _ in 0..5 {
+        Timer::after_millis(100).await;
+        defmt::debug!("after new in");
+    }
 
     use static_cell::StaticCell;
 
@@ -271,11 +296,16 @@ async fn test_mic(p: MicPinTransfer) {
     loop {
         // trigger transfer of front buffer data to the pio fifo
         // but don't await the returned future, yet
-        let dma_future = i2s.write(front_buffer);
+        let dma_future = i2s.read(front_buffer);
 
         // now await the dma future. once the dma finishes, the next buffer needs to be queued
         // within DMA_DEPTH / SAMPLE_RATE = 8 / 48000 seconds = 166us
-        dma_future.await;
+        //
+        if let Err(_) = embassy_time::with_timeout(Duration::from_millis(100), dma_future).await {
+            defmt::warn!("Timed out!");
+        } else {
+            defmt::warn!("buffer available!");
+        }
         core::mem::swap(&mut back_buffer, &mut front_buffer);
         counter += 1;
         if counter % 100 == 0 {

@@ -51,6 +51,7 @@ pub static PICOTOOL_ENTRIES: [embassy_rp::binary_info::EntryAddr; 4] = [
 bind_interrupts!(struct Irqs {
     //PIO0_IRQ_0 => PioInterruptHandler<PIO0>;
     USBCTRL_IRQ => UsbInterruptHandler<USB>;
+    //PIO1_IRQ_0 => embassy_rp::pio:: InterruptHandler<embassy_rp::peripherals::PIO1>;
 });
 
 #[embassy_executor::task]
@@ -151,6 +152,7 @@ pub async fn main(spawner: Spawner) {
         Timer::after(delay).await;
         info!("wait a bit");
     }
+    info!("checking panic.");
 
     let mut w = embassy_rp::watchdog::Watchdog::new(p.WATCHDOG);
 
@@ -160,6 +162,7 @@ pub async fn main(spawner: Spawner) {
         let delay = Duration::from_millis(5000);
         Timer::after(delay).await;
     }
+    info!("Printing sysid");
 
     let delay = Duration::from_millis(500);
     Timer::after(delay).await;
@@ -189,6 +192,7 @@ pub async fn main(spawner: Spawner) {
 
     // Test section
     // *
+    info!("Going into test.");
     use embassy_rp::Peripherals;
     hw_test::hw_test(unsafe { Peripherals::steal() }).await;
     //hw_test::test_wifi(unsafe { Peripherals::steal() }, spawner).await;

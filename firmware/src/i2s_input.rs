@@ -20,16 +20,16 @@ impl<'a, PIO: Instance> PioI2sInProgram<'a, PIO> {
     pub fn new(common: &mut Common<'a, PIO>) -> Self {
         let prg = pio::pio_asm!(
             ".side_set 2",
-            "    set x, 14          side 0b01", // side 0bWB - W = Word Clock, B = Bit Clock
+            "    set x 14          side 0b01", // side 0bWB - W = Word Clock, B = Bit Clock
             "left_data:",
-            "    in pins, 1        side 0b00",
+            "    in pins 1        side 0b00",
             "    jmp x-- left_data  side 0b01",
-            "    out pins 1         side 0b10",
-            "    set x, 14          side 0b11",
+            "    in pins, 1         side 0b10",
+            "    set x 14          side 0b11",
             "right_data:",
             "    in pins 1         side 0b10",
             "    jmp x-- right_data side 0b11",
-            "    out pins 1         side 0b00",
+            "    in pins 1         side 0b00",
         );
 
         let prg = common.load_program(&prg.program);
@@ -66,14 +66,15 @@ impl<'a, P: Instance, const S: usize> PioI2sIn<'a, P, S> {
 
         let cfg = {
             let mut cfg = Config::default();
-            cfg.use_program(&program.prg, &[&bit_clock_pin, &left_right_clock_pin]);
-            cfg.set_out_pins(&[&data_pin, &left_right_clock_pin, &bit_clock_pin]);
+            // NOTE: ORDER OF SIDE SET MUST MATCH _SOMETHING_ else it hangs.
+            cfg.use_program(&program.prg, &[&left_right_clock_pin, &bit_clock_pin]);
+            cfg.set_in_pins(&[&data_pin]); //  not set and output pins since they're not connected to the Tx buffer?
             let clock_frequency = sample_rate * bit_depth * channels;
             cfg.clock_divider =
                 (embassy_rp::clocks::clk_sys_freq() as f64 / clock_frequency as f64 / 2.)
                     .to_fixed();
-            cfg.shift_out = ShiftConfig {
-                threshold: 24,
+            cfg.shift_in = ShiftConfig {
+                threshold: 32,
                 direction: ShiftDirection::Left,
                 auto_fill: true,
             };
@@ -94,7 +95,7 @@ impl<'a, P: Instance, const S: usize> PioI2sIn<'a, P, S> {
     }
 
     /// Return an in-prograss dma transfer future. Awaiting it will guarentee a complete transfer.
-    pub fn write<'b>(&'b mut self, buff: &'b [u32]) -> Transfer<'b, AnyChannel> {
-        self.sm.tx().dma_push(self.dma.reborrow(), buff, false)
+    pub fn read<'b>(&'b mut self, buff: &'b mut [u32]) -> Transfer<'b, AnyChannel> {
+        self.sm.rx().dma_pull(self.dma.reborrow(), buff, false)
     }
 }
