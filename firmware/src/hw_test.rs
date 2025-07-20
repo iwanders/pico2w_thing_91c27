@@ -194,7 +194,7 @@ struct MicPinTransfer {
 async fn test_mic(p: MicPinTransfer) {
     use embassy_rp::peripherals::PIO1;
     use embassy_rp::pio::{InterruptHandler, Pio};
-    return;
+    //return;
     // ICS 43434
     // Slave data port's format is i2s, two's complement.
     // 64 SCK cycles for seach WS sterio frame.
@@ -240,9 +240,9 @@ async fn test_mic(p: MicPinTransfer) {
     let left_right_clock_pin = p.ws;
     let data_pin = p.data;
 
-    use crate::i2s_input::{PioI2sOut, PioI2sOutProgram};
-    let program = PioI2sOutProgram::new(&mut common);
-    let mut i2s = PioI2sOut::new(
+    use crate::i2s_input::{PioI2sIn, PioI2sInProgram};
+    let program = PioI2sInProgram::new(&mut common);
+    let mut i2s = PioI2sIn::new(
         &mut common,
         sm0,
         p.dma_chan,
@@ -277,10 +277,6 @@ async fn test_mic(p: MicPinTransfer) {
         // within DMA_DEPTH / SAMPLE_RATE = 8 / 48000 seconds = 166us
         dma_future.await;
         core::mem::swap(&mut back_buffer, &mut front_buffer);
-    }
-
-    //let i2s = crate::i2s_input::PioI2sOut
-    loop {
         counter += 1;
         if counter % 100 == 0 {
             defmt::info!("i2s bitbang data: {:#?}", buffer);

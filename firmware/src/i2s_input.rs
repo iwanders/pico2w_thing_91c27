@@ -10,23 +10,24 @@ use fixed::traits::ToFixed;
 use pio;
 
 /// This struct represents an i2s output driver program
-pub struct PioI2sOutProgram<'a, PIO: Instance> {
+pub struct PioI2sInProgram<'a, PIO: Instance> {
     prg: LoadedProgram<'a, PIO>,
 }
 
-impl<'a, PIO: Instance> PioI2sOutProgram<'a, PIO> {
+impl<'a, PIO: Instance> PioI2sInProgram<'a, PIO> {
+    // Okay, page 876 shows the things we have. We have
     /// Load the program into the given pio
     pub fn new(common: &mut Common<'a, PIO>) -> Self {
         let prg = pio::pio_asm!(
             ".side_set 2",
             "    set x, 14          side 0b01", // side 0bWB - W = Word Clock, B = Bit Clock
             "left_data:",
-            "    out pins, 1        side 0b00",
+            "    in pins, 1        side 0b00",
             "    jmp x-- left_data  side 0b01",
             "    out pins 1         side 0b10",
             "    set x, 14          side 0b11",
             "right_data:",
-            "    out pins 1         side 0b10",
+            "    in pins 1         side 0b10",
             "    jmp x-- right_data side 0b11",
             "    out pins 1         side 0b00",
         );
@@ -38,12 +39,12 @@ impl<'a, PIO: Instance> PioI2sOutProgram<'a, PIO> {
 }
 
 /// Pio backed I2s output driver
-pub struct PioI2sOut<'a, P: Instance, const S: usize> {
+pub struct PioI2sIn<'a, P: Instance, const S: usize> {
     dma: PeripheralRef<'a, AnyChannel>,
     sm: StateMachine<'a, P, S>,
 }
 
-impl<'a, P: Instance, const S: usize> PioI2sOut<'a, P, S> {
+impl<'a, P: Instance, const S: usize> PioI2sIn<'a, P, S> {
     /// Configure a state machine to output I2s
     pub fn new(
         common: &mut Common<'a, P>,
@@ -55,7 +56,7 @@ impl<'a, P: Instance, const S: usize> PioI2sOut<'a, P, S> {
         sample_rate: u32,
         bit_depth: u32,
         channels: u32,
-        program: &PioI2sOutProgram<'a, P>,
+        program: &PioI2sInProgram<'a, P>,
     ) -> Self {
         into_ref!(dma);
 
@@ -66,25 +67,23 @@ impl<'a, P: Instance, const S: usize> PioI2sOut<'a, P, S> {
         let cfg = {
             let mut cfg = Config::default();
             cfg.use_program(&program.prg, &[&bit_clock_pin, &left_right_clock_pin]);
-            cfg.set_out_pins(&[&data_pin]);
+            cfg.set_out_pins(&[&data_pin, &left_right_clock_pin, &bit_clock_pin]);
             let clock_frequency = sample_rate * bit_depth * channels;
             cfg.clock_divider =
                 (embassy_rp::clocks::clk_sys_freq() as f64 / clock_frequency as f64 / 2.)
                     .to_fixed();
             cfg.shift_out = ShiftConfig {
-                threshold: 32,
+                threshold: 24,
                 direction: ShiftDirection::Left,
                 auto_fill: true,
             };
             // join fifos to have twice the time to start the next dma transfer
-            cfg.fifo_join = FifoJoin::TxOnly;
+            cfg.fifo_join = FifoJoin::RxOnly;
             cfg
         };
         sm.set_config(&cfg);
-        sm.set_pin_dirs(
-            Direction::Out,
-            &[&data_pin, &left_right_clock_pin, &bit_clock_pin],
-        );
+        sm.set_pin_dirs(Direction::Out, &[&left_right_clock_pin, &bit_clock_pin]);
+        sm.set_pin_dirs(Direction::In, &[&data_pin]);
 
         sm.set_enable(true);
 
