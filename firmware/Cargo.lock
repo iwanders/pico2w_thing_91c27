@@ -791,8 +791,10 @@ dependencies = [
  "embedded-hal-bus",
  "embedded-io-async",
  "embedded-sdmmc",
+ "fixed",
  "heapless 0.8.0",
  "panic-probe",
+ "pio",
  "static_cell",
 ]
 

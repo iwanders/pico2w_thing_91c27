@@ -64,6 +64,8 @@ heapless = "0.8.0"
 embedded-sdmmc = "0.7.0"
 embedded-hal-bus = { version = "0.1", features = ["async"] }
 
+pio = { version = "0.3" }
+fixed = "1.28.0"
 [profile.release]
 lto = true
 opt-level = "s"

@@ -8,6 +8,7 @@
 mod defmt_serial;
 
 mod hw_test;
+pub mod i2s_input;
 pub mod rp2350_util;
 use defmt::{error, info, unwrap};
 use embassy_executor::Spawner;
@@ -187,12 +188,11 @@ pub async fn main(spawner: Spawner) {
     */
 
     // Test section
-    /*
-    //use embassy_rp::Peripherals;
-    //hw_test::hw_test(unsafe { Peripherals::steal() }).await;
+    // *
+    use embassy_rp::Peripherals;
+    hw_test::hw_test(unsafe { Peripherals::steal() }).await;
     //hw_test::test_wifi(unsafe { Peripherals::steal() }, spawner).await;
-     */
-
+    // */
     let mut indicator = Output::new(p.PIN_26, Level::Low);
     let delay = Duration::from_millis(250);
 

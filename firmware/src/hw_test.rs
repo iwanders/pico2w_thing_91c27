@@ -185,11 +185,16 @@ async fn test_sdcard(p: SdCardPinTransfer) {
 }
 
 struct MicPinTransfer {
+    pio_dev: embassy_rp::peripherals::PIO1,
+    dma_chan: embassy_rp::peripherals::DMA_CH0,
     ws: embassy_rp::peripherals::PIN_7,
     clk: embassy_rp::peripherals::PIN_8,
     data: embassy_rp::peripherals::PIN_9,
 }
 async fn test_mic(p: MicPinTransfer) {
+    use embassy_rp::peripherals::PIO1;
+    use embassy_rp::pio::{InterruptHandler, Pio};
+    return;
     // ICS 43434
     // Slave data port's format is i2s, two's complement.
     // 64 SCK cycles for seach WS sterio frame.
@@ -206,9 +211,9 @@ async fn test_mic(p: MicPinTransfer) {
     // LR is grounded, so we're in the left frame.
     defmt::error!("Microphone test with i2s and all that.");
     // Okay, so as long as we bit-bang higher than 3.125 kHz, we should get some data.
-    let mut ws = Output::new(p.ws, Level::High);
-    let mut clk = Output::new(p.clk, Level::High);
-    let input = Input::new(p.data, embassy_rp::gpio::Pull::None);
+    //let mut ws = Output::new(p.ws, Level::High);
+    //let mut clk = Output::new(p.clk, Level::High);
+    //let input = Input::new(p.data, embassy_rp::gpio::Pull::None);
 
     // lets target 200 kHz clock.
     //let nanos_per_second = 1_000_000_000;
@@ -218,32 +223,65 @@ async fn test_mic(p: MicPinTransfer) {
 
     let mut buffer = [0u32; 64];
     let mut counter = 0;
+    const SAMPLE_RATE: u32 = 48_000;
+    const BIT_DEPTH: u32 = 16;
+    const CHANNELS: u32 = 2;
+
+    bind_interrupts!(struct Irqs {
+        PIO1_IRQ_0 => InterruptHandler<PIO1>;
+    });
+
+    // Setup pio state machine for i2s output
+    let Pio {
+        mut common, sm0, ..
+    } = Pio::new(p.pio_dev, Irqs);
+
+    let bit_clock_pin = p.clk;
+    let left_right_clock_pin = p.ws;
+    let data_pin = p.data;
+
+    use crate::i2s_input::{PioI2sOut, PioI2sOutProgram};
+    let program = PioI2sOutProgram::new(&mut common);
+    let mut i2s = PioI2sOut::new(
+        &mut common,
+        sm0,
+        p.dma_chan,
+        data_pin,
+        bit_clock_pin,
+        left_right_clock_pin,
+        SAMPLE_RATE,
+        BIT_DEPTH,
+        CHANNELS,
+        &program,
+    );
+
+    use static_cell::StaticCell;
+
+    // create two audio buffers (back and front) which will take turns being
+    // filled with new audio data and being sent to the pio fifo using dma
+    const BUFFER_SIZE: usize = 960;
+    static DMA_BUFFER: StaticCell<[u32; BUFFER_SIZE * 2]> = StaticCell::new();
+    let dma_buffer = DMA_BUFFER.init_with(|| [0u32; BUFFER_SIZE * 2]);
+    let (mut back_buffer, mut front_buffer) = dma_buffer.split_at_mut(BUFFER_SIZE);
+
+    // start pio state machine
+    let mut fade_value: i32 = 0;
+    let mut phase: i32 = 0;
+
+    loop {
+        // trigger transfer of front buffer data to the pio fifo
+        // but don't await the returned future, yet
+        let dma_future = i2s.write(front_buffer);
+
+        // now await the dma future. once the dma finishes, the next buffer needs to be queued
+        // within DMA_DEPTH / SAMPLE_RATE = 8 / 48000 seconds = 166us
+        dma_future.await;
+        core::mem::swap(&mut back_buffer, &mut front_buffer);
+    }
+
+    //let i2s = crate::i2s_input::PioI2sOut
     loop {
         counter += 1;
-        for d in buffer.iter_mut() {
-            ws.set_low();
-            clk.set_low();
-            Timer::after(clock_half).await;
-            clk.set_high();
-            for b in 0..32 {
-                clk.set_low();
-                Timer::after(clock_half).await;
-                *d |= (input.is_high() as u32) << b;
-                clk.set_high();
-                Timer::after(clock_half).await;
-            }
-            ws.set_high();
-            clk.set_low();
-            Timer::after(clock_half).await;
-            clk.set_high();
-            for _ in 0..32 {
-                clk.set_low();
-                Timer::after(clock_half).await;
-                clk.set_high();
-                Timer::after(clock_half).await;
-            }
-            Timer::after(clock_half).await;
-        }
         if counter % 100 == 0 {
             defmt::info!("i2s bitbang data: {:#?}", buffer);
         }
@@ -428,6 +466,8 @@ pub async fn hw_test(p: Peripherals) -> ! {
 
     if TEST_MIC {
         test_mic(MicPinTransfer {
+            pio_dev: p.PIO1,
+            dma_chan: p.DMA_CH0,
             ws: p.PIN_7,
             clk: p.PIN_8,
             data: p.PIN_9,
@@ -446,5 +486,8 @@ pub async fn hw_test(p: Peripherals) -> ! {
         Timer::after(delay).await;
 
         defmt::info!("led off!");
+        indicator.set_low();
+
+        Timer::after(delay).await;
     }
 }
