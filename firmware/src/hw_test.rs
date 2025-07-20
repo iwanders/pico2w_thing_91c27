@@ -2,6 +2,7 @@
 
 use embassy_executor::Spawner;
 use embassy_rp::gpio::{Input, Level, Output};
+use embassy_rp::usb::In;
 use embassy_rp::{bind_interrupts, Peripherals};
 use embassy_time::{Duration, Timer};
 
@@ -189,7 +190,64 @@ struct MicPinTransfer {
     data: embassy_rp::peripherals::PIN_9,
 }
 async fn test_mic(p: MicPinTransfer) {
+    // ICS 43434
+    // Slave data port's format is i2s, two's complement.
+    // 64 SCK cycles for seach WS sterio frame.
+    // When set to left; data will be output following WS's falling edge.
+    // When set to right; data will be output following WS's rising edge.
+    // In this format, the MSB of each word is delayed by one SCK cycle from
+    // the start of each half-frame.
+    // There is no commonly accepted unit of measurement to express the instantaneous level of a digital signal output
+    // Uhh, may be worth reading that AN-1112 Application Note, Microphone Specifications Explained.
+    // AN-1140, Microphone Array Beamforming <- also interesting.
+    //
+    // Low power mode is entered when the sampling frequency is between 6.25 and 18.75 kHz. Below 3.125 kHz is goes into
+    // sleep.
+    // LR is grounded, so we're in the left frame.
     defmt::error!("Microphone test with i2s and all that.");
+    // Okay, so as long as we bit-bang higher than 3.125 kHz, we should get some data.
+    let mut ws = Output::new(p.ws, Level::High);
+    let mut clk = Output::new(p.clk, Level::High);
+    let input = Input::new(p.data, embassy_rp::gpio::Pull::None);
+
+    // lets target 200 kHz clock.
+    //let nanos_per_second = 1_000_000_000;
+    //let target_clock_delay_ns = nanos_per_second / (48_000 * 64);
+    let clock_half = Duration::from_nanos(600);
+    defmt::info!("clock_half: {:#?}", clock_half);
+
+    let mut buffer = [0u32; 64];
+    let mut counter = 0;
+    loop {
+        counter += 1;
+        for d in buffer.iter_mut() {
+            ws.set_low();
+            clk.set_low();
+            Timer::after(clock_half).await;
+            clk.set_high();
+            for b in 0..32 {
+                clk.set_low();
+                Timer::after(clock_half).await;
+                *d |= (input.is_high() as u32) << b;
+                clk.set_high();
+                Timer::after(clock_half).await;
+            }
+            ws.set_high();
+            clk.set_low();
+            Timer::after(clock_half).await;
+            clk.set_high();
+            for _ in 0..32 {
+                clk.set_low();
+                Timer::after(clock_half).await;
+                clk.set_high();
+                Timer::after(clock_half).await;
+            }
+            Timer::after(clock_half).await;
+        }
+        if counter % 100 == 0 {
+            defmt::info!("i2s bitbang data: {:#?}", buffer);
+        }
+    }
 }
 
 use cyw43_pio::PioSpi;
