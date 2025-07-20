@@ -1,5 +1,16 @@
-//! Pio backed I2s output
-
+/// Pio backed I2s input (hacked up from the output example)
+///
+/// Specifically for; ICS-43434
+/// The slave serial data port’s format is I2S, 24-bit, twos complement. There must be 64 SCK cycles in each WS stereo frame. The LR
+/// control pin determines whether the ICS-43434 outputs data in the left or right channel. When set to the left channel, the data will be
+/// output following WS’s falling edge and when set to output on the right channel, data will be output following WS’s rising edge.
+///
+/// Data from the DMA buffer needs to be bit shifted one to the left, after which the top 24 bits are good data.
+/// It always samples both left and right, even if only one channel is selected.
+///
+/// The whole clock calculation seems right, but it should be possible to sample at a lowe rrate, that's untested.
+///
+/// Beware the order of the pins in new::new!
 use embassy_rp::dma::{AnyChannel, Channel, Transfer};
 use embassy_rp::pio::{
     Common, Config, Direction, FifoJoin, Instance, LoadedProgram, PioPin, ShiftConfig,
@@ -21,9 +32,6 @@ impl<'a, PIO: Instance> PioI2sInProgram<'a, PIO> {
         let prg = pio::pio_asm!(
             ".side_set 2",
             "    set x 30          side 0b00", // side, switched to 0xBW, bit, word
-            //"nop side 0b10",                   // burn first clock cycle.
-            //"nop side 0b00",
-            //"nop side 0b10",
             "left_data:",
             "    in pins 1          side 0b10",
             "    jmp x-- left_data  side 0b00",
@@ -31,12 +39,9 @@ impl<'a, PIO: Instance> PioI2sInProgram<'a, PIO> {
             "    in pins, 1         side 0b10",
             // Switch to right channel, r
             "    set x 30           side 0b01",
-            //"nop side 0b11", // burn first clock cycle.
-            //"nop side 0b01",
             "right_data:",
             "    in pins 1          side 0b11",
             "    jmp x-- right_data side 0b01",
-            //"    in pins 1          side 0b01",
             "    in pins, 1         side 0b11",
         );
 
@@ -74,7 +79,7 @@ impl<'a, P: Instance, const S: usize> PioI2sIn<'a, P, S> {
 
         let cfg = {
             let mut cfg = Config::default();
-            // NOTE: ORDER OF SIDE SET MUST MATCH _SOMETHING_ else it hangs.
+            // NOTE: ORDER OF SIDE SET PINS MUST MATCH _SOMETHING_ else it hangs.
             cfg.use_program(&program.prg, &[&left_right_clock_pin, &bit_clock_pin]);
             cfg.set_in_pins(&[&data_pin]); //  not set and output pins since they're not connected to the Tx buffer?
             let clock_frequency = sample_rate * bit_depth * channels;

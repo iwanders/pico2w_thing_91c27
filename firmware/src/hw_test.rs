@@ -301,13 +301,10 @@ async fn test_mic(p: MicPinTransfer) {
 
         // now await the dma future. once the dma finishes, the next buffer needs to be queued
         // within DMA_DEPTH / SAMPLE_RATE = 8 / 48000 seconds = 166us
-        //
-        if let Err(_) = embassy_time::with_timeout(Duration::from_millis(100), dma_future).await {
-            defmt::warn!("Timed out!");
-        } else {
-            defmt::warn!("buffer available!");
-        }
+        dma_future.await;
+
         core::mem::swap(&mut back_buffer, &mut front_buffer);
+
         counter += 1;
         if counter % 100 == 0 || true {
             // make an i32 window.
@@ -330,11 +327,9 @@ async fn test_mic(p: MicPinTransfer) {
         }
         Timer::after_millis(100).await;
         defmt::info!("buff {}: {:#x}", i, buffer);
-        if i > 1 {
-            loop {
-                Timer::after_millis(100).await;
-            }
-        }
+    }
+    loop {
+        Timer::after_millis(100).await;
     }
 }
 
