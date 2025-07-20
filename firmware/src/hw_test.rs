@@ -222,10 +222,9 @@ async fn test_mic(p: MicPinTransfer) {
     defmt::info!("clock_half: {:#?}", clock_half);
     Timer::after_millis(100).await;
 
-    let mut buffer = [0u32; 64];
     let mut counter = 0;
     const SAMPLE_RATE: u32 = 48_000;
-    const BIT_DEPTH: u32 = 24;
+    const BIT_DEPTH: u32 = 32;
     const CHANNELS: u32 = 2;
 
     Timer::after_millis(100).await;
@@ -289,11 +288,13 @@ async fn test_mic(p: MicPinTransfer) {
     let dma_buffer = DMA_BUFFER.init_with(|| [0u32; BUFFER_SIZE * 2]);
     let (mut back_buffer, mut front_buffer) = dma_buffer.split_at_mut(BUFFER_SIZE);
 
-    // start pio state machine
-    let mut fade_value: i32 = 0;
-    let mut phase: i32 = 0;
+    const CHUNKS_TO_COLLECT: usize = 20;
+    let huge_buffer = {
+        static DMA_BUFFER: StaticCell<[i32; BUFFER_SIZE * 20]> = StaticCell::new();
+        DMA_BUFFER.init_with(|| [0i32; BUFFER_SIZE * 20])
+    };
 
-    loop {
+    for i in 0..CHUNKS_TO_COLLECT {
         // trigger transfer of front buffer data to the pio fifo
         // but don't await the returned future, yet
         let dma_future = i2s.read(front_buffer);
@@ -308,9 +309,24 @@ async fn test_mic(p: MicPinTransfer) {
         }
         core::mem::swap(&mut back_buffer, &mut front_buffer);
         counter += 1;
-        if counter % 100 == 0 {
-            defmt::info!("i2s bitbang data: {:#?}", buffer);
+        if counter % 100 == 0 || true {
+            // make an i32 window.
+            let back_i32 = unsafe {
+                core::slice::from_raw_parts(back_buffer.as_ptr().cast::<i32>(), BUFFER_SIZE)
+            };
+            //defmt::info!("i2s bitbang data: {:#?}", back_i32);
+            huge_buffer[(i * BUFFER_SIZE)..(i + 1) * BUFFER_SIZE].copy_from_slice(&back_i32);
         }
+    }
+    for i in 0..CHUNKS_TO_COLLECT {
+        // We have 32 bits of data now, but the relevant part is the left 24 bits, the LSB section between bit 26 and
+        // bit 32 is empty.
+        Timer::after_millis(100).await;
+        defmt::info!(
+            "buff {}: {:#?}",
+            i,
+            huge_buffer[(i * BUFFER_SIZE)..(i + 1) * BUFFER_SIZE]
+        );
     }
 }
 

@@ -15,21 +15,29 @@ pub struct PioI2sInProgram<'a, PIO: Instance> {
 }
 
 impl<'a, PIO: Instance> PioI2sInProgram<'a, PIO> {
-    // Okay, page 876 shows the things we have. We have
-    /// Load the program into the given pio
+    // This program now matches the waveforms in DS-000064-ICS-43434-v1.2.pdf, p13 for left and right, but the data it
+    // produces is still wrong.
     pub fn new(common: &mut Common<'a, PIO>) -> Self {
         let prg = pio::pio_asm!(
             ".side_set 2",
-            "    set x 14          side 0b10", // side 0bWB - W = Word Clock, B = Bit Clock
+            "    set x 30          side 0b00", // side, switched to 0xBW, bit, word
+            //"nop side 0b10",                   // burn first clock cycle.
+            //"nop side 0b00",
+            //"nop side 0b10",
             "left_data:",
-            "    in pins 1        side 0b00",
-            "    jmp x-- left_data  side 0b10",
-            "    in pins, 1         side 0b01",
-            "    set x 14          side 0b11",
+            "    in pins 1          side 0b10",
+            "    jmp x-- left_data  side 0b00",
+            // Read last entry to insert clock.
+            "    in pins, 1         side 0b10",
+            // Switch to right channel, r
+            "    set x 30           side 0b01",
+            //"nop side 0b11", // burn first clock cycle.
+            //"nop side 0b01",
             "right_data:",
-            "    in pins 1         side 0b01",
-            "    jmp x-- right_data side 0b11",
-            "    in pins 1         side 0b00",
+            "    in pins 1          side 0b11",
+            "    jmp x-- right_data side 0b01",
+            //"    in pins 1          side 0b01",
+            "    in pins, 1         side 0b11",
         );
 
         let prg = common.load_program(&prg.program);
@@ -74,7 +82,7 @@ impl<'a, P: Instance, const S: usize> PioI2sIn<'a, P, S> {
                 (embassy_rp::clocks::clk_sys_freq() as f64 / clock_frequency as f64 / 2.)
                     .to_fixed();
             cfg.shift_in = ShiftConfig {
-                threshold: 32,
+                threshold: 24, // ICS43434 always requires 32 clock cycles per frame, even though only 24 bits are used.
                 direction: ShiftDirection::Left,
                 auto_fill: true,
             };
@@ -94,7 +102,7 @@ impl<'a, P: Instance, const S: usize> PioI2sIn<'a, P, S> {
         }
     }
 
-    /// Return an in-prograss dma transfer future. Awaiting it will guarentee a complete transfer.
+    /// Return an in-progress dma transfer future. Awaiting it will guarantee a complete transfer.
     pub fn read<'b>(&'b mut self, buff: &'b mut [u32]) -> Transfer<'b, AnyChannel> {
         self.sm.rx().dma_pull(self.dma.reborrow(), buff, false)
     }
