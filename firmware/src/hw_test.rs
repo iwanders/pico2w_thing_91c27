@@ -321,12 +321,20 @@ async fn test_mic(p: MicPinTransfer) {
     for i in 0..CHUNKS_TO_COLLECT {
         // We have 32 bits of data now, but the relevant part is the left 24 bits, the LSB section between bit 26 and
         // bit 32 is empty.
+        let mut buffer = [0i32; BUFFER_SIZE];
+        for (i, v) in huge_buffer[(i * BUFFER_SIZE)..(i + 1) * BUFFER_SIZE]
+            .iter()
+            .enumerate()
+        {
+            buffer[i] = v << 1; // Why do we need this? :<
+        }
         Timer::after_millis(100).await;
-        defmt::info!(
-            "buff {}: {:#?}",
-            i,
-            huge_buffer[(i * BUFFER_SIZE)..(i + 1) * BUFFER_SIZE]
-        );
+        defmt::info!("buff {}: {:#x}", i, buffer);
+        if i > 1 {
+            loop {
+                Timer::after_millis(100).await;
+            }
+        }
     }
 }
 

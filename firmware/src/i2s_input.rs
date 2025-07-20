@@ -82,7 +82,7 @@ impl<'a, P: Instance, const S: usize> PioI2sIn<'a, P, S> {
                 (embassy_rp::clocks::clk_sys_freq() as f64 / clock_frequency as f64 / 2.)
                     .to_fixed();
             cfg.shift_in = ShiftConfig {
-                threshold: 24, // ICS43434 always requires 32 clock cycles per frame, even though only 24 bits are used.
+                threshold: 32, // ICS43434 always requires 32 clock cycles per frame, even though only 24 bits are used.
                 direction: ShiftDirection::Left,
                 auto_fill: true,
             };
