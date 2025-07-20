@@ -225,7 +225,7 @@ async fn test_mic(p: MicPinTransfer) {
     let mut buffer = [0u32; 64];
     let mut counter = 0;
     const SAMPLE_RATE: u32 = 48_000;
-    const BIT_DEPTH: u32 = 16;
+    const BIT_DEPTH: u32 = 24;
     const CHANNELS: u32 = 2;
 
     Timer::after_millis(100).await;

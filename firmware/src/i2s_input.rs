@@ -20,14 +20,14 @@ impl<'a, PIO: Instance> PioI2sInProgram<'a, PIO> {
     pub fn new(common: &mut Common<'a, PIO>) -> Self {
         let prg = pio::pio_asm!(
             ".side_set 2",
-            "    set x 14          side 0b01", // side 0bWB - W = Word Clock, B = Bit Clock
+            "    set x 14          side 0b10", // side 0bWB - W = Word Clock, B = Bit Clock
             "left_data:",
             "    in pins 1        side 0b00",
-            "    jmp x-- left_data  side 0b01",
-            "    in pins, 1         side 0b10",
+            "    jmp x-- left_data  side 0b10",
+            "    in pins, 1         side 0b01",
             "    set x 14          side 0b11",
             "right_data:",
-            "    in pins 1         side 0b10",
+            "    in pins 1         side 0b01",
             "    jmp x-- right_data side 0b11",
             "    in pins 1         side 0b00",
         );
@@ -83,7 +83,7 @@ impl<'a, P: Instance, const S: usize> PioI2sIn<'a, P, S> {
             cfg
         };
         sm.set_config(&cfg);
-        sm.set_pin_dirs(Direction::Out, &[&left_right_clock_pin, &bit_clock_pin]);
+        sm.set_pin_dirs(Direction::Out, &[&bit_clock_pin, &left_right_clock_pin]);
         sm.set_pin_dirs(Direction::In, &[&data_pin]);
 
         sm.set_enable(true);
