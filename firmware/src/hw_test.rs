@@ -325,7 +325,7 @@ async fn test_mic(p: MicPinTransfer) {
         {
             buffer[i] = v << 1; // Why do we need this? :<
         }
-        Timer::after_millis(100).await;
+
         defmt::info!("buff {}: {:#x}", i, buffer);
     }
     loop {

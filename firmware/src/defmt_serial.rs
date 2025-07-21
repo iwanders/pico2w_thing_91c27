@@ -34,13 +34,12 @@ static DEFMT_OVERRUN: AtomicBool = AtomicBool::new(false);
 static TAKEN: AtomicBool = AtomicBool::new(false);
 static mut CS_RESTORE: critical_section::RestoreState = critical_section::RestoreState::invalid();
 
-use embassy_time::{Duration, Timer};
-
 /// Buffer for defmt messages, if this is too small overruns occur.
 const DEFMT_SERIAL_BUFFER: usize = 4096;
 
-type Queue = heapless::spsc::Queue<u8, DEFMT_SERIAL_BUFFER>;
-type Producer = heapless::spsc::Producer<'static, u8, DEFMT_SERIAL_BUFFER>;
+type CS = embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+type Queue = embassy_sync::pipe::Pipe<CS, DEFMT_SERIAL_BUFFER>;
+type Producer = embassy_sync::pipe::Writer<'static, CS, DEFMT_SERIAL_BUFFER>;
 
 static mut TX_THING: Option<Producer> = None;
 
@@ -50,7 +49,7 @@ pub async fn run(logger: SerialLogger) -> ! {
         static STATE: StaticCell<Queue> = StaticCell::new();
         STATE.init(Queue::new())
     };
-    let (tx, mut rx) = queue.split();
+    let (rx, tx) = queue.split();
 
     unsafe {
         TX_THING = Some(tx);
@@ -61,34 +60,17 @@ pub async fn run(logger: SerialLogger) -> ! {
 
         // Swap the overrun buffer to alert user of an overrun.
         if DEFMT_OVERRUN.swap(false, Ordering::Relaxed) {
-            defmt::error!("overrun");
+            defmt::error!("SERIAL OVERRUN");
         }
 
-        // Consume all data and shove it onto the serial port using its max packet size.
-        let mut have_data = rx.ready();
-        if have_data {
-            while have_data {
-                const USB_CDC_MAX_PACKET_SIZE_LIMIT: usize = 64;
-                let mut buffer = [0u8; USB_CDC_MAX_PACKET_SIZE_LIMIT];
-                let count = rx.len();
-                let this_packet_len = count.min(logger.s.max_packet_size() as usize);
-
-                // Drain the queue for this packet length bytes.
-                for i in 0..this_packet_len {
-                    if let Some(v) = rx.dequeue() {
-                        buffer[i] = v;
-                    }
-                }
-                if let Err(e) = logger.s.write_packet(&buffer[0..this_packet_len]).await {
-                    // ehh... panic? Maybe it's transient? Lets just push a message about it.
-                    defmt::error!("failed writing: {:?}", e);
-                }
-                have_data = rx.ready();
-            }
-        } else {
-            // No data, wait for a millisecond
-            let delay = Duration::from_millis(1);
-            Timer::after(delay).await;
+        const USB_CDC_MAX_PACKET_SIZE_LIMIT: usize = 64;
+        let mut buffer = [0u8; USB_CDC_MAX_PACKET_SIZE_LIMIT];
+        // Use read here, instead of read exact to ensure that we get short messages individually if they're spaced.
+        let read_size = rx.read(&mut buffer).await;
+        // This can't really return an error, since our pipe will never reach EOF.
+        if let Err(e) = logger.s.write_packet(&buffer[0..read_size]).await {
+            // ehh... panic? Maybe it's transient? Lets just push a message about it.
+            defmt::error!("failed writing: {:?}", e);
         }
     }
 }
@@ -96,15 +78,18 @@ pub async fn run(logger: SerialLogger) -> ! {
 #[defmt::global_logger]
 struct Logger;
 
-fn do_write(bytes: &[u8]) {
+fn do_write(mut bytes: &[u8]) {
     // NOTE(unsafe) this function will be invoked *after* run has been started and the global logger has been populated.
     unsafe {
         if let Some(tx) = TX_THING.as_mut() {
-            for b in bytes {
-                if let Err(v) = tx.enqueue(*b) {
-                    let _discard = v;
-                    // Store that we had a buffer overrun, much sad, no recovery here.
-                    DEFMT_OVERRUN.store(true, Ordering::Relaxed);
+            while !bytes.is_empty() {
+                bytes = match tx.try_write(bytes) {
+                    Ok(b) => &bytes[b..],
+                    Err(_) => {
+                        // No recourse here.
+                        DEFMT_OVERRUN.store(true, Ordering::Relaxed);
+                        return;
+                    }
                 }
             }
         }
