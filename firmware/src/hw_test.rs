@@ -194,6 +194,7 @@ struct MicPinTransfer {
 async fn test_mic(p: MicPinTransfer) {
     use embassy_rp::peripherals::PIO1;
     use embassy_rp::pio::{InterruptHandler, Pio};
+
     //return;
     // ICS 43434
     // Slave data port's format is i2s, two's complement.
@@ -223,9 +224,12 @@ async fn test_mic(p: MicPinTransfer) {
     Timer::after_millis(100).await;
 
     let mut counter = 0;
-    const SAMPLE_RATE: u32 = 48_000;
+    // At lower sample rate the serial port can keep up, but there's definitely clipping going on.
+    // cat /dev/ttyACM1 | pacat --rate=24000 --channels=2 --format=s32le --raw --volume=32000 -v
+    const SAMPLE_RATE: u32 = 24_000;
     const BIT_DEPTH: u32 = 32;
     const CHANNELS: u32 = 2;
+    const DUMP_SAMPLES_TO_SERIAL_LOOP: bool = true;
 
     Timer::after_millis(100).await;
     defmt::debug!("after setup");
@@ -294,6 +298,27 @@ async fn test_mic(p: MicPinTransfer) {
         DMA_BUFFER.init_with(|| [0i32; BUFFER_SIZE * 20])
     };
 
+    if DUMP_SAMPLES_TO_SERIAL_LOOP {
+        loop {
+            let dma_future = i2s.read(front_buffer);
+
+            dma_future.await;
+
+            core::mem::swap(&mut back_buffer, &mut front_buffer);
+
+            // Shift the buffer by one byte, this ensures that the sign byte is at the correct place.
+            for z in back_buffer.iter_mut() {
+                *z = *z << 1;
+            }
+
+            // make an i32 window.
+            let back_u32 = unsafe {
+                core::slice::from_raw_parts(back_buffer.as_ptr().cast::<u8>(), 4 * BUFFER_SIZE)
+            };
+            unsafe { crate::defmt_serial::push_serial(&back_u32) };
+            Timer::after_micros(10).await;
+        }
+    }
     for i in 0..CHUNKS_TO_COLLECT {
         // trigger transfer of front buffer data to the pio fifo
         // but don't await the returned future, yet
