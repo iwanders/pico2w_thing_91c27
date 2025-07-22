@@ -75,9 +75,6 @@ pub async fn run(logger: SerialLogger) -> ! {
     }
 }
 
-#[defmt::global_logger]
-struct Logger;
-
 fn do_write(mut bytes: &[u8]) {
     // NOTE(unsafe) this function will be invoked *after* run has been started and the global logger has been populated.
     unsafe {
@@ -95,6 +92,28 @@ fn do_write(mut bytes: &[u8]) {
         }
     }
 }
+
+/// Throw out all safety promises and shove bytes into the pipe, this will mess up the defmt printing setup.
+/// Remember to still let the executor handle the pipe->usb process.
+pub unsafe fn push_serial(mut bytes: &[u8]) {
+    unsafe {
+        if let Some(tx) = TX_THING.as_mut() {
+            while !bytes.is_empty() {
+                bytes = match tx.try_write(bytes) {
+                    Ok(b) => &bytes[b..],
+                    Err(_) => {
+                        // No recourse here.
+                        DEFMT_OVERRUN.store(true, Ordering::Relaxed);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[defmt::global_logger]
+struct Logger;
 
 unsafe impl defmt::Logger for Logger {
     fn acquire() {
