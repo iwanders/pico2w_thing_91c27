@@ -66,6 +66,10 @@ embedded-hal-bus = { version = "0.1", features = ["async"] }
 
 pio = { version = "0.3" }
 fixed = "1.28.0"
+
+# for the drivers
+embedded-hal-async = "1.0.0"
+
 [profile.release]
 lto = true
 opt-level = "s"

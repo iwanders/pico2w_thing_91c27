@@ -3,6 +3,7 @@
 
 mod defmt_serial;
 
+pub mod bme280;
 mod hw_test;
 pub mod i2s_input;
 pub mod rp2350_util;
@@ -20,6 +21,8 @@ use embassy_rp::peripherals::USB;
 use embassy_rp::usb::{Driver, InterruptHandler as UsbInterruptHandler};
 use embassy_usb::class::cdc_acm::{CdcAcmClass, State as CdcState};
 use embassy_usb::UsbDevice;
+
+use crate::bme280::BME280;
 
 mod usb_picotool_reset;
 
@@ -195,6 +198,32 @@ pub async fn main(spawner: Spawner) {
     // */
     let mut indicator = Output::new(p.PIN_26, Level::Low);
     let delay = Duration::from_millis(250);
+
+    /*
+    struct BmePinTransfer {
+        i2c: embassy_rp::peripherals::I2C0,
+        sda: embassy_rp::peripherals::PIN_20,
+        scl: embassy_rp::peripherals::PIN_21,
+    }
+    async fn test_bme(p: BmePinTransfer) {
+        use embassy_rp::i2c::{Config, I2c};
+        let config = Config::default();
+        //config.frequency = 100_000;
+        let mut i2c = I2c::new_blocking(p.i2c, p.scl, p.sda, config);
+    */
+
+    {
+        use embassy_rp::i2c::InterruptHandler as I2cInterruptHandler;
+        use embassy_rp::i2c::{Config, I2c};
+        use embassy_rp::peripherals::I2C0;
+        bind_interrupts!(struct Irqs {
+            I2C0_IRQ => I2cInterruptHandler<I2C0>;
+        });
+        let config = embassy_rp::i2c::Config::default();
+        let mut i2c = I2c::new_async(p.I2C0, p.PIN_21, p.PIN_20, Irqs, config);
+        let bme280_dev = BME280::new(bme280::DEFAULT_ADDRESS, i2c).await;
+        defmt::debug!("bme280 dev: {:?}", bme280_dev);
+    }
 
     let mut counter = 0;
     loop {
