@@ -391,10 +391,15 @@ pub async fn test_wifi(p: Peripherals, spawner: Spawner) -> ! {
     // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
     //     probe-rs download ../../cyw43-firmware/43439A0.bin --binary-format bin --chip RP235x --base-address 0x10100000
     //     probe-rs download ../../cyw43-firmware/43439A0_clm.bin --binary-format bin --chip RP235x --base-address 0x10140000
+    //
+
     defmt::println!("Before touching fw");
     Timer::after_millis(100).await;
-    let fw = unsafe { core::slice::from_raw_parts(0x00283000 as *const u8, 231077) };
-    let clm = unsafe { core::slice::from_raw_parts(0x00280000 as *const u8, 984) };
+    //let fw = unsafe { core::slice::from_raw_parts(0x00283000 as *const u8, 231077) };
+    //let clm = unsafe { core::slice::from_raw_parts(0x00280000 as *const u8, 984) };
+    //
+    let fw = unsafe { crate::rp2350_util::xip::flash_slice(0x00283000, 231077) };
+    let clm = unsafe { crate::rp2350_util::xip::flash_slice(0x00280000, 984) };
     defmt::println!("clm start: {}", &clm[0..20]);
     defmt::println!("fw start: {}", &fw[0..20]);
     Timer::after_millis(100).await;

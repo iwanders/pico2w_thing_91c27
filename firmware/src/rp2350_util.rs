@@ -139,6 +139,16 @@ pub mod otp {
     }
 }
 
+pub mod xip {
+    const XIP_NOCACHE_NOALLOC_NOTRANSLATE_BASE: *const u8 = 0x1c000000 as *const u8;
+    pub unsafe fn flash_slice(flash_offset: usize, length: usize) -> &'static [u8] {
+        &core::slice::from_raw_parts(
+            XIP_NOCACHE_NOALLOC_NOTRANSLATE_BASE.offset(flash_offset as isize),
+            length,
+        )
+    }
+}
+
 pub mod reboot {
 
     use embassy_time::Duration;
