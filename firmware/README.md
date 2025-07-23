@@ -65,4 +65,6 @@ partitions:
   3(A)       00603000->0063d000 S(rw) NSBOOT(rw) NS(rw), id=0000000000000003, "43439A0.bin", uf2 { data }, arm_boot 1, riscv_boot 1
 ```
 
-Partition 1 is `4194304` bytes? Which should be larger than the memory chip...
+Okay, that's fixed by setting a start position on the first data paritition.
+
+Loading fw from flash isn't quite working yet, it stalls when that happens.

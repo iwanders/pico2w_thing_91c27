@@ -143,7 +143,7 @@ pub async fn main(spawner: Spawner) {
         info!("setup good");
     }
 
-    for _i in 0..5 {
+    for _i in 0..10 {
         let delay = Duration::from_millis(250);
         Timer::after(delay).await;
         info!("wait a bit");
@@ -187,10 +187,10 @@ pub async fn main(spawner: Spawner) {
     */
 
     // Test section
-    /*
+    //*
     info!("Going into test.");
-    use embassy_rp::Peripherals;
-    hw_test::hw_test(unsafe { Peripherals::steal() }).await;
+    //use embassy_rp::Peripherals;
+    //hw_test::hw_test(unsafe { Peripherals::steal() }).await;
     //hw_test::test_wifi(unsafe { Peripherals::steal() }, spawner).await;
     // */
     let mut indicator = Output::new(p.PIN_26, Level::Low);

@@ -23,3 +23,9 @@ partition:
 	picotool partition create ./partitions.json /tmp/partitions.uf2
 	picotool load -F /tmp/partitions.uf2
 	picotool partition info -F
+
+partition-fw-upload:
+	# Numbers must match the values in the partition table.
+	picotool load -p 1 -u -v -t bin ../../cyw43-firmware/43439A0_clm.bin
+	picotool load -p 2 -u -v -t bin ../../cyw43-firmware/43439A0_btfw.bin
+	picotool load -p 3 -u -v -t bin ../../cyw43-firmware/43439A0.bin

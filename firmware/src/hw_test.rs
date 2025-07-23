@@ -375,18 +375,30 @@ pub async fn test_wifi(p: Peripherals, spawner: Spawner) -> ! {
         PIO0_IRQ_0 => PioInterruptHandler<PIO0>;
     });
     use static_cell::StaticCell;
-    let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
-    let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
+    //let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
+    //let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
     //
     //let fw = &[];
     //let clm = &[];
+    /*
+     1(A)       00280000->00281000 S(rw) NSBOOT(rw) NS(rw), id=0000000000000001, "43439A0_clm.bin", uf2 { data }, arm_boot 1, riscv_boot 1
+     2(A)       00281000->00283000 S(rw) NSBOOT(rw) NS(rw), id=0000000000000002, "43439A0_btfw.bin", uf2 { data }, arm_boot 1, riscv_boot 1
+     3(A)       00283000->002bd000 S(rw) NSBOOT(rw) NS(rw), id=0000000000000003, "43439A0.bin", uf2 { data }, arm_boot 1, riscv_boot 1
+
+    */
 
     // To make flashing faster for development, you may want to flash the firmwares independently
     // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
     //     probe-rs download ../../cyw43-firmware/43439A0.bin --binary-format bin --chip RP235x --base-address 0x10100000
     //     probe-rs download ../../cyw43-firmware/43439A0_clm.bin --binary-format bin --chip RP235x --base-address 0x10140000
-    //let fw = unsafe { core::slice::from_raw_parts(0x10100000 as *const u8, 230321) };
-    //let clm = unsafe { core::slice::from_raw_parts(0x10140000 as *const u8, 4752) };
+    defmt::println!("Before touching fw");
+    Timer::after_millis(100).await;
+    let fw = unsafe { core::slice::from_raw_parts(0x00283000 as *const u8, 231077) };
+    let clm = unsafe { core::slice::from_raw_parts(0x00280000 as *const u8, 984) };
+    defmt::println!("clm start: {}", &clm[0..20]);
+    defmt::println!("fw start: {}", &fw[0..20]);
+    Timer::after_millis(100).await;
+    Timer::after_millis(100).await;
 
     let pwr = Output::new(p.PIN_23, Level::Low);
     let cs = Output::new(p.PIN_25, Level::High);

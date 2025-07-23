@@ -24,7 +24,8 @@
     {
       "name": "43439A0_clm.bin",
       "id": 1,
-      "size": "1k",
+      "start": "2560K",
+      "size": "4k",
       "families": ["data"],
       "permissions": {
         "secure": "rw",
