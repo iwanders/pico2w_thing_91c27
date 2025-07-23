@@ -55,16 +55,13 @@ We now have four partitions, as specified in [partitions.json](./partitions.json
 
 The firmware is now deployed into partition zero with `picotool load -p 0 -u -v -x -t elf`, note the `-p 0`.
 
-Not sure yet how to put the firmwares into these partitions, the information table is also odd;
-```
-un-partitioned_space : S(rw) NSBOOT(rw) NS(rw), uf2 { absolute }
-partitions:
-  0(A)       00002000->00201000 S(rw) NSBOOT(rw) NS(rw), id=0000000000000000, "firmware", uf2 { rp2350-arm-s, rp2350-riscv }, arm_boot 1, riscv_boot 1
-  1(A)       00201000->00601000 S(rw) NSBOOT(rw) NS(rw), id=0000000000000001, "43439A0_clm.bin", uf2 { data }, arm_boot 1, riscv_boot 1
-  2(A)       00601000->00603000 S(rw) NSBOOT(rw) NS(rw), id=0000000000000002, "43439A0_btfw.bin", uf2 { data }, arm_boot 1, riscv_boot 1
-  3(A)       00603000->0063d000 S(rw) NSBOOT(rw) NS(rw), id=0000000000000003, "43439A0.bin", uf2 { data }, arm_boot 1, riscv_boot 1
-```
+Without setting a `start` attribute on the second partition (first data) partition it gets a very large size, which is wrong.
 
-Okay, that's fixed by setting a start position on the first data paritition.
+We can load the data by using the `XIP_NOCACHE_NOALLOC_NOTRANSLATE_BASE` pointer and offset from there, that's where the flash
+itself is in the address space. I put a helper into the `rp2350_util` module to obtain byte slices to the utils.
 
-Loading fw from flash isn't quite working yet, it stalls when that happens.
+Currently the offset & lengths need to be read from the partition table and inserted into the program to create the slice.
+
+In the future, we could consider a single partition with static data, seems `picotool load` can write to arbitrary addresses. We can
+write all metadata/files into a single data partition with some 'file' header and then just iterate over those after obtaining the
+partition table to find the correct partition.
