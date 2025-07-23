@@ -75,7 +75,7 @@ rustflags = [
 # Use picotool for loading.
 #
 # Load an elf, skipping unchanged flash sectors, verify it, and execute it
-runner = "picotool load -u -v -x -t elf"
+runner = "picotool load  -p 0 -u -v -x -t elf"
 #runner = "probe-rs run --chip RP235x"
 
 # This is the soft-float ABI for RISC-V mode.
@@ -105,7 +105,7 @@ rustflags = [
 # Use picotool for loading.
 #
 # Load an elf, skipping unchanged flash sectors, verify it, and execute it
-runner = "picotool load -u -v -x -t elf"
+runner = "picotool load -p 0 -u -v -x -t elf"
 
 [env]
 DEFMT_LOG = "debug"

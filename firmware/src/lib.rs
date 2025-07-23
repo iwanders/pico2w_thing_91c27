@@ -1,7 +1,3 @@
-//! This example tests the RP Pico 2 W onboard LED.
-//!
-//! It does not work with the RP Pico 2 board. See `blinky.rs`.
-
 #![no_std]
 #![no_main]
 
@@ -89,7 +85,7 @@ pub async fn main(spawner: Spawner) {
         const RPI_VENDOR_ID: u16 = 0x2e8a;
         const RPI_PRODUCT_ID: u16 = 0x0009;
         let mut config = embassy_usb::Config::new(RPI_VENDOR_ID, RPI_PRODUCT_ID);
-        // Maybe this will find some fun bugs xD
+        // Maybe this emoji will find some fun bugs xD
         config.manufacturer = Some(core::str::from_utf8(&[0xf0u8, 0x9f, 0x8e, 0x89]).unwrap());
         config.product = Some("Pico Sensor Board");
         config.serial_number = Some(serial_id_string.as_str());
@@ -191,7 +187,7 @@ pub async fn main(spawner: Spawner) {
     */
 
     // Test section
-    // *
+    /*
     info!("Going into test.");
     use embassy_rp::Peripherals;
     hw_test::hw_test(unsafe { Peripherals::steal() }).await;

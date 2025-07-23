@@ -18,3 +18,8 @@ print:
 	# We may get a permission denied if we instantly connect after the port is created.
 	sleep 0.1
 	defmt-print  -e ./target/thumbv8m.main-none-eabihf/release/firmware serial --path "${SERIAL_PORT}"
+
+partition:
+	picotool partition create ./partitions.json /tmp/partitions.uf2
+	picotool load -F /tmp/partitions.uf2
+	picotool partition info -F

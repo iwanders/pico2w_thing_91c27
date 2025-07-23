@@ -2,7 +2,7 @@
 
 use embassy_executor::Spawner;
 use embassy_rp::gpio::{Input, Level, Output};
-use embassy_rp::usb::In;
+
 use embassy_rp::{bind_interrupts, Peripherals};
 use embassy_time::{Duration, Timer};
 
@@ -192,8 +192,7 @@ struct MicPinTransfer {
     data: embassy_rp::peripherals::PIN_9,
 }
 async fn test_mic(p: MicPinTransfer) {
-    use embassy_rp::peripherals::PIO1;
-    use embassy_rp::pio::{InterruptHandler, Pio};
+    use embassy_rp::pio::Pio;
 
     //return;
     // ICS 43434
@@ -229,7 +228,7 @@ async fn test_mic(p: MicPinTransfer) {
     const SAMPLE_RATE: u32 = 24_000;
     const BIT_DEPTH: u32 = 32;
     const CHANNELS: u32 = 2;
-    const DUMP_SAMPLES_TO_SERIAL_LOOP: bool = true;
+    const DUMP_SAMPLES_TO_SERIAL_LOOP: bool = false;
 
     Timer::after_millis(100).await;
     defmt::debug!("after setup");
