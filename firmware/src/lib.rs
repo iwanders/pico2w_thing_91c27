@@ -213,16 +213,29 @@ pub async fn main(spawner: Spawner) {
     */
 
     {
+        use bme280::reg::*;
         use embassy_rp::i2c::InterruptHandler as I2cInterruptHandler;
         use embassy_rp::i2c::{Config, I2c};
         use embassy_rp::peripherals::I2C0;
         bind_interrupts!(struct Irqs {
             I2C0_IRQ => I2cInterruptHandler<I2C0>;
         });
-        let config = embassy_rp::i2c::Config::default();
+        let mut config = embassy_rp::i2c::Config::default();
+        config.frequency = 1_000_000; // gotta go fast!
         let mut i2c = I2c::new_async(p.I2C0, p.PIN_21, p.PIN_20, Irqs, config);
-        let bme280_dev = BME280::new(bme280::DEFAULT_ADDRESS, i2c).await;
+        let bme280_dev = BME280::new(bme280::ADDRESS_DEFAULT, i2c).await;
         defmt::debug!("bme280 dev: {:?}", bme280_dev);
+        if let Ok(mut d) = bme280_dev {
+            let _ = d.reset().await;
+            defmt::debug!("ctrl: {:?}", d.get_register(REG_BME280_CTRL_MEAS).await);
+            let temp_sampling = bme280::Sampling::X1;
+            let press_sampling = bme280::Sampling::X1;
+            let mode = bme280::Mode::Forced;
+            let r = d.set_ctrl_meas(temp_sampling, press_sampling, mode).await;
+            defmt::debug!("set_ctrl_meas: {:?}", r);
+            let ctrl_meas = d.get_register(REG_BME280_CTRL_MEAS).await;
+            defmt::debug!("get_ctrl_meas: {:?}", ctrl_meas);
+        }
     }
 
     let mut counter = 0;

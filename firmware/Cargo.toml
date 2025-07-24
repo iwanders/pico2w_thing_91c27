@@ -68,7 +68,7 @@ pio = { version = "0.3" }
 fixed = "1.28.0"
 
 # for the drivers
-embedded-hal-async = "1.0.0"
+embedded-hal-async = { version = "1.0.0", features = ["defmt-03"] }
 
 [profile.release]
 lto = true
