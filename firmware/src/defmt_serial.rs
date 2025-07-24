@@ -2,8 +2,7 @@
 // section.
 #![allow(static_mut_refs)]
 
-use embassy_rp::peripherals::USB;
-use embassy_rp::usb::Driver;
+use embassy_usb::driver::Driver as UsbDriver;
 use static_cell::StaticCell;
 
 // Modelled after
@@ -13,15 +12,6 @@ use static_cell::StaticCell;
 
 use core::sync::atomic::{AtomicBool, Ordering};
 use embassy_usb::class::cdc_acm::Sender;
-
-pub struct SerialLogger {
-    s: Sender<'static, Driver<'static, USB>>,
-}
-impl SerialLogger {
-    pub fn new(s: Sender<'static, Driver<'static, USB>>) -> Self {
-        Self { s }
-    }
-}
 
 /// Encoder for defmt messages.
 static mut ENCODER: defmt::Encoder = defmt::Encoder::new();
@@ -43,7 +33,16 @@ type Producer = embassy_sync::pipe::Writer<'static, CS, DEFMT_SERIAL_BUFFER>;
 
 static mut TX_THING: Option<Producer> = None;
 
-pub async fn run(logger: SerialLogger) -> ! {
+pub struct SerialLogger<D: UsbDriver<'static>> {
+    s: Sender<'static, D>,
+}
+impl<D: UsbDriver<'static>> SerialLogger<D> {
+    pub fn new(s: Sender<'static, D>) -> Self {
+        Self { s }
+    }
+}
+
+pub async fn run<D: UsbDriver<'static>>(logger: SerialLogger<D>) -> ! {
     let mut logger = logger;
     let queue: &'static mut Queue = {
         static STATE: StaticCell<Queue> = StaticCell::new();

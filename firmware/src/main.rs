@@ -1,8 +1,11 @@
-#![no_std]
-#![no_main]
+#![cfg_attr(not(test), no_std)]
+#![cfg_attr(not(test), no_main)]
 
-use embassy_executor::Spawner;
-#[embassy_executor::main]
-async fn main(spawner: Spawner) {
-    firmware::main(spawner).await;
+#[cfg(target_arch = "arm")]
+pub mod program {
+    use embassy_executor::Spawner;
+    #[embassy_executor::main]
+    async fn main(spawner: Spawner) {
+        firmware::program::main(spawner).await;
+    }
 }

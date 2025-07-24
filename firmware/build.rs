@@ -23,6 +23,10 @@ fn main() {
     f.write_all(rp235x_riscv_x).unwrap();
     println!("cargo:rerun-if-changed=rp235x_riscv.x");
 
-    println!("cargo:rustc-link-arg-bins=-Tdefmt.x");
+    // Make this defmt file dependent on the target.
+    let target = std::env::var("TARGET").unwrap();
+    if target.contains("thumbv8m.main-none-eabi") {
+        println!("cargo:rustc-link-arg-bins=-Tdefmt.x");
+    }
     println!("cargo:rerun-if-changed=build.rs");
 }
