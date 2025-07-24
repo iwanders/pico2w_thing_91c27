@@ -26,9 +26,13 @@ pub mod reg {
     pub const REG_BME280_CTRL_HUM: u8 = 0xF2;
     // Whoa, 26..41 calibration data.
     // misc continues.
+    pub const REG_BME280_CALIB_26: u8 = 0xE1;
+    // Reset and id.
     pub const REG_BME280_RESET: u8 = 0xE0;
     pub const REG_BME280_ID: u8 = 0xd0;
     // More calibration data.
+    //
+    pub const REG_BME280_CALIB_00: u8 = 0x88;
 }
 
 pub const ADDRESS_DEFAULT: SevenBitAddress = 0x76;
@@ -117,6 +121,30 @@ pub struct Readout {
     pub pressure: u32,
 }
 
+/// Compensation trimming paramaters
+#[derive(Debug, Copy, Clone, PartialEq, Default, defmt::Format)]
+pub struct Compensation {
+    pub dig_t1: u16, // 0x88, 0x89
+    pub dig_t2: i16, // 0x8a, 0x8b
+    pub dig_t3: i16, // 0x8c, 0x8d
+
+    pub dig_p1: u16, // 0x8e, 0x8f
+    pub dig_p2: i16, // ...
+    pub dig_p3: i16, // ...
+    pub dig_p4: i16, // ...
+    pub dig_p5: i16, // ...
+    pub dig_p6: i16, // ...
+    pub dig_p7: i16, // ...
+    pub dig_p8: i16, // ...
+    pub dig_p9: i16, // 0x9e, 0x9f
+
+    pub dig_h1: u8,  // 0xA1
+    pub dig_h2: i16, // 0xE1, 0xE2
+    pub dig_h3: u8,  // 0xe3
+    pub dig_h4: i16, // 0xe4, 0xe5[3:0]
+    pub dig_h5: i16, // 0xe5[7:4], 0xe6
+}
+
 impl<I2C, I2cError: embedded_hal_async::i2c::Error> BME280<I2C>
 where
     I2C: I2c<Error = I2cError>,
@@ -190,4 +218,54 @@ where
         self.bus.write_read(self.address, &buf, &mut read).await?;
         Ok(read[0])
     }
+
+    /// This is a dump function that gets raw register values, dumps them through defmt, for debugging.
+    pub async fn dump_registers(&mut self) -> Result<(), Error<I2cError>> {
+        // Obtain first calibration data:
+
+        {
+            let mut read = [0u8; (0xa1 - 0x88) + 1];
+            let buf = [reg::REG_BME280_CALIB_00];
+            self.bus.write_read(self.address, &buf, &mut read).await?;
+            defmt::debug!("(REG_BME280_CALIB_00, {})", read);
+        }
+
+        {
+            let mut read = [0u8; (0xF0 - 0xE1) + 1];
+            let buf = [reg::REG_BME280_CALIB_26];
+            self.bus.write_read(self.address, &buf, &mut read).await?;
+            defmt::debug!("(REG_BME280_CALIB_26, {})", read);
+        }
+
+        {
+            let mut read = [0u8; 4];
+            let buf = [reg::REG_BME280_CTRL_HUM];
+            self.bus.write_read(self.address, &buf, &mut read).await?;
+            defmt::debug!("(REG_BME280_CTRL_HUM, {})", read);
+        }
+
+        {
+            let mut read = [0u8; 8];
+            let buf = [reg::REG_BME280_PRESS_MSB];
+            self.bus.write_read(self.address, &buf, &mut read).await?;
+            defmt::debug!("(REG_BME280_PRESS_MSB, {})", read);
+        }
+
+        Ok(())
+    }
 }
+
+/*
+ *
+ 7.610433 DEBUG (REG_BME280_CALIB_00, [84, 109, 175, 103, 50, 0, 239, 139, 117, 214, 208, 11, 203, 30, 139, 255, 249, 255, 180, 45, 232, 209, 136, 19, 0, 75])
+ 7.610695 DEBUG (REG_BME280_CALIB_26, [128, 1, 0, 16, 45, 3, 30, 181, 65, 255, 255, 255, 255, 255, 255, 255])
+ 7.610820 DEBUG (REG_BME280_CTRL_HUM, [1, 0, 36, 0])
+ 7.610961 DEBUG (REG_BME280_PRESS_MSB, [88, 221, 0, 129, 1, 0, 93, 1])
+
+ pressure/temp up, finger on the sensor at least.
+ 280.572000 DEBUG (REG_BME280_CALIB_00, [84, 109, 175, 103, 50, 0, 239, 139, 117, 214, 208, 11, 203, 30, 139, 255, 249, 255, 180, 45, 232, 209, 136, 19, 0, 75])
+ 280.572264 DEBUG (REG_BME280_CALIB_26, [128, 1, 0, 16, 45, 3, 30, 181, 65, 255, 255, 255, 251, 255, 255, 255])
+ 280.572388 DEBUG (REG_BME280_CTRL_HUM, [1, 0, 36, 0])
+ 280.572529 DEBUG (REG_BME280_PRESS_MSB, [89, 209, 0, 132, 82, 0, 101, 117])
+
+*/

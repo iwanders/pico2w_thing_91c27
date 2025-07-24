@@ -252,6 +252,7 @@ pub async fn main(spawner: Spawner) {
                 defmt::debug!("status: {:b}", d.get_register(REG_BME280_STATUS).await);
                 let readout = d.readout().await;
                 defmt::debug!("readout: {:?}", readout);
+                let _ = d.dump_registers().await;
             }
         }
     }
