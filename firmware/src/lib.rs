@@ -222,7 +222,7 @@ pub async fn main(spawner: Spawner) {
         });
         let mut config = embassy_rp::i2c::Config::default();
         config.frequency = 1_000_000; // gotta go fast!
-        let mut i2c = I2c::new_async(p.I2C0, p.PIN_21, p.PIN_20, Irqs, config);
+        let i2c = I2c::new_async(p.I2C0, p.PIN_21, p.PIN_20, Irqs, config);
         let bme280_dev = BME280::new(bme280::ADDRESS_DEFAULT, i2c).await;
         defmt::debug!("bme280 dev: {:?}", bme280_dev);
         if let Ok(mut d) = bme280_dev {
@@ -232,9 +232,27 @@ pub async fn main(spawner: Spawner) {
             let press_sampling = bme280::Sampling::X1;
             let mode = bme280::Mode::Forced;
             let r = d.set_ctrl_meas(temp_sampling, press_sampling, mode).await;
+            defmt::debug!("status: {:b}", d.get_register(REG_BME280_STATUS).await);
             defmt::debug!("set_ctrl_meas: {:?}", r);
+            let r = d.set_ctrl_hum(bme280::Sampling::X1).await;
             let ctrl_meas = d.get_register(REG_BME280_CTRL_MEAS).await;
             defmt::debug!("get_ctrl_meas: {:?}", ctrl_meas);
+
+            defmt::debug!("status: {:b}", d.get_register(REG_BME280_STATUS).await);
+            loop {
+                // Do this weird dance to activate the control register for humidity before triggering a value.
+                let r = d
+                    .set_ctrl_meas(temp_sampling, press_sampling, bme280::Mode::Sleep)
+                    .await;
+                let r = d.set_ctrl_hum(bme280::Sampling::X1).await;
+                let r = d
+                    .set_ctrl_meas(temp_sampling, press_sampling, bme280::Mode::Forced)
+                    .await;
+                Timer::after_millis(10).await;
+                defmt::debug!("status: {:b}", d.get_register(REG_BME280_STATUS).await);
+                let readout = d.readout().await;
+                defmt::debug!("readout: {:?}", readout);
+            }
         }
     }
 

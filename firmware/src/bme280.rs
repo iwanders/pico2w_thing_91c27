@@ -35,7 +35,7 @@ pub const ADDRESS_DEFAULT: SevenBitAddress = 0x76;
 pub const ADDRESS_ALTERNATE: SevenBitAddress = 0x77; // untested.
 
 // defmt::Format only really works if embedded_hal_async has the defmt feature.
-#[derive(Debug, Clone, PartialEq, defmt::Format)]
+#[derive(Debug, Copy, Clone, PartialEq, defmt::Format)]
 pub enum Error<I2cError: embedded_hal_async::i2c::Error> {
     /// Underlying I2C device error
     I2c(I2cError),
@@ -85,7 +85,7 @@ Measurement cycle performs temperature, pressure and humidity in sequence, but t
 They are fed to the IIR filter if enabled.
 */
 
-#[derive(Debug, Clone, PartialEq, Default, defmt::Format)]
+#[derive(Debug, Copy, Clone, PartialEq, Default, defmt::Format)]
 #[repr(u8)]
 pub enum Mode {
     #[default]
@@ -93,7 +93,7 @@ pub enum Mode {
     Forced = 0b01,
     Normal = 0b11,
 }
-#[derive(Debug, Clone, PartialEq, Default, defmt::Format)]
+#[derive(Debug, Copy, Clone, PartialEq, Default, defmt::Format)]
 #[repr(u8)]
 pub enum Sampling {
     Skipped = 0b000,
@@ -105,6 +105,16 @@ pub enum Sampling {
     X4 = 0b011,
     X8 = 0b100,
     X16 = 0b101,
+}
+
+/// Readout structure of all measurements.
+///
+/// We always just read everything, because as the datasheet says also reading humidity is almost as fast.
+#[derive(Debug, Copy, Clone, PartialEq, Default, defmt::Format)]
+pub struct Readout {
+    pub humidity: u16,
+    pub temperature: u32,
+    pub pressure: u32,
 }
 
 impl<I2C, I2cError: embedded_hal_async::i2c::Error> BME280<I2C>
@@ -139,14 +149,12 @@ where
     }
 
     /// Changes to this register only become active after the ctrl register is set.
-    pub async fn set_ctrl_hum(
-        &mut self,
-        hum_oversampling: Sampling,
-    ) -> Result<(), Error<I2cError>> {
-        let reg_value = hum_oversampling as u8;
-
+    pub async fn set_ctrl_hum(&mut self, hum_sampling: Sampling) -> Result<(), Error<I2cError>> {
         self.bus
-            .write(self.address, &[reg::REG_BME280_CTRL_HUM, reg_value])
+            .write(
+                self.address,
+                &[reg::REG_BME280_CTRL_HUM, hum_sampling as u8],
+            )
             .await
             .map_err(|e| e.into())
     }
@@ -157,6 +165,23 @@ where
             .write(self.address, &buf)
             .await
             .map_err(|e| e.into())
+    }
+
+    pub async fn readout(&mut self) -> Result<Readout, Error<I2cError>> {
+        let mut buf = [0u8; 8]; // write magic value to trigger reset.
+        self.bus
+            .write_read(self.address, &[reg::REG_BME280_PRESS_MSB], &mut buf)
+            .await
+            .map_err(|e| core::convert::Into::<Error<I2cError>>::into(e))?;
+        defmt::warn!("buf: {:?}", buf);
+        let pressure = u32::from_be_bytes([buf[0], buf[1], buf[2], 0]) >> 12;
+        let temperature = u32::from_be_bytes([buf[3], buf[4], buf[5], 0]) >> 12;
+        let humidity = u16::from_be_bytes([buf[6], buf[7]]);
+        Ok(Readout {
+            temperature,
+            humidity,
+            pressure,
+        })
     }
 
     pub async fn get_register(&mut self, register: u8) -> Result<u8, Error<I2cError>> {
