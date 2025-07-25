@@ -7,6 +7,8 @@ use embedded_hal_async::i2c::SevenBitAddress;
 
 // embedded_hal_async::delay Hmm, we probably want this to ensure we can easily wait until a measurement is done.
 
+// the official api actually writes humidity settings, and only then the ctrl meas
+
 pub mod reg {
     // Humidity
     pub const REG_BME280_HUM_LSB: u8 = 0xFE;
@@ -610,6 +612,12 @@ mod test {
                     pressure: PressureQ248(24943604),
                     humidity: HumidityQ2210(38 * 1024 + 361),
                 },
+                /*
+                 Official conversion calculates:
+                 Humidity    38.361958 %RH
+                 Pressure  97435.986741 Pa
+                 Temperature    25.504388 deg C
+                */
             ),
             (
                 second_capture_finger(),
@@ -618,6 +626,12 @@ mod test {
                     pressure: PressureQ248(24945210),
                     humidity: HumidityQ2210(51 * 1024 + 342),
                 },
+                /*
+                 Official conversion calculates:
+                 Humidity    51.266275 %RH
+                 Pressure  97442.262842 Pa
+                 Temperature    29.803949 deg C
+                */
             ),
             (
                 third_capture_colder(),
@@ -626,6 +640,12 @@ mod test {
                     pressure: PressureQ248(24959691),
                     humidity: HumidityQ2210(37 * 1024 + 194),
                 },
+                /*
+                 Official conversion calculates:
+                 Humidity    37.183496 %RH
+                 Pressure  97498.793804 Pa
+                 Temperature    24.643489 deg C
+                */
             ),
         ];
         for (bme_i2c, expected) in cases {
@@ -636,6 +656,10 @@ mod test {
             println!("measurement: {:?}", measurement);
             assert_eq!(measurement.temperature, expected.temperature);
             assert_eq!(measurement.pressure, expected.pressure);
+            assert_eq!(measurement.humidity, expected.humidity);
+            println!("t: {} C", measurement.temperature.0 as f64 / 100.0);
+            println!("p: {} P ", measurement.pressure.as_f64());
+            println!("rh: {} %RH ", measurement.humidity.as_f64());
         }
 
         Ok(())
