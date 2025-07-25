@@ -124,6 +124,7 @@ pub struct CentiCelsius(pub i32);
 pub struct Measurement {
     pub temperature: CentiCelsius,
     pub pressure: PressureQ248,
+    pub humidity: HumidityQ2210,
 }
 #[derive(Debug, Copy, Clone, PartialEq, Default, defmt::Format)]
 pub struct TemperatureFine(pub i32);
@@ -160,6 +161,32 @@ impl core::fmt::Debug for PressureQ248 {
     }
 }
 
+#[derive(Copy, Clone, PartialEq, Default, defmt::Format)]
+pub struct HumidityQ2210(pub u32);
+impl HumidityQ2210 {
+    pub fn as_f32(&self) -> f32 {
+        (self.0 as f32) / 1024.0
+    }
+    pub fn as_f64(&self) -> f64 {
+        (self.0 as f64) / 1024.0
+    }
+    pub fn as_u32(&self) -> u32 {
+        (self.0 / 1024) as u32
+    }
+    pub fn as_u32_parts(&self) -> (u32, u16) {
+        ((self.0 / 1024) as u32, (self.0 & 0b1111111111) as u16)
+    }
+}
+impl core::fmt::Debug for HumidityQ2210 {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let (i, r) = self.as_u32_parts();
+        f.debug_struct("HumidityQ2210")
+            .field("i", &i)
+            .field("r", &r)
+            .finish()
+    }
+}
+
 /// Compensation trimming paramaters
 #[derive(Debug, Copy, Clone, PartialEq, Default, defmt::Format)]
 pub struct Compensation {
@@ -182,6 +209,7 @@ pub struct Compensation {
     pub dig_h3: u8,  // 0xe3
     pub dig_h4: i16, // 0xe4, 0xe5[3:0]
     pub dig_h5: i16, // 0xe5[7:4], 0xe6
+    pub dig_h6: i8,  // 0xe7
 }
 impl Compensation {
     pub fn compensate_temp(&self, read_temp: i32) -> TemperatureCompensation {
@@ -231,12 +259,37 @@ impl Compensation {
         PressureQ248(p)
     }
 
+    pub fn compensate_humidity(
+        &self,
+        temperature_fine: TemperatureFine,
+        read_humidity: i32,
+    ) -> HumidityQ2210 {
+        let dig_h1 = self.dig_h1 as i32;
+        let dig_h2 = self.dig_h2 as i32;
+        let dig_h3 = self.dig_h3 as i32;
+        let dig_h4 = self.dig_h4 as i32;
+        let dig_h5 = self.dig_h5 as i32;
+        let dig_h6 = self.dig_h6 as i32;
+        let v: i32 = temperature_fine.0 - 76800;
+        // I wonder how they come up with equations like this...
+        let v = ((((read_humidity << 14) - (dig_h4 << 20) - ((dig_h5) * v)) + 16384) >> 15)
+            * (((((((v * (dig_h6)) >> 10) * (((v * (dig_h3)) >> 11) + 32768)) >> 10) + 2097152)
+                * (dig_h2)
+                + 8192)
+                >> 14);
+        let v = v - (((((v >> 15) * (v >> 15)) >> 7) * (dig_h1)) >> 4);
+        let v = if v < 0 { 0 } else { v };
+        let v = if v > 419430400 { 419430400 } else { v };
+        HumidityQ2210((v as u32) >> 12)
+    }
     pub fn compensate(&self, readout: &Readout) -> Measurement {
         let compensated_t = self.compensate_temp(readout.temperature);
         let pressure = self.compensate_pressure(compensated_t.fine, readout.pressure);
+        let humidity = self.compensate_humidity(compensated_t.fine, readout.humidity.into());
         Measurement {
             temperature: compensated_t.temperature,
             pressure,
+            humidity,
         }
     }
 }
@@ -310,6 +363,8 @@ where
             compensation.dig_p7 = i16::from_le_bytes([read[18], read[19]]);
             compensation.dig_p8 = i16::from_le_bytes([read[20], read[21]]);
             compensation.dig_p9 = i16::from_le_bytes([read[22], read[23]]);
+            // Reg 0xA8 is the last one here, it's a single signed char.
+            compensation.dig_h1 = read[24];
         }
 
         // And then block 26.
@@ -318,6 +373,15 @@ where
             let buf = [reg::REG_BME280_CALIB_26];
             bus.write_read(address, &buf, &mut read).await?;
             //println!("REG_BME280_CALIB_26: {read:?}");
+            // And finally, the humidity section, starting at 0xe1/0xe2 as signed short.
+            compensation.dig_h2 = i16::from_le_bytes([read[0], read[1]]);
+            compensation.dig_h3 = read[2];
+            // 11:4 from 0xe4, 3:0 from 0xe5.
+            compensation.dig_h4 =
+                i16::from_le_bytes([((read[3] & 0b1111) << 4) | (read[4] & 0b1111), read[3] >> 4]);
+            compensation.dig_h5 =
+                i16::from_le_bytes([((read[5] & 0b1111) << 4) | (read[4] & 0b1111), read[5] >> 4]);
+            compensation.dig_h6 = read[6] as i8;
         }
 
         Ok(compensation)
@@ -544,6 +608,7 @@ mod test {
                 Measurement {
                     temperature: CentiCelsius(2550),
                     pressure: PressureQ248(24943604),
+                    humidity: HumidityQ2210(38 * 1024 + 361),
                 },
             ),
             (
@@ -551,6 +616,7 @@ mod test {
                 Measurement {
                     temperature: CentiCelsius(2980),
                     pressure: PressureQ248(24945210),
+                    humidity: HumidityQ2210(51 * 1024 + 342),
                 },
             ),
             (
@@ -558,6 +624,7 @@ mod test {
                 Measurement {
                     temperature: CentiCelsius(2464),
                     pressure: PressureQ248(24959691),
+                    humidity: HumidityQ2210(37 * 1024 + 194),
                 },
             ),
         ];
