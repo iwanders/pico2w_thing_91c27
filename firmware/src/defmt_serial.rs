@@ -1,6 +1,7 @@
 // We allow static mut refs here because we need to access a global in a non-thread-safe way, we do so from a critical
 // section.
 #![allow(static_mut_refs)]
+#![cfg_attr(not(target_arch = "arm"), allow(dead_code))]
 
 use embassy_usb::driver::Driver as UsbDriver;
 use static_cell::StaticCell;
@@ -181,8 +182,9 @@ mod defmt_test_fix {
         unsafe fn flush() {}
         unsafe fn release() {}
         unsafe fn write(bytes: &[u8]) {
-            fn do_write(b: &[u8]) {
-                println!("{b:?}");
+            fn do_write(_: &[u8]) {
+                // This output here is pretty useless.
+                //println!("{b:?}");
             }
             let mut encoder = defmt::Encoder::new();
             encoder.start_frame(do_write);

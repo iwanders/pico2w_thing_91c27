@@ -16,6 +16,7 @@ pub mod usb_picotool_reset;
 
 #[cfg(target_arch = "arm")]
 pub mod program {
+    use super::*;
 
     use embassy_executor::Spawner;
 
@@ -34,7 +35,6 @@ pub mod program {
     use embassy_usb::UsbDevice;
 
     use super::bme280::BME280;
-    use super::{bme280, defmt_serial, hw_test, i2s_input, rp2350_util, usb_picotool_reset};
 
     // List of files in this project (yes it could be created from build.rs), but this is fine for now.
     // These files are used to look up against when a panic happens.
@@ -226,8 +226,8 @@ pub mod program {
 
         {
             use bme280::reg::*;
+            use embassy_rp::i2c::I2c;
             use embassy_rp::i2c::InterruptHandler as I2cInterruptHandler;
-            use embassy_rp::i2c::{Config, I2c};
             use embassy_rp::peripherals::I2C0;
             bind_interrupts!(struct Irqs {
                 I2C0_IRQ => I2cInterruptHandler<I2C0>;
@@ -246,24 +246,29 @@ pub mod program {
                 let r = d.set_ctrl_meas(temp_sampling, press_sampling, mode).await;
                 defmt::debug!("status: {:b}", d.get_register(REG_BME280_STATUS).await);
                 defmt::debug!("set_ctrl_meas: {:?}", r);
-                let r = d.set_ctrl_hum(bme280::Sampling::X1).await;
+                let _ = d.set_ctrl_hum(bme280::Sampling::X1).await;
                 let ctrl_meas = d.get_register(REG_BME280_CTRL_MEAS).await;
                 defmt::debug!("get_ctrl_meas: {:?}", ctrl_meas);
 
                 defmt::debug!("status: {:b}", d.get_register(REG_BME280_STATUS).await);
                 loop {
                     // Do this weird dance to activate the control register for humidity before triggering a value.
-                    let r = d
+                    let _ = d
                         .set_ctrl_meas(temp_sampling, press_sampling, bme280::Mode::Sleep)
                         .await;
-                    let r = d.set_ctrl_hum(bme280::Sampling::X1).await;
-                    let r = d
+                    let _ = d.set_ctrl_hum(bme280::Sampling::X1).await;
+                    let _ = d
                         .set_ctrl_meas(temp_sampling, press_sampling, bme280::Mode::Forced)
                         .await;
                     Timer::after_millis(10).await;
                     defmt::debug!("status: {:b}", d.get_register(REG_BME280_STATUS).await);
                     let readout = d.readout().await;
                     defmt::debug!("readout: {:?}", readout);
+                    if let Ok(readout) = readout {
+                        let compensated = d.compensation().compensate(&readout);
+                        defmt::debug!("compensated: {:?}", compensated);
+                    }
+
                     let _ = d.dump_registers().await;
                 }
             }
