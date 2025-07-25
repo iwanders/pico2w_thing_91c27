@@ -76,22 +76,6 @@ impl<I2cError: embedded_hal_async::i2c::Error> defmt::Format for Error<I2cError>
     }
 }*/
 
-#[derive(Clone, PartialEq)]
-pub struct BME280<I2c> {
-    bus: I2c,
-    address: SevenBitAddress,
-}
-impl<I2c> core::fmt::Debug for BME280<I2c> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_fmt(format_args!("<BME280:0x{:x}>", self.address))
-    }
-}
-impl<I2c> defmt::Format for BME280<I2c> {
-    fn format(&self, f: defmt::Formatter) {
-        defmt::write!(f, "<BME280:0x{:x}>", self.address)
-    }
-}
-
 /*
 Three modes, sleep is default, forced does one measurement and goes back to sleep, and normal which periodically
 measures.
@@ -129,8 +113,16 @@ pub enum Sampling {
 #[derive(Debug, Copy, Clone, PartialEq, Default, defmt::Format)]
 pub struct Readout {
     pub humidity: u16,
-    pub temperature: u32,
+    pub temperature: i32,
     pub pressure: u32,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Default, defmt::Format)]
+pub struct CentiCelsius(pub i32);
+
+#[derive(Debug, Copy, Clone, PartialEq, Default, defmt::Format)]
+pub struct Measurement {
+    pub temperature: CentiCelsius,
 }
 
 /// Compensation trimming paramaters
@@ -156,6 +148,43 @@ pub struct Compensation {
     pub dig_h4: i16, // 0xe4, 0xe5[3:0]
     pub dig_h5: i16, // 0xe5[7:4], 0xe6
 }
+impl Compensation {
+    pub fn compensate_temp(&self, read_temp: i32) -> CentiCelsius {
+        let dig_t1 = i32::from(self.dig_t1);
+        let dig_t2 = i32::from(self.dig_t2);
+        let dig_t3 = i32::from(self.dig_t3);
+        let var1: i32 = (((read_temp >> 3) - (dig_t1 << 1)) * (dig_t2)) >> 11;
+        let intermediate: i32 = (read_temp >> 4) - dig_t1; // does this hurt precision with an intermediate??
+        let var2: i32 = (((intermediate * intermediate) >> 12) * dig_t3) >> 14;
+        let t_fine = var1 + var2;
+        let t = (t_fine * 5 + 128) >> 8;
+
+        CentiCelsius(t)
+    }
+
+    pub fn compensate(&self, readout: &Readout) -> Measurement {
+        Measurement {
+            temperature: self.compensate_temp(readout.temperature),
+        }
+    }
+}
+
+#[derive(Clone, PartialEq)]
+pub struct BME280<I2c> {
+    bus: I2c,
+    address: SevenBitAddress,
+    compensation: Compensation,
+}
+impl<I2c> core::fmt::Debug for BME280<I2c> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_fmt(format_args!("<BME280:0x{:x}>", self.address))
+    }
+}
+impl<I2c> defmt::Format for BME280<I2c> {
+    fn format(&self, f: defmt::Formatter) {
+        defmt::write!(f, "<BME280:0x{:x}>", self.address)
+    }
+}
 
 impl<I2C, I2cError: embedded_hal_async::i2c::Error> BME280<I2C>
 where
@@ -167,11 +196,50 @@ where
         let mut read = [0u8; 1];
         let buf = [reg::REG_BME280_ID];
         i2c.write_read(address, &buf, &mut read).await?;
+
         if read[0] == 0x60 {
-            Ok(BME280 { address, bus: i2c })
+            let compensation = Self::get_compensation(address, &mut i2c).await?;
+            Ok(BME280 {
+                address,
+                bus: i2c,
+                compensation,
+            })
         } else {
             Err(Error::IncorrectId)
         }
+    }
+
+    pub fn compensation(&self) -> &Compensation {
+        &self.compensation
+    }
+
+    pub async fn get_compensation(
+        address: SevenBitAddress,
+        bus: &mut I2C,
+    ) -> Result<Compensation, Error<I2cError>> {
+        let mut compensation: Compensation = Default::default();
+
+        // Block 0 first.
+        {
+            let mut read = [0u8; (0xa1 - 0x88) + 1];
+            let buf = [reg::REG_BME280_CALIB_00];
+            bus.write_read(address, &buf, &mut read).await?;
+            // First register holds 7:0, second register holds 15:8,
+            compensation.dig_t1 = u16::from_le_bytes([read[0], read[1]]);
+            compensation.dig_t2 = i16::from_le_bytes([read[2], read[3]]);
+            compensation.dig_t3 = i16::from_le_bytes([read[4], read[5]]);
+            //println!("REG_BME280_CALIB_00: {read:?}");
+        }
+
+        // And then block 26.
+        {
+            let mut read = [0u8; (0xF0 - 0xE1) + 1];
+            let buf = [reg::REG_BME280_CALIB_26];
+            bus.write_read(address, &buf, &mut read).await?;
+            //println!("REG_BME280_CALIB_26: {read:?}");
+        }
+
+        Ok(compensation)
     }
 
     pub async fn set_ctrl_meas(
@@ -213,9 +281,9 @@ where
             .write_read(self.address, &[reg::REG_BME280_PRESS_MSB], &mut buf)
             .await
             .map_err(|e| core::convert::Into::<Error<I2cError>>::into(e))?;
-        defmt::warn!("buf: {:?}", buf);
+        defmt::debug!("buf: {:?}", buf);
         let pressure = u32::from_be_bytes([buf[0], buf[1], buf[2], 0]) >> 12;
-        let temperature = u32::from_be_bytes([buf[3], buf[4], buf[5], 0]) >> 12;
+        let temperature = ((buf[3] as i32) << 12) | ((buf[4] as i32) << 4) | ((buf[5] as i32) >> 4);
         let humidity = u16::from_be_bytes([buf[6], buf[7]]);
         Ok(Readout {
             temperature,
@@ -274,8 +342,6 @@ mod test {
     use embedded_hal_async::i2c::ErrorType;
     use reg::*;
 
-    use smol::prelude::*;
-
     impl ErrorType for MockedBME280 {
         type Error = i2c::ErrorKind;
     }
@@ -297,17 +363,17 @@ mod test {
     }
 
     impl embedded_hal_async::i2c::I2c for MockedBME280 {
-        async fn read(&mut self, address: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
+        async fn read(&mut self, _address: u8, _buffer: &mut [u8]) -> Result<(), Self::Error> {
             todo!();
         }
 
-        async fn write(&mut self, address: u8, bytes: &[u8]) -> Result<(), Self::Error> {
+        async fn write(&mut self, _address: u8, _bytes: &[u8]) -> Result<(), Self::Error> {
             todo!();
         }
 
         async fn write_read(
             &mut self,
-            address: u8,
+            _address: u8,
             bytes: &[u8],
             buffer: &mut [u8],
         ) -> Result<(), Self::Error> {
@@ -325,8 +391,8 @@ mod test {
 
         async fn transaction<'a>(
             &mut self,
-            address: u8,
-            operations: &mut [i2c::Operation<'a>],
+            _address: u8,
+            _operations: &mut [i2c::Operation<'a>],
         ) -> Result<(), Self::Error> {
             todo!();
         }
@@ -353,30 +419,67 @@ mod test {
 
     */
 
-    #[test]
-    fn test_first_conversion() -> Result<(), Box<dyn std::error::Error>> {
-        let bme_i2c = MockedBME280::from(&[
-            (
-                REG_BME280_CALIB_00,
-                &[
-                    84, 109, 175, 103, 50, 0, 239, 139, 117, 214, 208, 11, 203, 30, 139, 255, 249,
-                    255, 180, 45, 232, 209, 136, 19, 0, 75,
-                ],
-            ),
-            (
-                REG_BME280_CALIB_26,
-                &[
-                    128, 1, 0, 16, 45, 3, 30, 181, 65, 255, 255, 255, 255, 255, 255, 255,
-                ],
-            ),
+    fn s1_calib00() -> (u8, &'static [u8]) {
+        (
+            REG_BME280_CALIB_00,
+            &[
+                84, 109, 175, 103, 50, 0, 239, 139, 117, 214, 208, 11, 203, 30, 139, 255, 249, 255,
+                180, 45, 232, 209, 136, 19, 0, 75,
+            ],
+        )
+    }
+
+    fn s1_calib26() -> (u8, &'static [u8]) {
+        (
+            REG_BME280_CALIB_26,
+            &[
+                128, 1, 0, 16, 45, 3, 30, 181, 65, 255, 255, 255, 255, 255, 255, 255,
+            ],
+        )
+    }
+    /// Just after starting, probably warmer than the others.
+    fn first_capture() -> MockedBME280 {
+        MockedBME280::from(&[
+            s1_calib00(),
+            s1_calib26(),
             (REG_BME280_CTRL_HUM, &[1, 0, 36, 0]),
             (REG_BME280_PRESS_MSB, &[88, 221, 0, 129, 1, 0, 93, 1]),
-        ]);
+        ])
+    }
 
-        let mut bme = smol::block_on(async { BME280::new(ADDRESS_DEFAULT, bme_i2c).await })?;
-        let readout = smol::block_on(async { bme.readout().await })?;
-        println!("readout: {:?}", readout);
-        println!("klsdjflksjdflksdfjlksdf");
+    ///  pressure/temp up, finger on the sensor at least.
+    fn second_capture_finger() -> MockedBME280 {
+        MockedBME280::from(&[
+            s1_calib00(),
+            s1_calib26(),
+            (REG_BME280_CTRL_HUM, &[1, 0, 36, 0]),
+            (REG_BME280_PRESS_MSB, &[89, 209, 0, 132, 82, 0, 101, 117]),
+        ])
+    }
+    ///  probably colder
+    fn third_capture_colder() -> MockedBME280 {
+        MockedBME280::from(&[
+            s1_calib00(),
+            s1_calib26(),
+            (REG_BME280_CTRL_HUM, &[1, 0, 36, 0]),
+            (REG_BME280_PRESS_MSB, &[88, 149, 0, 128, 87, 0, 92, 57]),
+        ])
+    }
+
+    #[test]
+    fn test_conversions() -> Result<(), Box<dyn std::error::Error>> {
+        for bme_i2c in [
+            first_capture(),
+            second_capture_finger(),
+            third_capture_colder(),
+        ] {
+            let mut bme = smol::block_on(async { BME280::new(ADDRESS_DEFAULT, bme_i2c).await })?;
+            let readout = smol::block_on(async { bme.readout().await })?;
+            println!("readout: {:?}", readout);
+            let measurement = bme.compensation().compensate(&readout);
+            println!("measurement: {:?}", measurement);
+        }
+
         Ok(())
     }
 }
