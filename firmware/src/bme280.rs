@@ -150,9 +150,9 @@ pub struct Compensation {
 }
 impl Compensation {
     pub fn compensate_temp(&self, read_temp: i32) -> CentiCelsius {
-        let dig_t1 = i32::from(self.dig_t1);
-        let dig_t2 = i32::from(self.dig_t2);
-        let dig_t3 = i32::from(self.dig_t3);
+        let dig_t1 = self.dig_t1 as i32;
+        let dig_t2 = self.dig_t2 as i32;
+        let dig_t3 = self.dig_t3 as i32;
         let var1: i32 = (((read_temp >> 3) - (dig_t1 << 1)) * (dig_t2)) >> 11;
         let intermediate: i32 = (read_temp >> 4) - dig_t1; // does this hurt precision with an intermediate??
         let var2: i32 = (((intermediate * intermediate) >> 12) * dig_t3) >> 14;
@@ -351,12 +351,12 @@ mod test {
         registers: HashMap<u8, Box<[u8]>>,
     }
     impl MockedBME280 {
-        pub fn from(entries: &[(u8, &[u8])]) -> Self {
+        pub fn from(entries: &[(u8, Box<[u8]>)]) -> Self {
             Self {
                 registers: entries
                     .into_iter()
-                    .chain([(REG_BME280_ID, &([0x60u8][..]))].iter())
-                    .map(|v| (v.0, v.1.to_vec().into_boxed_slice()))
+                    .chain([(REG_BME280_ID, (vec![0x60u8].into_boxed_slice()))].iter())
+                    .cloned()
                     .collect(),
             }
         }
@@ -419,65 +419,71 @@ mod test {
 
     */
 
-    fn s1_calib00() -> (u8, &'static [u8]) {
-        (
-            REG_BME280_CALIB_00,
-            &[
-                84, 109, 175, 103, 50, 0, 239, 139, 117, 214, 208, 11, 203, 30, 139, 255, 249, 255,
-                180, 45, 232, 209, 136, 19, 0, 75,
-            ],
-        )
+    fn s1_readout(raw_read: [u8; 8]) -> Vec<(u8, Box<[u8]>)> {
+        vec![
+            (
+                REG_BME280_CALIB_00,
+                vec![
+                    84, 109, 175, 103, 50, 0, 239, 139, 117, 214, 208, 11, 203, 30, 139, 255, 249,
+                    255, 180, 45, 232, 209, 136, 19, 0, 75,
+                ]
+                .into_boxed_slice(),
+            ),
+            (
+                REG_BME280_CALIB_26,
+                vec![
+                    128, 1, 0, 16, 45, 3, 30, 181, 65, 255, 255, 255, 255, 255, 255, 255,
+                ]
+                .into_boxed_slice(),
+            ),
+            (REG_BME280_CTRL_HUM, vec![1, 0, 36, 0].into_boxed_slice()),
+            (REG_BME280_PRESS_MSB, raw_read.to_vec().into_boxed_slice()),
+        ]
     }
 
-    fn s1_calib26() -> (u8, &'static [u8]) {
-        (
-            REG_BME280_CALIB_26,
-            &[
-                128, 1, 0, 16, 45, 3, 30, 181, 65, 255, 255, 255, 255, 255, 255, 255,
-            ],
-        )
-    }
     /// Just after starting, probably warmer than the others.
     fn first_capture() -> MockedBME280 {
-        MockedBME280::from(&[
-            s1_calib00(),
-            s1_calib26(),
-            (REG_BME280_CTRL_HUM, &[1, 0, 36, 0]),
-            (REG_BME280_PRESS_MSB, &[88, 221, 0, 129, 1, 0, 93, 1]),
-        ])
+        MockedBME280::from(&s1_readout([88, 221, 0, 129, 1, 0, 93, 1]))
     }
 
     ///  pressure/temp up, finger on the sensor at least.
     fn second_capture_finger() -> MockedBME280 {
-        MockedBME280::from(&[
-            s1_calib00(),
-            s1_calib26(),
-            (REG_BME280_CTRL_HUM, &[1, 0, 36, 0]),
-            (REG_BME280_PRESS_MSB, &[89, 209, 0, 132, 82, 0, 101, 117]),
-        ])
+        MockedBME280::from(&s1_readout([89, 209, 0, 132, 82, 0, 101, 117]))
     }
     ///  probably colder
     fn third_capture_colder() -> MockedBME280 {
-        MockedBME280::from(&[
-            s1_calib00(),
-            s1_calib26(),
-            (REG_BME280_CTRL_HUM, &[1, 0, 36, 0]),
-            (REG_BME280_PRESS_MSB, &[88, 149, 0, 128, 87, 0, 92, 57]),
-        ])
+        MockedBME280::from(&s1_readout([88, 149, 0, 128, 87, 0, 92, 57]))
     }
 
     #[test]
     fn test_conversions() -> Result<(), Box<dyn std::error::Error>> {
-        for bme_i2c in [
-            first_capture(),
-            second_capture_finger(),
-            third_capture_colder(),
-        ] {
+        let cases = [
+            (
+                first_capture(),
+                Measurement {
+                    temperature: CentiCelsius(2550),
+                },
+            ),
+            (
+                second_capture_finger(),
+                Measurement {
+                    temperature: CentiCelsius(2980),
+                },
+            ),
+            (
+                third_capture_colder(),
+                Measurement {
+                    temperature: CentiCelsius(2464),
+                },
+            ),
+        ];
+        for (bme_i2c, expected) in cases {
             let mut bme = smol::block_on(async { BME280::new(ADDRESS_DEFAULT, bme_i2c).await })?;
             let readout = smol::block_on(async { bme.readout().await })?;
             println!("readout: {:?}", readout);
             let measurement = bme.compensation().compensate(&readout);
             println!("measurement: {:?}", measurement);
+            assert_eq!(measurement.temperature, expected.temperature);
         }
 
         Ok(())
