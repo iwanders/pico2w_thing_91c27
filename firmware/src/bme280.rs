@@ -114,7 +114,7 @@ pub enum Sampling {
 pub struct Readout {
     pub humidity: u16,
     pub temperature: i32,
-    pub pressure: u32,
+    pub pressure: i32,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Default, defmt::Format)]
@@ -123,6 +123,41 @@ pub struct CentiCelsius(pub i32);
 #[derive(Debug, Copy, Clone, PartialEq, Default, defmt::Format)]
 pub struct Measurement {
     pub temperature: CentiCelsius,
+    pub pressure: PressureQ248,
+}
+#[derive(Debug, Copy, Clone, PartialEq, Default, defmt::Format)]
+pub struct TemperatureFine(pub i32);
+#[derive(Debug, Copy, Clone, PartialEq, Default, defmt::Format)]
+pub struct TemperatureCompensation {
+    pub temperature: CentiCelsius,
+    pub fine: TemperatureFine,
+}
+
+#[derive(Copy, Clone, PartialEq, Default, defmt::Format)]
+pub struct PressureQ248(pub u32);
+
+impl PressureQ248 {
+    pub fn as_f32(&self) -> f32 {
+        (self.0 as f32) / 256.0
+    }
+    pub fn as_f64(&self) -> f64 {
+        (self.0 as f64) / 256.0
+    }
+    pub fn as_u32(&self) -> u32 {
+        (self.0 / 256) as u32
+    }
+    pub fn as_u32_parts(&self) -> (u32, u8) {
+        ((self.0 / 256) as u32, (self.0 & 0xff) as u8)
+    }
+}
+impl core::fmt::Debug for PressureQ248 {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let (i, r) = self.as_u32_parts();
+        f.debug_struct("PressureQ248")
+            .field("i", &i)
+            .field("r", &r)
+            .finish()
+    }
 }
 
 /// Compensation trimming paramaters
@@ -149,7 +184,7 @@ pub struct Compensation {
     pub dig_h5: i16, // 0xe5[7:4], 0xe6
 }
 impl Compensation {
-    pub fn compensate_temp(&self, read_temp: i32) -> CentiCelsius {
+    pub fn compensate_temp(&self, read_temp: i32) -> TemperatureCompensation {
         let dig_t1 = self.dig_t1 as i32;
         let dig_t2 = self.dig_t2 as i32;
         let dig_t3 = self.dig_t3 as i32;
@@ -159,12 +194,49 @@ impl Compensation {
         let t_fine = var1 + var2;
         let t = (t_fine * 5 + 128) >> 8;
 
-        CentiCelsius(t)
+        TemperatureCompensation {
+            temperature: CentiCelsius(t),
+            fine: TemperatureFine(t_fine),
+        }
+    }
+    pub fn compensate_pressure(
+        &self,
+        temperature_fine: TemperatureFine,
+        read_pressure: i32,
+    ) -> PressureQ248 {
+        let dig_p1 = self.dig_p1 as i64;
+        let dig_p2 = self.dig_p2 as i64;
+        let dig_p3 = self.dig_p3 as i64;
+        let dig_p4 = self.dig_p4 as i64;
+        let dig_p5 = self.dig_p5 as i64;
+        let dig_p6 = self.dig_p6 as i64;
+        let dig_p7 = self.dig_p7 as i64;
+        let dig_p8 = self.dig_p8 as i64;
+        let dig_p9 = self.dig_p9 as i64;
+        let var1 = (temperature_fine.0 as i64) - 128000;
+        let var2 = var1 * var1 * dig_p6;
+        let var2 = var2 + ((var1 * dig_p5) << 17);
+        let var2 = var2 + (dig_p4 << 35);
+        let var1 = ((var1 * var1 * dig_p3) >> 8) + ((var1 * dig_p2) << 12);
+        let var1 = (((1 << 47) + var1) * dig_p1) >> 33;
+        if var1 == 0 {
+            return PressureQ248(0);
+        }
+        let p = 1048576 - (read_pressure as i64);
+        let p = (((p << 31) - var2) * 3125) / var1;
+        let var1 = ((dig_p9) * (p >> 13) * (p >> 13)) >> 25;
+        let var2 = (dig_p8 * p) >> 19;
+        let p = ((p + var1 + var2) >> 8) + (dig_p7 << 4);
+        let p = p as u32;
+        PressureQ248(p)
     }
 
     pub fn compensate(&self, readout: &Readout) -> Measurement {
+        let compensated_t = self.compensate_temp(readout.temperature);
+        let pressure = self.compensate_pressure(compensated_t.fine, readout.pressure);
         Measurement {
-            temperature: self.compensate_temp(readout.temperature),
+            temperature: compensated_t.temperature,
+            pressure,
         }
     }
 }
@@ -228,7 +300,16 @@ where
             compensation.dig_t1 = u16::from_le_bytes([read[0], read[1]]);
             compensation.dig_t2 = i16::from_le_bytes([read[2], read[3]]);
             compensation.dig_t3 = i16::from_le_bytes([read[4], read[5]]);
-            //println!("REG_BME280_CALIB_00: {read:?}");
+            // And then the pressure registers.
+            compensation.dig_p1 = u16::from_le_bytes([read[6], read[7]]);
+            compensation.dig_p2 = i16::from_le_bytes([read[8], read[9]]);
+            compensation.dig_p3 = i16::from_le_bytes([read[10], read[11]]);
+            compensation.dig_p4 = i16::from_le_bytes([read[12], read[13]]);
+            compensation.dig_p5 = i16::from_le_bytes([read[14], read[15]]);
+            compensation.dig_p6 = i16::from_le_bytes([read[16], read[17]]);
+            compensation.dig_p7 = i16::from_le_bytes([read[18], read[19]]);
+            compensation.dig_p8 = i16::from_le_bytes([read[20], read[21]]);
+            compensation.dig_p9 = i16::from_le_bytes([read[22], read[23]]);
         }
 
         // And then block 26.
@@ -282,7 +363,7 @@ where
             .await
             .map_err(|e| core::convert::Into::<Error<I2cError>>::into(e))?;
         defmt::debug!("buf: {:?}", buf);
-        let pressure = u32::from_be_bytes([buf[0], buf[1], buf[2], 0]) >> 12;
+        let pressure = ((buf[0] as i32) << 12) | ((buf[1] as i32) << 4) | ((buf[2] as i32) >> 4);
         let temperature = ((buf[3] as i32) << 12) | ((buf[4] as i32) << 4) | ((buf[5] as i32) >> 4);
         let humidity = u16::from_be_bytes([buf[6], buf[7]]);
         Ok(Readout {
@@ -462,18 +543,21 @@ mod test {
                 first_capture(),
                 Measurement {
                     temperature: CentiCelsius(2550),
+                    pressure: PressureQ248(24943604),
                 },
             ),
             (
                 second_capture_finger(),
                 Measurement {
                     temperature: CentiCelsius(2980),
+                    pressure: PressureQ248(24945210),
                 },
             ),
             (
                 third_capture_colder(),
                 Measurement {
                     temperature: CentiCelsius(2464),
+                    pressure: PressureQ248(24959691),
                 },
             ),
         ];
@@ -484,6 +568,7 @@ mod test {
             let measurement = bme.compensation().compensate(&readout);
             println!("measurement: {:?}", measurement);
             assert_eq!(measurement.temperature, expected.temperature);
+            assert_eq!(measurement.pressure, expected.pressure);
         }
 
         Ok(())
