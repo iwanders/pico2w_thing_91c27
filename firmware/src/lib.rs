@@ -224,7 +224,7 @@ pub mod program {
             let mut i2c = I2c::new_blocking(p.i2c, p.scl, p.sda, config);
         */
 
-        {
+        if false {
             use bme280::reg::*;
             use embassy_rp::i2c::I2c;
             use embassy_rp::i2c::InterruptHandler as I2cInterruptHandler;
@@ -239,27 +239,15 @@ pub mod program {
             defmt::debug!("bme280 dev: {:?}", bme280_dev);
             if let Ok(mut d) = bme280_dev {
                 let _ = d.reset().await;
-                defmt::debug!("ctrl: {:?}", d.get_register(REG_BME280_CTRL_MEAS).await);
                 let temp_sampling = bme280::Sampling::X1;
                 let press_sampling = bme280::Sampling::X1;
                 let mode = bme280::Mode::Forced;
-                let r = d.set_ctrl_meas(temp_sampling, press_sampling, mode).await;
-                defmt::debug!("status: {:b}", d.get_register(REG_BME280_STATUS).await);
-                defmt::debug!("set_ctrl_meas: {:?}", r);
-                let _ = d.set_ctrl_hum(bme280::Sampling::X1).await;
-                let ctrl_meas = d.get_register(REG_BME280_CTRL_MEAS).await;
-                defmt::debug!("get_ctrl_meas: {:?}", ctrl_meas);
-
+                let humidity_sampling = bme280::Sampling::X1;
                 defmt::debug!("status: {:b}", d.get_register(REG_BME280_STATUS).await);
                 loop {
                     // Do this weird dance to activate the control register for humidity before triggering a value.
-                    let _ = d
-                        .set_ctrl_meas(temp_sampling, press_sampling, bme280::Mode::Sleep)
-                        .await;
-                    let _ = d.set_ctrl_hum(bme280::Sampling::X1).await;
-                    let _ = d
-                        .set_ctrl_meas(temp_sampling, press_sampling, bme280::Mode::Forced)
-                        .await;
+                    let _ = d.set_ctrl_hum(humidity_sampling).await;
+                    let _ = d.set_ctrl_meas(temp_sampling, press_sampling, mode).await;
                     Timer::after_millis(10).await;
                     defmt::debug!("status: {:b}", d.get_register(REG_BME280_STATUS).await);
                     let readout = d.readout().await;
@@ -268,8 +256,6 @@ pub mod program {
                         let compensated = d.compensation().compensate(&readout);
                         defmt::debug!("compensated: {:?}", compensated);
                     }
-
-                    let _ = d.dump_registers().await;
                 }
             }
         }

@@ -1,3 +1,42 @@
+//! Driver for i2c connected BME280 and compensation equations.
+//!
+//!
+//!
+//! ```
+//! use bme280::reg::*;
+//! use embassy_rp::i2c::I2c;
+//! use embassy_rp::i2c::InterruptHandler as I2cInterruptHandler;
+//! use embassy_rp::peripherals::I2C0;
+//! bind_interrupts!(struct Irqs {
+//!     I2C0_IRQ => I2cInterruptHandler<I2C0>;
+//! });
+//! let mut config = embassy_rp::i2c::Config::default();
+//! config.frequency = 1_000_000; // gotta go fast!
+//! let i2c = I2c::new_async(p.I2C0, p.PIN_21, p.PIN_20, Irqs, config);
+//! let bme280_dev = BME280::new(bme280::ADDRESS_DEFAULT, i2c).await;
+//! defmt::debug!("bme280 dev: {:?}", bme280_dev);
+//! if let Ok(mut d) = bme280_dev {
+//!     let _ = d.reset().await;
+//!     let temp_sampling = bme280::Sampling::X1;
+//!     let press_sampling = bme280::Sampling::X1;
+//!     let mode = bme280::Mode::Forced;
+//!     let humidity_sampling = bme280::Sampling::X1;
+//!     defmt::debug!("status: {:b}", d.get_register(REG_BME280_STATUS).await);
+//!     loop {
+//!         // Set humidity control before measurement, since measurement triggers the measurement.
+//!         let _ = d.set_ctrl_hum(humidity_sampling).await;
+//!         let _ = d.set_ctrl_meas(temp_sampling, press_sampling, mode).await;
+//!         Timer::after_millis(10).await;
+//!         defmt::debug!("status: {:b}", d.get_register(REG_BME280_STATUS).await);
+//!         let readout = d.readout().await;
+//!         defmt::debug!("readout: {:?}", readout);
+//!         if let Ok(readout) = readout {
+//!             let compensated = d.compensation().compensate(&readout);
+//!             defmt::debug!("compensated: {:?}", compensated);
+//!         }
+//!     }
+//! }
+//! ```
 use embedded_hal_async::i2c::I2c;
 use embedded_hal_async::i2c::SevenBitAddress;
 
@@ -428,7 +467,6 @@ where
             .write_read(self.address, &[reg::REG_BME280_PRESS_MSB], &mut buf)
             .await
             .map_err(|e| core::convert::Into::<Error<I2cError>>::into(e))?;
-        defmt::debug!("buf: {:?}", buf);
         let pressure = ((buf[0] as i32) << 12) | ((buf[1] as i32) << 4) | ((buf[2] as i32) >> 4);
         let temperature = ((buf[3] as i32) << 12) | ((buf[4] as i32) << 4) | ((buf[5] as i32) >> 4);
         let humidity = u16::from_be_bytes([buf[6], buf[7]]);
