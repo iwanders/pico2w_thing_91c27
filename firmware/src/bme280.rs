@@ -51,6 +51,18 @@ impl<I2cError: embedded_hal_async::i2c::Error> From<I2cError> for Error<I2cError
         Error::<I2cError>::I2c(e)
     }
 }
+impl<I2cError: embedded_hal_async::i2c::Error + core::fmt::Debug> core::fmt::Display
+    for Error<I2cError>
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_fmt(format_args!("{:?}", *self))
+    }
+}
+
+impl<I2cError: embedded_hal_async::i2c::Error + core::fmt::Debug + core::fmt::Display>
+    core::error::Error for Error<I2cError>
+{
+}
 
 /*
 impl<I2cError: embedded_hal_async::i2c::Error> defmt::Format for Error<I2cError> {
@@ -255,23 +267,116 @@ where
     }
 }
 
-/*
- *
- 7.610433 DEBUG (REG_BME280_CALIB_00, [84, 109, 175, 103, 50, 0, 239, 139, 117, 214, 208, 11, 203, 30, 139, 255, 249, 255, 180, 45, 232, 209, 136, 19, 0, 75])
- 7.610695 DEBUG (REG_BME280_CALIB_26, [128, 1, 0, 16, 45, 3, 30, 181, 65, 255, 255, 255, 255, 255, 255, 255])
- 7.610820 DEBUG (REG_BME280_CTRL_HUM, [1, 0, 36, 0])
- 7.610961 DEBUG (REG_BME280_PRESS_MSB, [88, 221, 0, 129, 1, 0, 93, 1])
+#[cfg(test)]
+mod test {
+    use super::*;
+    use embedded_hal_async::i2c;
+    use embedded_hal_async::i2c::ErrorType;
+    use reg::*;
 
- pressure/temp up, finger on the sensor at least.
- 280.572000 DEBUG (REG_BME280_CALIB_00, [84, 109, 175, 103, 50, 0, 239, 139, 117, 214, 208, 11, 203, 30, 139, 255, 249, 255, 180, 45, 232, 209, 136, 19, 0, 75])
- 280.572264 DEBUG (REG_BME280_CALIB_26, [128, 1, 0, 16, 45, 3, 30, 181, 65, 255, 255, 255, 251, 255, 255, 255])
- 280.572388 DEBUG (REG_BME280_CTRL_HUM, [1, 0, 36, 0])
- 280.572529 DEBUG (REG_BME280_PRESS_MSB, [89, 209, 0, 132, 82, 0, 101, 117])
+    use smol::prelude::*;
 
- probably colder:
- 6.679185 DEBUG (REG_BME280_CALIB_00, [84, 109, 175, 103, 50, 0, 239, 139, 117, 214, 208, 11, 203, 30, 139, 255, 249, 255, 180, 45, 232, 209, 136, 19, 0, 75])
- 6.679447 DEBUG (REG_BME280_CALIB_26, [128, 1, 0, 16, 45, 3, 30, 181, 65, 255, 255, 255, 255, 255, 255, 255])
- 6.679570 DEBUG (REG_BME280_CTRL_HUM, [1, 0, 36, 0])
- 6.679710 DEBUG (REG_BME280_PRESS_MSB, [88, 149, 0, 128, 87, 0, 92, 57])
+    impl ErrorType for MockedBME280 {
+        type Error = i2c::ErrorKind;
+    }
+    use std::collections::hash_map::Entry;
+    use std::collections::HashMap;
+    struct MockedBME280 {
+        registers: HashMap<u8, Box<[u8]>>,
+    }
+    impl MockedBME280 {
+        pub fn from(entries: &[(u8, &[u8])]) -> Self {
+            Self {
+                registers: entries
+                    .into_iter()
+                    .chain([(REG_BME280_ID, &([0x60u8][..]))].iter())
+                    .map(|v| (v.0, v.1.to_vec().into_boxed_slice()))
+                    .collect(),
+            }
+        }
+    }
 
-*/
+    impl embedded_hal_async::i2c::I2c for MockedBME280 {
+        async fn read(&mut self, address: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
+            todo!();
+        }
+
+        async fn write(&mut self, address: u8, bytes: &[u8]) -> Result<(), Self::Error> {
+            todo!();
+        }
+
+        async fn write_read(
+            &mut self,
+            address: u8,
+            bytes: &[u8],
+            buffer: &mut [u8],
+        ) -> Result<(), Self::Error> {
+            // first write register is the address that's being read.
+            let read_reg = bytes.get(0).expect("expected register address");
+            if let Entry::Occupied(e) = self.registers.entry(*read_reg) {
+                // e MUST be longer than buffer, else it is an error and we lack data.
+                buffer.copy_from_slice(&e.get()[0..buffer.len()]);
+                return Ok(());
+            }
+            // Okay, so no exact match, we could do smarts here and iterate to see if we can serve this register.
+
+            todo!()
+        }
+
+        async fn transaction<'a>(
+            &mut self,
+            address: u8,
+            operations: &mut [i2c::Operation<'a>],
+        ) -> Result<(), Self::Error> {
+            todo!();
+        }
+    }
+
+    /*
+     *
+     7.610433 DEBUG (REG_BME280_CALIB_00, [84, 109, 175, 103, 50, 0, 239, 139, 117, 214, 208, 11, 203, 30, 139, 255, 249, 255, 180, 45, 232, 209, 136, 19, 0, 75])
+     7.610695 DEBUG (REG_BME280_CALIB_26, [128, 1, 0, 16, 45, 3, 30, 181, 65, 255, 255, 255, 255, 255, 255, 255])
+     7.610820 DEBUG (REG_BME280_CTRL_HUM, [1, 0, 36, 0])
+     7.610961 DEBUG (REG_BME280_PRESS_MSB, [88, 221, 0, 129, 1, 0, 93, 1])
+
+     pressure/temp up, finger on the sensor at least.
+     280.572000 DEBUG (REG_BME280_CALIB_00, [84, 109, 175, 103, 50, 0, 239, 139, 117, 214, 208, 11, 203, 30, 139, 255, 249, 255, 180, 45, 232, 209, 136, 19, 0, 75])
+     280.572264 DEBUG (REG_BME280_CALIB_26, [128, 1, 0, 16, 45, 3, 30, 181, 65, 255, 255, 255, 251, 255, 255, 255])
+     280.572388 DEBUG (REG_BME280_CTRL_HUM, [1, 0, 36, 0])
+     280.572529 DEBUG (REG_BME280_PRESS_MSB, [89, 209, 0, 132, 82, 0, 101, 117])
+
+     probably colder:
+     6.679185 DEBUG (REG_BME280_CALIB_00, [84, 109, 175, 103, 50, 0, 239, 139, 117, 214, 208, 11, 203, 30, 139, 255, 249, 255, 180, 45, 232, 209, 136, 19, 0, 75])
+     6.679447 DEBUG (REG_BME280_CALIB_26, [128, 1, 0, 16, 45, 3, 30, 181, 65, 255, 255, 255, 255, 255, 255, 255])
+     6.679570 DEBUG (REG_BME280_CTRL_HUM, [1, 0, 36, 0])
+     6.679710 DEBUG (REG_BME280_PRESS_MSB, [88, 149, 0, 128, 87, 0, 92, 57])
+
+    */
+
+    #[test]
+    fn test_first_conversion() -> Result<(), Box<dyn std::error::Error>> {
+        let bme_i2c = MockedBME280::from(&[
+            (
+                REG_BME280_CALIB_00,
+                &[
+                    84, 109, 175, 103, 50, 0, 239, 139, 117, 214, 208, 11, 203, 30, 139, 255, 249,
+                    255, 180, 45, 232, 209, 136, 19, 0, 75,
+                ],
+            ),
+            (
+                REG_BME280_CALIB_26,
+                &[
+                    128, 1, 0, 16, 45, 3, 30, 181, 65, 255, 255, 255, 255, 255, 255, 255,
+                ],
+            ),
+            (REG_BME280_CTRL_HUM, &[1, 0, 36, 0]),
+            (REG_BME280_PRESS_MSB, &[88, 221, 0, 129, 1, 0, 93, 1]),
+        ]);
+
+        let mut bme = smol::block_on(async { BME280::new(ADDRESS_DEFAULT, bme_i2c).await })?;
+        let readout = smol::block_on(async { bme.readout().await })?;
+        println!("readout: {:?}", readout);
+        println!("klsdjflksjdflksdfjlksdf");
+        Ok(())
+    }
+}

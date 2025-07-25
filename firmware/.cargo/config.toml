@@ -20,6 +20,8 @@ run-riscv = "run --target=riscv32imac-unknown-none-elf"
 # runs in release mode a riscv version of blinky.
 rrr-blinky = "run-riscv --release --bin=blinky"
 
+unittest = "test --target=x86_64-unknown-linux-gnu"
+
 [build]
 # Set the default target to match the Cortex-M33 in the RP2350
 target = "thumbv8m.main-none-eabihf"

@@ -114,6 +114,7 @@ pub unsafe fn push_serial(mut bytes: &[u8]) {
 #[defmt::global_logger]
 struct Logger;
 
+#[cfg(target_arch = "arm")]
 unsafe impl defmt::Logger for Logger {
     fn acquire() {
         // safety: Must be paired with corresponding call to release(), see below
@@ -162,6 +163,31 @@ unsafe impl defmt::Logger for Logger {
         unsafe {
             let encoder: &mut defmt::Encoder = &mut *core::ptr::addr_of_mut!(ENCODER);
             encoder.write(bytes, do_write);
+        }
+    }
+}
+
+#[cfg(not(target_arch = "arm"))]
+mod defmt_test_fix {
+    use super::*;
+    use std::sync::atomic::AtomicUsize;
+    static COUNT: AtomicUsize = AtomicUsize::new(0);
+    defmt::timestamp!(
+        "{=usize}",
+        COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    );
+    unsafe impl defmt::Logger for Logger {
+        fn acquire() {}
+        unsafe fn flush() {}
+        unsafe fn release() {}
+        unsafe fn write(bytes: &[u8]) {
+            fn do_write(b: &[u8]) {
+                println!("{b:?}");
+            }
+            let mut encoder = defmt::Encoder::new();
+            encoder.start_frame(do_write);
+            encoder.write(bytes, do_write);
+            encoder.end_frame(do_write);
         }
     }
 }

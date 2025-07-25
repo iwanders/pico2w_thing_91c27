@@ -29,3 +29,6 @@ partition-fw-upload:
 	picotool load -p 1 -u -v -t bin ../../cyw43-firmware/43439A0_clm.bin
 	picotool load -p 2 -u -v -t bin ../../cyw43-firmware/43439A0_btfw.bin
 	picotool load -p 3 -u -v -t bin ../../cyw43-firmware/43439A0.bin
+
+test:
+	cargo unittest
