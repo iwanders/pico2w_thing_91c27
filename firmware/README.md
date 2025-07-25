@@ -22,21 +22,21 @@ cargo install probe-rs-tools --locked
 ```
 
 ## Reset interface
+
+The USB endpoint to allow the picotool to reset works. It is located in [./src/usb_picotool_reset.rs](./src/usb_picotool_reset.rs).
+
+Relevant links:
+
 - https://github.com/embassy-rs/embassy/issues/3726
 - https://github.com/raspberrypi/pico-sdk/blob/9a4113fbbae65ee82d8cd6537963bc3d3b14bcca/src/common/pico_usb_reset_interface_headers/include/pico/usb_reset_interface.h
 - https://github.com/raspberrypi/pico-sdk/tree/9a4113fbbae65ee82d8cd6537963bc3d3b14bcca/src/rp2_common/pico_stdio_usb
 
 - https://github.com/raspberrypi/pico-sdk/blob/9a4113fbbae65ee82d8cd6537963bc3d3b14bcca/src/rp2_common/pico_stdio_usb/reset_interface.c
 
-```
-pico_enable_stdio_usb(<yourTargetName> 1)
-reduces to
-set_target_properties(${TARGET} PROPERTIES PICO_TARGET_STDIO_USB ${ENABLED})
-
-```
 
 # defmt-print
 
+Currently uses a logger that pushes the defmt data over the serial port; [./src/defmt_serial.rs](./src/defmt_serial.rs).
 
 From https://crates.io/crates/defmt-print, install with `cargo install defmt-print`
 
