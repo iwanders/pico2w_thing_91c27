@@ -204,8 +204,7 @@ pub mod program {
         // Test section
         //*
         info!("Going into test.");
-        //use embassy_rp::Peripherals;
-        //hw_test::hw_test(unsafe { embassy_rp::Peripherals::steal() }).await;
+        hw_test::hw_test(unsafe { embassy_rp::Peripherals::steal() }).await;
         //hw_test::test_wifi(unsafe { embassy_rp::Peripherals::steal() }, spawner).await;
         // */
         let mut indicator = Output::new(p.PIN_26, Level::Low);

@@ -392,8 +392,9 @@ PCB is 21 by 51mm,  lets do 100x120mm to ensure we have space for the paste and 
 - Microphone hole looks like it could've been larger.
 
 
+## First board assembly
 
-## First board
+Approach; double sided poster tape to tape spare PCBs to the work area, build a rig that holds the boards, don't forget tape (with non-stick cover) underneath the board we're working on. Use other tape for the stencil hinge, ensure orientation in translation and rotation, push the board for final adjustment if you have to during the paste application.
 
 Both JST plugs I have have opposite polarity from my board...
 
@@ -408,3 +409,10 @@ Both JST plugs I have have opposite polarity from my board...
 - BME280 responds the Chip ID register.
 - Flash is responsive, reading JEDEC register works.
 - SDCard is functional (though at low clock rate?), card detect also works.
+
+## Second board assembly
+Changing charging resistor, the orange LED to be brighter; 2.49k instead of 4.9k. Can't change green as I don't have 0402 higher than 10k.
+Leds have 'flat' edge towards inside of the board.
+
+- More solder paste would've been better, first squeeze didn't apply enough, had to wipe everything and retry, still sparse on the imu's, they don't seem to float above the board. Probably need to move slower and more deliberate push it into the holes. One of the imu's is _very_ close to the pcb, instead of 'laying' on solder.
+- hw test passes, microphone, bme, flash, imu's are reachable, as is sd card. Charger and power switchover seems to work as well.

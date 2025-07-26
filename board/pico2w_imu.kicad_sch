@@ -12090,7 +12090,7 @@
 				)
 			)
 		)
-		(property "Value" "4.9k"
+		(property "Value" "2.49k"
 			(at 90.17 173.736 90)
 			(effects
 				(font
@@ -12125,7 +12125,7 @@
 				(hide yes)
 			)
 		)
-		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERA-2AEB4991X/2026116"
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF2491X/192203"
 			(at 90.17 171.45 0)
 			(effects
 				(font
@@ -12134,7 +12134,7 @@
 				(hide yes)
 			)
 		)
-		(property "DigiKey_Part" "10-ERA-2AEB4991XCT-ND"
+		(property "DigiKey_Part" "P2.49KLCT-ND"
 			(at 90.17 171.45 0)
 			(effects
 				(font

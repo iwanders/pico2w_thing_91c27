@@ -1705,8 +1705,8 @@
 				)
 			)
 		)
-		(property "Value" "4.9k"
-			(at 1.590108 0.059763 0)
+		(property "Value" "2.49k"
+			(at 1.844108 0.059763 0)
 			(layer "F.Fab")
 			(uuid "d03ef9b5-0f4c-4405-b0a8-76ce19dc6462")
 			(effects
@@ -1740,7 +1740,7 @@
 				)
 			)
 		)
-		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERA-2AEB4991X/2026116"
+		(property "DigiKey_URL" "https://www.digikey.ca/en/products/detail/panasonic-electronic-components/ERJ-2RKF2491X/192203"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -1753,7 +1753,7 @@
 				)
 			)
 		)
-		(property "DigiKey_Part" "10-ERA-2AEB4991XCT-ND"
+		(property "DigiKey_Part" "P2.49KLCT-ND"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "F.Fab")

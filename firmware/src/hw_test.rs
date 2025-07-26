@@ -468,7 +468,7 @@ pub async fn hw_test(p: Peripherals) -> ! {
     const TEST_FLASH: bool = false;
     const TEST_SDCARD: bool = false;
     const TEST_BATTERY_VOLTAGE: bool = false;
-    const TEST_MIC: bool = true;
+    const TEST_MIC: bool = false;
 
     if TEST_ICM {
         test_icm(IcmPinTransfer {
