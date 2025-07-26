@@ -50,11 +50,16 @@ fixed = "1.28.0"
 
 # Memory handling.
 static_cell = "2.1"
-heapless = "0.8.0"
+heapless = { version = "0.7.0", features = ["serde"] }
 
 # for the bme driver (and possibly others).
 embedded-hal-async = { version = "1.0.0", features = ["defmt-03"] }
 
+# For asset serialization.
+#bincode = { version = "2.0.1", default-features = false }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+serde_bytes = { version = "0.11.17", default-features = false }
+postcard = "1.0.0"
 
 [target.'cfg(target_arch = "arm")'.dependencies]
 # All actual hardware dependencies that don't compile on x86 go here.

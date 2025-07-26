@@ -14,7 +14,7 @@ run-arm = "run --target=thumbv8m.main-none-eabihf"
 
 pack_assets = "run --target x86_64-unknown-linux-gnu --bin pack_assets --features  std"
 
-unittest = "test --target=x86_64-unknown-linux-gnu"
+unittest = "test --target=x86_64-unknown-linux-gnu --features  std"
 [build]
 # Set the default target to match the Cortex-M33 in the RP2350
 target = "thumbv8m.main-none-eabihf"
