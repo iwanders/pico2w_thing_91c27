@@ -10,18 +10,11 @@
 
 # Build arm or riscv
 build-arm = "build --target=thumbv8m.main-none-eabihf"
-build-riscv = "build --target=riscv32imac-unknown-none-elf"
-
-# Run arm or riscv
 run-arm = "run --target=thumbv8m.main-none-eabihf"
-run-riscv = "run --target=riscv32imac-unknown-none-elf"
 
-# Add other custom aliases here, `rrr-blinky` which
-# runs in release mode a riscv version of blinky.
-rrr-blinky = "run-riscv --release --bin=blinky"
+pack_assets = "run --target x86_64-unknown-linux-gnu --bin pack_assets --features  std"
 
 unittest = "test --target=x86_64-unknown-linux-gnu"
-
 [build]
 # Set the default target to match the Cortex-M33 in the RP2350
 target = "thumbv8m.main-none-eabihf"

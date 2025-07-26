@@ -45,6 +45,7 @@ defmt-print  -e ./target/thumbv8m.main-none-eabihf/release/firmware serial --pat
 ```
 
 # Wifi / Bluetooth firmware
+Total flash size is `4096K`
 
 > Figure out how these flash partitions work, can we do something similar to [this PR](https://github.com/raspberrypi/pico-sdk/pull/1969)?
 

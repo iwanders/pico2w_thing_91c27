@@ -2,8 +2,8 @@
 //!
 //!
 //!
-//! ```
-//! use bme280::reg::*;
+//! ```ignore
+//! use firmware::bme280::reg::*;
 //! use embassy_rp::i2c::I2c;
 //! use embassy_rp::i2c::InterruptHandler as I2cInterruptHandler;
 //! use embassy_rp::peripherals::I2C0;
