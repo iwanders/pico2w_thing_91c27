@@ -47,6 +47,7 @@ use embedded_hal_async::i2c::SevenBitAddress;
 // embedded_hal_async::delay Hmm, we probably want this to ensure we can easily wait until a measurement is done.
 
 // the official api actually writes humidity settings, and only then the ctrl meas
+// consider using that 'fixed' crate, that's used in the i2s handling.
 
 pub mod reg {
     // Humidity

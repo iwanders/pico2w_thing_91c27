@@ -5,6 +5,8 @@ pub mod bme280;
 
 pub mod defmt_serial;
 
+pub mod assets;
+
 #[cfg(target_arch = "arm")]
 pub mod hw_test;
 #[cfg(target_arch = "arm")]

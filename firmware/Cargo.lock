@@ -633,20 +633,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "embassy-net-wiznet"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c66ac99d67d7f4923d0d4faacc5c6dd3a5d8b89aad74c10911dd799051be9471"
-dependencies = [
- "defmt 0.3.100",
- "embassy-futures",
- "embassy-net-driver-channel",
- "embassy-time",
- "embedded-hal 1.0.0",
- "embedded-hal-async",
-]
-
-[[package]]
 name = "embassy-rp"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -774,18 +760,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4fc247028eae04174b6635104a35b1ed336aabef4654f5e87a8f32327d231970"
 dependencies = [
  "defmt 0.3.100",
-]
-
-[[package]]
-name = "embassy-usb-logger"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad40e3ec749d83f4b7ab0c0599c9bef0c51a73ce1c1087d8599ff2448d00c2aa"
-dependencies = [
- "embassy-futures",
- "embassy-sync 0.6.2",
- "embassy-usb",
- "log",
 ]
 
 [[package]]
@@ -974,21 +948,16 @@ dependencies = [
  "defmt-rtt",
  "embassy-embedded-hal",
  "embassy-executor",
- "embassy-futures",
  "embassy-net",
- "embassy-net-wiznet",
  "embassy-rp",
  "embassy-sync 0.7.0",
  "embassy-time",
  "embassy-usb",
- "embassy-usb-logger",
  "embedded-hal-async",
  "embedded-hal-bus",
- "embedded-io-async",
  "embedded-sdmmc",
  "fixed",
  "heapless 0.8.0",
- "panic-probe",
  "pio",
  "smol",
  "static_cell",
@@ -1385,16 +1354,6 @@ name = "once_cell"
 version = "1.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
-
-[[package]]
-name = "panic-probe"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd402d00b0fb94c5aee000029204a46884b1262e0c443f166d86d2c0747e1a1a"
-dependencies = [
- "cortex-m",
- "defmt 1.0.1",
-]
 
 [[package]]
 name = "parking"
