@@ -149,6 +149,68 @@ pub mod xip {
     }
 }
 
+pub mod rom_data {
+    // get_partition_table_info
+    // pub const embassy_rp::block::Partition fn from_raw(
+    //    permissions_and_location: u32,
+    //    permissions_and_flags: u32,
+    //) -> Self
+    pub fn get_partition_count() -> Option<usize> {
+        let mut words = [0u32; 4];
+        const PT_INFO: u32 = 0x0001;
+        let rc = unsafe {
+            embassy_rp::rom_data::get_partition_table_info(words.as_mut_ptr(), words.len(), PT_INFO)
+        };
+        if rc < 0 {
+            panic!("get_partition_table_info failed; {rc}");
+        }
+        if rc != 4 {
+            panic!("get_partition_table_info returned unexpected count; {rc}");
+        }
+        if (words[0] & PT_INFO) == 0 {
+            panic!(
+                "get_partition_table_info did not return partition info {}",
+                words[0]
+            );
+        }
+        let partition_count_info = words[1].to_le_bytes();
+        let partition_count = partition_count_info[0];
+        let have_partitions = (partition_count_info[1] & 0b1) == 1;
+        if have_partitions {
+            Some(partition_count as usize)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_partition(index: usize) -> Option<embassy_rp::block::Partition> {
+        if index >= 16 {
+            return None; // Can only support up to 16 partitions; 5.1.2. Partition Tables
+        }
+        let mut words = [0u32; 4];
+        const SINGLE_PARTITION: u32 = 0x8000;
+        const PARTITION_LOCATION_AND_FLAGS: u32 = 0x0010;
+        let rc = unsafe {
+            embassy_rp::rom_data::get_partition_table_info(
+                words.as_mut_ptr(),
+                words.len(),
+                SINGLE_PARTITION | ((index as u32) << 24) | PARTITION_LOCATION_AND_FLAGS,
+            )
+        };
+        defmt::warn!("rc and words: {}, {:?}", rc, words);
+        if rc != 3 {
+            // ROM function call failed, or we got an unexpected number of words.
+            return None;
+        }
+
+        if (words[0] & PARTITION_LOCATION_AND_FLAGS) != 0 {
+            Some(embassy_rp::block::Partition::from_raw(words[1], words[2]))
+        } else {
+            None
+        }
+    }
+}
+
 pub mod reboot {
 
     use embassy_time::Duration;

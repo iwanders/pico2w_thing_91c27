@@ -387,6 +387,20 @@ pub async fn test_wifi(p: Peripherals, spawner: Spawner) -> ! {
 
     */
 
+    let partitions = crate::rp2350_util::rom_data::get_partition_count();
+    defmt::warn!("Partitions: {}", partitions);
+    if let Some(partition_max) = partitions {
+        for i in 0..partition_max {
+            let info = crate::rp2350_util::rom_data::get_partition(i);
+            if let Some(info) = info {
+                defmt::info!("partition: {:?}", i);
+                defmt::info!("       id: {:?}", info.get_id());
+                defmt::info!("     name: {:?}", info.get_name());
+                defmt::info!("firstlast: {:?}", info.get_first_last_bytes());
+            }
+        }
+    }
+
     // To make flashing faster for development, you may want to flash the firmwares independently
     // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
     //     probe-rs download ../../cyw43-firmware/43439A0.bin --binary-format bin --chip RP235x --base-address 0x10100000
