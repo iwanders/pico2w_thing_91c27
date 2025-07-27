@@ -7,7 +7,7 @@ autobins = true
 [dependencies]
 
 # Core embassy functionality.
-embassy-embedded-hal = { version = "0.3.0", features = ["defmt"] }
+embassy-embedded-hal = { version = "0.3.0", features = ["defmt", "time"] }
 embassy-sync = { version = "0.6.2", features = ["defmt"] }
 embassy-time = { version = "0.4.0", features = [
   "defmt",
@@ -62,7 +62,7 @@ serde_bytes = { version = "0.11.17", default-features = false }
 postcard = "1.0.0"
 
 # To easily convert slice of one type into another.
-zerocopy = "0.8.26"
+zerocopy = { version = "0.8.26", features = ["derive"] }
 
 [target.'cfg(target_arch = "arm")'.dependencies]
 # All actual hardware dependencies that don't compile on x86 go here.

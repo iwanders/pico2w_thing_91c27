@@ -213,7 +213,7 @@ pub mod program {
         //*
         info!("Going into test.");
         //hw_test::hw_test(unsafe { embassy_rp::Peripherals::steal() }).await;
-        hw_test::test_wifi(unsafe { embassy_rp::Peripherals::steal() }, spawner).await;
+        //hw_test::test_wifi(unsafe { embassy_rp::Peripherals::steal() }, spawner).await;
         // */
         let mut indicator = Output::new(p.PIN_26, Level::Low);
         let delay = Duration::from_millis(250);
@@ -279,6 +279,9 @@ pub mod program {
             let mut config = Config::default();
 
             config.frequency = 10_000_000;
+            // Tsu(CS) is 20ns, so we need a 20ns delay at the start of an SPI transaction.]
+            // https://docs.rs/embedded-hal/1.0.0/embedded_hal/spi/index.html#cs-to-clock-delays
+            // Drivers should NOT use Operation::DelayNs for this... well then.
 
             // page 26
             // CS goes low for selection.
@@ -293,9 +296,9 @@ pub mod program {
             //let bus = embedded_hal_bus::spi::RefCellDevice::new_no_delay(&cspi, cs);
 
             use embassy_embedded_hal::shared_bus::asynch::spi::SpiDevice;
+            use embassy_embedded_hal::shared_bus::SpiDeviceError;
             use embassy_sync::blocking_mutex::raw::NoopRawMutex;
             use embassy_sync::mutex::Mutex;
-            let m = NoopRawMutex::new();
             static SPI_BUS: StaticCell<
                 Mutex<NoopRawMutex, Spi<'_, embassy_rp::peripherals::SPI1, embassy_rp::spi::Async>>,
             > = StaticCell::new();
@@ -303,7 +306,39 @@ pub mod program {
             let spi_bus = SPI_BUS.init(spi_bus);
             let device = SpiDevice::new(spi_bus, cs);
 
-            let mut lsm = lsm6dsv320x::LSM6DSV320X::new(device);
+            type OurError = lsm6dsv320x::Error<
+                SpiDeviceError<embassy_rp::spi::Error, core::convert::Infallible>,
+            >;
+            let mut lsm = lsm6dsv320x::LSM6DSV320X::new(device).await;
+            if let Ok(mut lsm) = lsm {
+                let mut lsm_test = async move || -> Result<(), OurError> {
+                    lsm.reset().await?;
+                    Timer::after_millis(20).await; // wait a bit after the reset.
+                    use lsm6dsv320x::{
+                        AccelerationDataRate, AccelerationMode, AccelerationModeDataRate,
+                    };
+                    lsm.control_acceleration(AccelerationModeDataRate {
+                        mode: AccelerationMode::HighPerformance,
+                        rate: AccelerationDataRate::Hz15,
+                    })
+                    .await?;
+                    use lsm6dsv320x::{AccelerationFilterScale, AccelerationRange};
+                    lsm.filter_acceleration(AccelerationFilterScale {
+                        scale: AccelerationRange::G8,
+                    })
+                    .await?;
+
+                    loop {
+                        let r = lsm.read_acceleration().await?;
+                        Timer::after_millis(50).await;
+                        defmt::info!("r: {:?}", r);
+                    }
+
+                    Ok(())
+                };
+                let r = lsm_test().await;
+                defmt::warn!("test r: {:?}", r);
+            }
         }
 
         let mut counter = 0;
