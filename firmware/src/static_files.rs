@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 // DataFile0
 // DataFile1
 
+/// Private file info structure that represents the data as in memory.
 #[derive(Deserialize, Serialize, Debug)]
 struct FileInfo<'a> {
     /// The filename of this file.
@@ -19,34 +20,47 @@ struct FileInfo<'a> {
     offset: u32,
 }
 
-#[derive(Debug)]
+/// Reader to overlay on a piece of memory.
+#[derive(Debug, Copy, Clone)]
 pub struct StaticFileReader<'a> {
     raw: &'a [u8],
 }
 impl<'a> StaticFileReader<'a> {
+    /// Create a new reader, never fails, no checks if this is actually a section with static files.
     pub fn new(raw: &'a [u8]) -> Self {
         Self { raw }
     }
-    pub fn iter(&self) -> FileIterator {
+    /// Iterater over the files in this static files block.
+    pub fn iter(&'a self) -> FileIterator<'a> {
         FileIterator {
             offset: 0,
             raw: self.raw,
         }
     }
+    /// Convenience helper to retrieve the data of a particular file by name.
+    pub fn file_data(&'a self, file_name: &str) -> Option<&'a [u8]> {
+        self.iter()
+            .find(|f| f.file_name() == file_name)
+            .map(|f| f.data())
+    }
 }
 
+/// Value returned by the iterator, holding information about the file and its data.
 #[derive(Deserialize, Serialize)]
 pub struct FileEntry<'a> {
     file: FileInfo<'a>,
     raw: &'a [u8],
 }
 impl<'a> FileEntry<'a> {
-    pub fn data(&self) -> &[u8] {
+    /// Return the data of this file as a byte slice.
+    pub fn data(&self) -> &'a [u8] {
         &self.raw[self.file.offset as usize..(self.file.offset + self.file.size) as usize]
     }
+    /// Return the file name for this entry.
     pub fn file_name(&self) -> &str {
         &self.file.filename
     }
+    /// Return the length of this file, this is equal to the length of the data slice.
     pub fn len(&self) -> usize {
         self.file.size as usize
     }
@@ -61,6 +75,7 @@ impl<'a> core::fmt::Debug for FileEntry<'a> {
     }
 }
 
+/// Iterator over the files.
 pub struct FileIterator<'a> {
     offset: usize,
     raw: &'a [u8],
@@ -89,6 +104,8 @@ impl<'a> Iterator for FileIterator<'a> {
 ///
 ///
 /// Return is the used slice from the buffer.
+///
+/// This is intended to run on the host.
 pub fn write_static_files<'a>(
     buffer: &'a mut [u8],
     input: &[(&str, &[u8])],
@@ -173,6 +190,8 @@ mod test {
             assert_eq!(f.file_name(), expected.0);
             assert_eq!(f.data(), expected.1);
         }
+
+        assert!(reader.file_data("file_a.txt").is_some());
 
         Ok(())
     }

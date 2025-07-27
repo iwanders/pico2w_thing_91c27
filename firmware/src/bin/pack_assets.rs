@@ -28,7 +28,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let mut flash: Vec<u8> = vec![];
-    flash.resize(10000000, 0);
+    flash.resize(10_000_000, 0);
     let input = collected
         .iter()
         .map(|(x, y)| (x.as_str(), &y[..]))
