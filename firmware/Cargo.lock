@@ -973,6 +973,7 @@ dependencies = [
  "serde_bytes",
  "smol",
  "static_cell",
+ "zerocopy",
 ]
 
 [[package]]

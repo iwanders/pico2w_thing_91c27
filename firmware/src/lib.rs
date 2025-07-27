@@ -1,6 +1,5 @@
 #![cfg_attr(target_arch = "arm", no_std)]
 #![cfg_attr(not(test), no_main)]
-
 pub mod bme280;
 
 pub mod defmt_serial;
@@ -18,6 +17,9 @@ pub mod usb_picotool_reset;
 
 #[cfg(target_arch = "arm")]
 pub mod program {
+    #![allow(unreachable_code)]
+    #![allow(unused_mut)]
+
     use super::*;
 
     use embassy_executor::Spawner;

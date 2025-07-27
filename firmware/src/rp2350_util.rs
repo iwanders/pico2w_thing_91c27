@@ -150,11 +150,17 @@ pub mod xip {
 }
 
 pub mod rom_data {
-    // get_partition_table_info
-    // pub const embassy_rp::block::Partition fn from_raw(
-    //    permissions_and_location: u32,
-    //    permissions_and_flags: u32,
-    //) -> Self
+    // The functions below use the bootrom api, but the datasheet states the partition table is at the start of the flash
+    // and we could read it from there...;
+    // let start_slice = unsafe { super::xip::flash_slice(0, 0x20) };
+    // defmt::warn!("start slice: {:x}", start_slice);
+    // Yeah, we could probably read that as well...
+    // [d3, de, ff, ff, a, 11, 0, 2, 0, 80, 0, fc, 2, 20, 20, fc, 1, 10, 6, fc, 0, 0, 0, 0, 0, 0, 0, 0, 8, 66, 69, 72]
+    // is a block, p356; PICOBIN_BLOCK_MARKER_START (0xffffded3)
+    // See page 416 on block structure.
+    //   a, 11, 0, 2  is an item. From picobin.h; PICOBIN_BLOCK_ITEM_PARTITION_TABLE ix 0x0a
+    // 0x66, 0x69, 0x72... 'fir' mware...
+
     pub fn get_partition_count() -> Option<usize> {
         let mut words = [0u32; 4];
         const PT_INFO: u32 = 0x0001;
@@ -187,27 +193,109 @@ pub mod rom_data {
         if index >= 16 {
             return None; // Can only support up to 16 partitions; 5.1.2. Partition Tables
         }
-        let mut words = [0u32; 4];
         const SINGLE_PARTITION: u32 = 0x8000;
         const PARTITION_LOCATION_AND_FLAGS: u32 = 0x0010;
-        let rc = unsafe {
-            embassy_rp::rom_data::get_partition_table_info(
-                words.as_mut_ptr(),
-                words.len(),
-                SINGLE_PARTITION | ((index as u32) << 24) | PARTITION_LOCATION_AND_FLAGS,
-            )
+        const PARTITION_ID: u32 = 0x0020;
+        const PARTITION_FAMILY_IDS: u32 = 0x0040; // not clear what this returns, doesn't return any words?
+        const PARTITION_NAME: u32 = 0x0080;
+
+        // Create the partition and flags.
+        let (mut partition, flags) = {
+            let mut words = [0u32; 4];
+            let rc = unsafe {
+                embassy_rp::rom_data::get_partition_table_info(
+                    words.as_mut_ptr(),
+                    words.len(),
+                    SINGLE_PARTITION | ((index as u32) << 24) | PARTITION_LOCATION_AND_FLAGS,
+                )
+            };
+            defmt::warn!("rc and words: {}, {:?}", rc, words);
+            if rc != 3 {
+                // ROM function call failed, or we got an unexpected number of words.
+                return None;
+            }
+
+            let partition = if (words[0] & PARTITION_LOCATION_AND_FLAGS) != 0 {
+                embassy_rp::block::Partition::from_raw(words[1], words[2])
+            } else {
+                return None;
+            };
+            let flags = words[2];
+            (partition, flags)
         };
-        defmt::warn!("rc and words: {}, {:?}", rc, words);
-        if rc != 3 {
-            // ROM function call failed, or we got an unexpected number of words.
-            return None;
+
+        const FLAGS_HAS_ID_BITS: u32 = 0x00000001;
+        const FLAGS_HAS_NAME_BITS: u32 = 0x00001000;
+        if flags & FLAGS_HAS_ID_BITS != 0 {
+            'id_retrieval: {
+                // Read the id, and copy it.
+                let mut words = [0u32; 3];
+                let rc = unsafe {
+                    embassy_rp::rom_data::get_partition_table_info(
+                        words.as_mut_ptr(),
+                        words.len(),
+                        SINGLE_PARTITION | ((index as u32) << 24) | PARTITION_ID,
+                    )
+                };
+                defmt::warn!("id rc and words: {}, {:?}", rc, words);
+                if rc != 3 {
+                    // We can still return the partition this far.
+                    break 'id_retrieval;
+                }
+                if words[0] & PARTITION_ID != 0 {
+                    let id = (words[2] as u64) << 32 | words[1] as u64;
+                    partition = partition.with_id(id);
+                }
+            }
+        }
+        if flags & FLAGS_HAS_NAME_BITS != 0 {
+            'name_retrieval: {
+                // Read the name, and then copy it into the buffer, we can't copy into the name directly.
+                let mut name_buffer = [0u32; 128 / 4]; // need a u32 buffer, but max length is 128 bytes.
+                let rc = unsafe {
+                    embassy_rp::rom_data::get_partition_table_info(
+                        name_buffer.as_mut_ptr(),
+                        name_buffer.len(),
+                        SINGLE_PARTITION | ((index as u32) << 24) | PARTITION_NAME,
+                    )
+                };
+                defmt::warn!("name rc and words: {}, {:?}", rc, name_buffer);
+                if rc < 2 {
+                    // ROM function call failed, or we got an unexpected number of words.
+                    break 'name_retrieval;
+                }
+                if name_buffer[0] & PARTITION_NAME != 0 {
+                    // get a u8 slice first.
+                    use zerocopy::IntoBytes;
+                    let raw = name_buffer[1..].as_bytes();
+                    let len = (raw[0] & 0x7f) as usize;
+                    let name_bytes = &raw[1..1 + len];
+                    if let Ok(name) = str::from_utf8(name_bytes) {
+                        partition = partition.with_name(name);
+                    }
+                }
+            }
         }
 
-        if (words[0] & PARTITION_LOCATION_AND_FLAGS) != 0 {
-            Some(embassy_rp::block::Partition::from_raw(words[1], words[2]))
-        } else {
-            None
+        // This is untested, but seems pretty simple.
+        {
+            let mut families = [0u32; 5];
+            let rc = unsafe {
+                embassy_rp::rom_data::get_partition_table_info(
+                    families.as_mut_ptr(),
+                    families.len(),
+                    SINGLE_PARTITION | ((index as u32) << 24) | PARTITION_FAMILY_IDS,
+                )
+            };
+            defmt::warn!("families rc and words: {}, {:?}", rc, families);
+            if families[0] & PARTITION_FAMILY_IDS != 0 {
+                let actual_families = rc - 1;
+                let family_slice = &families[1..1 + actual_families as usize];
+                partition = partition.with_extra_families(&family_slice);
+            }
         }
+
+        Some(partition)
     }
 }
 
