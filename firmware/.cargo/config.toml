@@ -9,10 +9,10 @@
 [alias]
 
 # Build arm or riscv
-build-arm = "build --target=thumbv8m.main-none-eabihf"
-run-arm = "run --target=thumbv8m.main-none-eabihf"
+build-arm = "build --bin firmware --target=thumbv8m.main-none-eabihf"
+run-arm = "run --bin firmware --target=thumbv8m.main-none-eabihf"
 
-pack_assets = "run --target x86_64-unknown-linux-gnu --bin pack_assets --features  std"
+pack_assets = "run --bin pack_assets --target x86_64-unknown-linux-gnu --bin pack_assets --features  std"
 
 unittest = "test --target=x86_64-unknown-linux-gnu --features  std"
 [build]

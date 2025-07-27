@@ -45,18 +45,23 @@ defmt-print  -e ./target/thumbv8m.main-none-eabihf/release/firmware serial --pat
 ```
 
 # Wifi / Bluetooth firmware
-Total flash size is `4096K`
+Total flash size is `4096K`.
 
 > Figure out how these flash partitions work, can we do something similar to [this PR](https://github.com/raspberrypi/pico-sdk/pull/1969)?
 
-We now have four partitions, as specified in [partitions.json](./partitions.json). This is deployed to the mcu with `make partition`.
+Changed it back to two partitions, one for the program, and a second one for the static files, now created by the [static_files](./src/static_files.rs) module. This allows packing multiple static files into a single partition and iterating over the files in it
+by filename.
 
-- One for firmware at the start, which is 2044K in size.
-- Three more, of appropriate sizes for the `43439A0_clm.bin`, `43439A0_btfw.bin` and `43439A0.bin` firmwares.
+- `make partition` creates the partition table and flashes it to the device.
+- `make partition-static-files-upload` creates the static files and flashes them into the static files partition.
+
+Note that the ids in picotool's `-p` is a zero indexed partition counter, not the partition id.
 
 The firmware is now deployed into partition zero with `picotool load -p 0 -u -v -x -t elf`, note the `-p 0`.
 
 Without setting a `start` attribute on the second partition (first data) partition it gets a very large size, which is wrong.
+
+Next up is consuming the data from the static files in the firmware load, and ideally finding the partition first in the XIP offset.
 
 We can load the data by using the `XIP_NOCACHE_NOALLOC_NOTRANSLATE_BASE` pointer and offset from there, that's where the flash
 itself is in the address space. I put a helper into the `rp2350_util` module to obtain byte slices to the utils.

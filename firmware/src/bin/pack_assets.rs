@@ -1,5 +1,4 @@
 use firmware::static_files;
-use postcard::{from_bytes, to_vec};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let files = [
@@ -15,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if !p.is_file() {
             eprintln!("{p:?} is not a file");
         }
-        let z = println!("processing: {p:?}");
+        println!("processing: {p:?}");
 
         let file_name = p
             .file_name()
@@ -33,7 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .iter()
         .map(|(x, y)| (x.as_str(), &y[..]))
         .collect::<Vec<_>>();
-    let used_slice = firmware::static_files::write_static_files(&mut flash, &input)?;
+    let used_slice = static_files::write_static_files(&mut flash, &input)?;
 
     let mut file = std::fs::File::create("/tmp/static_files.bin")?;
     use std::io::Write;

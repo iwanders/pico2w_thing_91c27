@@ -13,7 +13,7 @@
     {
       "name": "firmware",
       "id": 0,
-      "size": "2044K",
+      "size": "1024K",
       "families": ["rp2350-arm-s", "rp2350-riscv"],
       "permissions": {
         "secure": "rw",
@@ -22,32 +22,10 @@
       }
     },
     {
-      "name": "43439A0_clm.bin",
-      "id": 1,
-      "start": "2560K",
-      "size": "4k",
-      "families": ["data"],
-      "permissions": {
-        "secure": "rw",
-        "nonsecure": "rw",
-        "bootloader": "rw"
-      }
-    },
-    {
-      "name": "43439A0_btfw.bin",
-      "id": 2,
-      "size": "8k",
-      "families": ["data"],
-      "permissions": {
-        "secure": "rw",
-        "nonsecure": "rw",
-        "bootloader": "rw"
-      }
-    },
-    {
-      "name": "43439A0.bin",
+      "name": "static_files",
       "id": 3,
-      "size": "232k",
+      "start": "2048k",
+      "size": "256k",
       "families": ["data"],
       "permissions": {
         "secure": "rw",
