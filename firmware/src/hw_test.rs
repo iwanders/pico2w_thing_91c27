@@ -359,6 +359,7 @@ async fn test_mic(p: MicPinTransfer) {
 
 use cyw43_pio::PioSpi;
 use embassy_rp::peripherals::{DMA_CH0, PIO0};
+
 #[embassy_executor::task]
 async fn cyw43_task(
     runner: cyw43::Runner<'static, Output<'static>, PioSpi<'static, PIO0, 0, DMA_CH0>>,
@@ -375,45 +376,35 @@ pub async fn test_wifi(p: Peripherals, spawner: Spawner) -> ! {
         PIO0_IRQ_0 => PioInterruptHandler<PIO0>;
     });
     use static_cell::StaticCell;
-    //let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
-    //let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
-    //
-    //let fw = &[];
-    //let clm = &[];
-    /*
-     1(A)       00280000->00281000 S(rw) NSBOOT(rw) NS(rw), id=0000000000000001, "43439A0_clm.bin", uf2 { data }, arm_boot 1, riscv_boot 1
-     2(A)       00281000->00283000 S(rw) NSBOOT(rw) NS(rw), id=0000000000000002, "43439A0_btfw.bin", uf2 { data }, arm_boot 1, riscv_boot 1
-     3(A)       00283000->002bd000 S(rw) NSBOOT(rw) NS(rw), id=0000000000000003, "43439A0.bin", uf2 { data }, arm_boot 1, riscv_boot 1
 
-    */
+    let (fw, clm) =
+        if let Some(p) = crate::rp2350_util::rom_data::get_partition_by_name("static_files") {
+            let (start, end) = p.get_first_last_bytes();
+            let len = end - start;
+            let partition_data =
+                unsafe { crate::rp2350_util::xip::flash_slice(start as usize, len as usize) };
+            let reader = crate::static_files::StaticFileReader::new(partition_data);
 
-    let partitions = crate::rp2350_util::rom_data::get_partition_count();
-    defmt::warn!("Partitions: {}", partitions);
-    if let Some(partition_max) = partitions {
-        for i in 0..partition_max {
-            let info = crate::rp2350_util::rom_data::get_partition(i);
-            if let Some(info) = info {
-                defmt::info!("partition: {:?}", i);
-                defmt::info!("       id: {:?}", info.get_id());
-                defmt::info!("     name: {:?}", info.get_name());
-                defmt::info!("firstlast: {:?}", info.get_first_last_bytes());
+            let fw = reader.file_data("43439A0.bin");
+            let clm = reader.file_data("43439A0_clm.bin");
+
+            if fw.is_some() && clm.is_some() {
+                (fw.unwrap(), clm.unwrap())
+            } else {
+                defmt::warn!("Did not find necessary fw.");
+                loop {
+                    Timer::after_millis(100).await;
+                }
             }
-        }
-    }
+        } else {
+            defmt::warn!("Could not find static files and load firmware.");
+            loop {
+                Timer::after_millis(100).await;
+            }
+        };
 
-    // To make flashing faster for development, you may want to flash the firmwares independently
-    // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
-    //     probe-rs download ../../cyw43-firmware/43439A0.bin --binary-format bin --chip RP235x --base-address 0x10100000
-    //     probe-rs download ../../cyw43-firmware/43439A0_clm.bin --binary-format bin --chip RP235x --base-address 0x10140000
-    //
-
-    defmt::println!("Before touching fw");
     Timer::after_millis(100).await;
-    //let fw = unsafe { core::slice::from_raw_parts(0x00283000 as *const u8, 231077) };
-    //let clm = unsafe { core::slice::from_raw_parts(0x00280000 as *const u8, 984) };
-    //
-    let fw = unsafe { crate::rp2350_util::xip::flash_slice(0x00283000, 231077) };
-    let clm = unsafe { crate::rp2350_util::xip::flash_slice(0x00280000, 984) };
+
     defmt::println!("clm start: {}", &clm[0..20]);
     defmt::println!("fw start: {}", &fw[0..20]);
     Timer::after_millis(100).await;

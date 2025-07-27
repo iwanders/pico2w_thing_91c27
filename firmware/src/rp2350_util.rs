@@ -189,6 +189,21 @@ pub mod rom_data {
         }
     }
 
+    pub fn get_partition_by_name(name: &str) -> Option<embassy_rp::block::Partition> {
+        if let Some(v) = get_partition_count() {
+            for i in 0..v {
+                if let Some(p) = get_partition(i) {
+                    if let Some(p_name) = p.get_name() {
+                        if p_name == name {
+                            return Some(p);
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
     pub fn get_partition(index: usize) -> Option<embassy_rp::block::Partition> {
         if index >= 16 {
             return None; // Can only support up to 16 partitions; 5.1.2. Partition Tables
@@ -237,7 +252,7 @@ pub mod rom_data {
                         SINGLE_PARTITION | ((index as u32) << 24) | PARTITION_ID,
                     )
                 };
-                defmt::warn!("id rc and words: {}, {:?}", rc, words);
+                //defmt::warn!("id rc and words: {}, {:?}", rc, words);
                 if rc != 3 {
                     // We can still return the partition this far.
                     break 'id_retrieval;
@@ -259,7 +274,7 @@ pub mod rom_data {
                         SINGLE_PARTITION | ((index as u32) << 24) | PARTITION_NAME,
                     )
                 };
-                defmt::warn!("name rc and words: {}, {:?}", rc, name_buffer);
+                //defmt::warn!("name rc and words: {}, {:?}", rc, name_buffer);
                 if rc < 2 {
                     // ROM function call failed, or we got an unexpected number of words.
                     break 'name_retrieval;
@@ -287,7 +302,7 @@ pub mod rom_data {
                     SINGLE_PARTITION | ((index as u32) << 24) | PARTITION_FAMILY_IDS,
                 )
             };
-            defmt::warn!("families rc and words: {}, {:?}", rc, families);
+            //defmt::warn!("families rc and words: {}, {:?}", rc, families);
             if families[0] & PARTITION_FAMILY_IDS != 0 {
                 let actual_families = rc - 1;
                 let family_slice = &families[1..1 + actual_families as usize];

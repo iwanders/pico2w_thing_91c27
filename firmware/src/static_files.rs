@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 // DataFile1
 
 /// Private file info structure that represents the data as in memory.
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, defmt::Format)]
 struct FileInfo<'a> {
     /// The filename of this file.
     filename: &'a str,
@@ -31,14 +31,14 @@ impl<'a> StaticFileReader<'a> {
         Self { raw }
     }
     /// Iterater over the files in this static files block.
-    pub fn iter(&'a self) -> FileIterator<'a> {
+    pub fn iter(&self) -> FileIterator<'a> {
         FileIterator {
             offset: 0,
             raw: self.raw,
         }
     }
     /// Convenience helper to retrieve the data of a particular file by name.
-    pub fn file_data(&'a self, file_name: &str) -> Option<&'a [u8]> {
+    pub fn file_data(&self, file_name: &str) -> Option<&'a [u8]> {
         self.iter()
             .find(|f| f.file_name() == file_name)
             .map(|f| f.data())
@@ -72,6 +72,12 @@ impl<'a> core::fmt::Debug for FileEntry<'a> {
             .field("file_name", &self.file_name())
             .field("len", &self.len())
             .finish()
+    }
+}
+impl<'a> defmt::Format for FileEntry<'a> {
+    fn format(&self, f: defmt::Formatter) {
+        // format the bitfields of the register as struct fields
+        defmt::write!(f, "file_name: {}, len: {}", self.file_name(), self.len(),)
     }
 }
 
