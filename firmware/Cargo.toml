@@ -8,7 +8,7 @@ autobins = true
 
 # Core embassy functionality.
 embassy-embedded-hal = { version = "0.3.0", features = ["defmt"] }
-embassy-sync = { version = "0.7.0", features = ["defmt"] }
+embassy-sync = { version = "0.6.2", features = ["defmt"] }
 embassy-time = { version = "0.4.0", features = [
   "defmt",
   "defmt-timestamp-uptime",

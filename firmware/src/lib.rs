@@ -1,10 +1,13 @@
 #![cfg_attr(target_arch = "arm", no_std)]
 #![cfg_attr(not(test), no_main)]
+
 pub mod bme280;
 
 pub mod defmt_serial;
 
 pub mod static_files;
+
+pub mod lsm6dsv320x;
 
 #[cfg(target_arch = "arm")]
 pub mod hw_test;
@@ -48,6 +51,7 @@ pub mod program {
         "rp2350_util.rs",
         "usb_picotool_reset.rs",
         "hw_test.rs",
+        "lsm6dsv320x.rs",
     ];
 
     // Program metadata for `picotool info`.
@@ -261,6 +265,45 @@ pub mod program {
                     }
                 }
             }
+        }
+
+        if true {
+            // spi: p.SPI1,
+            // cs: p.PIN_13,
+            // clk: p.PIN_10,
+            // mosi: p.PIN_11,
+            // miso: p.PIN_12,
+
+            use embassy_rp::spi::{Config, Spi};
+            let mut cs = Output::new(p.PIN_13, Level::High);
+            let mut config = Config::default();
+
+            config.frequency = 10_000_000;
+
+            // page 26
+            // CS goes low for selection.
+            // Data is latched on the rising edge of SCLK, max clock is 24 MHz O_o
+            // Reads are two or more bytes, first byte is SPI address, following is the data.
+            // First bit of the first byte indicates read, then following 7 bites are register address.
+            //let mut spi = Spi::new_blocking(p.spi, p.clk, p.mosi, p.miso, config);
+            let tx_dma = p.DMA_CH1;
+            let rx_dma = p.DMA_CH2;
+            let mut spi = Spi::new(p.SPI1, p.PIN_10, p.PIN_11, p.PIN_12, tx_dma, rx_dma, config);
+            //let cspi = core::cell::RefCell::new(spi);
+            //let bus = embedded_hal_bus::spi::RefCellDevice::new_no_delay(&cspi, cs);
+
+            use embassy_embedded_hal::shared_bus::asynch::spi::SpiDevice;
+            use embassy_sync::blocking_mutex::raw::NoopRawMutex;
+            use embassy_sync::mutex::Mutex;
+            let m = NoopRawMutex::new();
+            static SPI_BUS: StaticCell<
+                Mutex<NoopRawMutex, Spi<'_, embassy_rp::peripherals::SPI1, embassy_rp::spi::Async>>,
+            > = StaticCell::new();
+            let spi_bus = Mutex::new(spi);
+            let spi_bus = SPI_BUS.init(spi_bus);
+            let device = SpiDevice::new(spi_bus, cs);
+
+            let mut lsm = lsm6dsv320x::LSM6DSV320X::new(device);
         }
 
         let mut counter = 0;
