@@ -59,6 +59,17 @@ pub mod regs {
 
     /// Angular rate sensor pitch axis x output.
     pub const OUTX_L_G: u8 = 0x22;
+
+    /// First fifo status register.
+    pub const FIFO_STATUS1: u8 = 0x1b;
+
+    /// Controls the batch rate for gyroscope and accelerometer data.
+    pub const FIFO_CTRL3: u8 = 0x09;
+    /// Fifo control register 4.
+    pub const FIFO_CTRL4: u8 = 0x0a;
+
+    /// Counter batch data rate
+    pub const COUNTER_BDR_REG1: u8 = 0x0b;
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, defmt::Format)]
@@ -236,6 +247,7 @@ pub enum GyroscopeMode {
     Normal = 0b111,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
 pub struct GyroscopeModeDataRate {
     pub mode: GyroscopeMode,
     pub rate: OutputDataRate,
@@ -243,6 +255,97 @@ pub struct GyroscopeModeDataRate {
 impl GyroscopeModeDataRate {
     fn to_reg(&self) -> u8 {
         (self.mode as u8) << 4 | self.rate as u8
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
+#[repr(u8)]
+pub enum TemperatureBatch {
+    #[default]
+    Disabled = 0b00,
+    Hz1dot876 = 0b01,
+    Hz15 = 0b10,
+    Hz60 = 0b11,
+}
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
+#[repr(u8)]
+pub enum FifoMode {
+    #[default]
+    Disabled = 0b00,
+    FifoModeStopWhenFull = 0b001,
+    ContinuousWTMToFull = 0b010,
+    ContinuousToFifo = 0b011,
+    BypassToContinuous = 0b100,
+    Continuous = 0b110,
+    BypassToFifo = 0b111,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
+pub struct FifoControl {
+    pub temperature: TemperatureBatch,
+    pub mode: FifoMode,
+}
+impl FifoControl {
+    fn to_reg(&self) -> u8 {
+        (self.temperature as u8) << 4 | self.mode as u8
+    }
+}
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
+pub struct FifoBatch {
+    pub gyroscope: OutputDataRate,
+    pub acceleration: OutputDataRate,
+}
+impl FifoBatch {
+    fn to_reg(&self) -> u8 {
+        (self.gyroscope as u8) << 4 | self.acceleration as u8
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Default, FromBytes, IntoBytes)]
+pub struct FifoStatus {
+    status1: u8,
+    status2: u8,
+}
+
+impl FifoStatus {
+    pub fn unread(&self) -> u16 {
+        (self.status2 as u16 & 0b1) << 8 | self.status1 as u16
+    }
+    pub fn overrun(&self) -> bool {
+        (self.status2 & (1 << 6)) != 0
+    }
+    pub fn overrun_latched(&self) -> bool {
+        (self.status2 & (1 << 3)) != 0
+    }
+    pub fn watermark(&self) -> bool {
+        (self.status2 & (1 << 7)) != 0
+    }
+    pub fn full(&self) -> bool {
+        (self.status2 & (1 << 5)) != 0
+    }
+}
+impl core::fmt::Debug for FifoStatus {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("FifoStatus")
+            .field("unread", &self.unread())
+            .field("overrun", &self.overrun())
+            .field("overrun_latched", &self.overrun_latched())
+            .field("watermark", &self.watermark())
+            .field("full", &self.full())
+            .finish()
+    }
+}
+impl defmt::Format for FifoStatus {
+    fn format(&self, f: defmt::Formatter) {
+        defmt::write!(
+            f,
+            "FifoStatus{{ unread: {}, overrun: {}, overrun_latched: {}, watermark: {}, full: {} }}",
+            self.unread(),
+            self.overrun(),
+            self.overrun_latched(),
+            self.watermark(),
+            self.full()
+        )
     }
 }
 
@@ -367,6 +470,26 @@ where
     pub async fn read_gyroscope(&mut self) -> Result<XYZVectorI16, Error<Spi::Error>> {
         let mut output = XYZVectorI16::default();
         self.read(regs::OUTX_L_G, output.as_mut_bytes()).await?;
+        Ok(output)
+    }
+
+    pub async fn control_fifo(&mut self, config: FifoControl) -> Result<(), Error<Spi::Error>> {
+        self.write(regs::FIFO_CTRL4, &[config.to_reg()]).await
+    }
+
+    pub async fn control_fifo_batch(&mut self, config: FifoBatch) -> Result<(), Error<Spi::Error>> {
+        self.write(regs::FIFO_CTRL3, &[config.to_reg()]).await
+    }
+
+    pub async fn control_fifo_counter(&mut self) -> Result<(), Error<Spi::Error>> {
+        // this seriously needs work.
+        const XL_HG_BATCH_EN: u8 = 1 << 3;
+        self.write(regs::COUNTER_BDR_REG1, &[XL_HG_BATCH_EN]).await
+    }
+
+    pub async fn get_fifo_status(&mut self) -> Result<FifoStatus, Error<Spi::Error>> {
+        let mut output = FifoStatus::default();
+        self.read(regs::FIFO_STATUS1, output.as_mut_bytes()).await?;
         Ok(output)
     }
 }

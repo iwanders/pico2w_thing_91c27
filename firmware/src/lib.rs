@@ -354,12 +354,31 @@ pub mod program {
                     })
                     .await?;
 
+                    // Setup fifo.
+                    use lsm6dsv320x::{FifoControl, FifoMode, TemperatureBatch};
+                    lsm.control_fifo(FifoControl {
+                        mode: FifoMode::FifoModeStopWhenFull,
+                        temperature: TemperatureBatch::Hz60,
+                    })
+                    .await?;
+                    use lsm6dsv320x::FifoBatch;
+                    lsm.control_fifo_batch(FifoBatch {
+                        gyroscope: OutputDataRate::Hz7Dot5,
+                        acceleration: OutputDataRate::Hz7Dot5,
+                    })
+                    .await?;
+                    // And this last one to start collecting high G samples to the fifo.
+                    lsm.control_fifo_counter().await?;
+
                     loop {
                         Timer::after_millis(50).await;
                         let r = lsm.read_acceleration().await?;
                         let h = lsm.read_acceleration_high().await?;
                         let g = lsm.read_gyroscope().await?;
                         defmt::info!("r: {:?}  h: {:?}  g: {:?}", r, h, g);
+
+                        let s = lsm.get_fifo_status().await?;
+                        defmt::info!("s: {:?}", s);
 
                         // let temp = lsm.read_temperature().await?;
                         // let t = lsm.read_timestamp().await?;
