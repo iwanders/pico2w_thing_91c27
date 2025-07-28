@@ -317,12 +317,10 @@ pub mod program {
                     Timer::after_millis(20).await; // wait a bit after the reset.
 
                     // Low accelerometer setup;
-                    use lsm6dsv320x::{
-                        AccelerationDataRate, AccelerationMode, AccelerationModeDataRate,
-                    };
+                    use lsm6dsv320x::{AccelerationMode, AccelerationModeDataRate, OutputDataRate};
                     lsm.control_acceleration(AccelerationModeDataRate {
                         mode: AccelerationMode::HighPerformance,
-                        rate: AccelerationDataRate::Hz480,
+                        rate: OutputDataRate::Hz480,
                     })
                     .await?;
                     use lsm6dsv320x::{AccelerationFilterScale, AccelerationScale};
@@ -343,11 +341,25 @@ pub mod program {
                     })
                     .await?;
 
+                    // Gyroscope setup.
+                    use lsm6dsv320x::{GyroscopeMode, GyroscopeModeDataRate};
+                    lsm.control_gyroscope(GyroscopeModeDataRate {
+                        mode: GyroscopeMode::HighPerformance,
+                        rate: OutputDataRate::Hz480,
+                    })
+                    .await?;
+                    use lsm6dsv320x::{GyroscopeBandwidthScale, GyroscopeScale};
+                    lsm.filter_gyroscope(GyroscopeBandwidthScale {
+                        scale: GyroscopeScale::DPS4000,
+                    })
+                    .await?;
+
                     loop {
                         Timer::after_millis(50).await;
                         let r = lsm.read_acceleration().await?;
                         let h = lsm.read_acceleration_high().await?;
-                        defmt::info!("r: {:?}  h: {:?}", r, h);
+                        let g = lsm.read_gyroscope().await?;
+                        defmt::info!("r: {:?}  h: {:?}  g: {:?}", r, h, g);
 
                         // let temp = lsm.read_temperature().await?;
                         // let t = lsm.read_timestamp().await?;

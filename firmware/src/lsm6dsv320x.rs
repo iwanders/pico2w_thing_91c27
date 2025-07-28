@@ -32,6 +32,13 @@ pub mod regs {
 
     /// Accelerometer control reg 1, mode and data rate.
     pub const CTRL1: u8 = 0x10;
+
+    /// Gyroscope control register 2, mode and rate.
+    pub const CTRL2: u8 = 0x11;
+
+    /// Control register 6, Gyroscope Scale and bandwidths.
+    pub const CTRL6: u8 = 0x15;
+
     /// Acceleration control 8, filter & scale selection.
     pub const CTRL8: u8 = 0x17;
 
@@ -49,6 +56,9 @@ pub mod regs {
 
     /// Data to the accelerometer full-scale and ODR settings, or according to the high-g mode configuration.
     pub const UI_OUTX_L_A_OIS_HG: u8 = 0x34;
+
+    /// Angular rate sensor pitch axis x output.
+    pub const OUTX_L_G: u8 = 0x22;
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, defmt::Format)]
@@ -84,7 +94,7 @@ impl<Spi> defmt::Format for LSM6DSV320X<Spi> {
 pub enum AccelerationMode {
     #[default]
     HighPerformance = 0b000,
-    HighAccuracy = 0b010,
+    HighAccuracy = 0b001,
     ODRTrigger = 0b011,
     LowPowerMean2 = 0b100,
     LowPowerMean4 = 0b101,
@@ -94,7 +104,7 @@ pub enum AccelerationMode {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
 #[repr(u8)]
-pub enum AccelerationDataRate {
+pub enum OutputDataRate {
     #[default]
     PowerDown = 0b0000,
     /// Low Power.
@@ -124,7 +134,7 @@ pub enum AccelerationDataRate {
 }
 pub struct AccelerationModeDataRate {
     pub mode: AccelerationMode,
-    pub rate: AccelerationDataRate,
+    pub rate: OutputDataRate,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
@@ -142,7 +152,7 @@ pub struct AccelerationFilterScale {
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format, FromBytes, IntoBytes)]
-pub struct AccelerationXYZ {
+pub struct XYZVectorI16 {
     pub x: i16,
     pub y: i16,
     pub z: i16,
@@ -171,6 +181,8 @@ pub enum AccelerationDataRateHigh {
     Hz7680 = 0b111,
 }
 /// Enables or disables readout of the high-g acceleration from the UI_* output registers, set to enabled for `read_acceleration_high`.
+///
+/// If disabled, that register can be used for the low G OIS/EIS things.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
 #[repr(u8)]
 pub enum AccelerationHighOut {
@@ -187,6 +199,50 @@ pub struct AccelerationModeDataRateHigh {
 impl AccelerationModeDataRateHigh {
     fn to_reg(&self) -> u8 {
         (self.regout as u8) << 7 | (self.rate as u8) << 3 | (self.scale as u8)
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
+#[repr(u8)]
+pub enum GyroscopeScale {
+    #[default]
+    DPS250 = 0b001,
+    DPS500 = 0b010,
+    DPS1000 = 0b011,
+    DPS2000 = 0b100,
+    DPS4000 = 0b101,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
+pub struct GyroscopeBandwidthScale {
+    pub scale: GyroscopeScale,
+}
+impl GyroscopeBandwidthScale {
+    fn to_reg(&self) -> u8 {
+        self.scale as u8
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
+#[repr(u8)]
+pub enum GyroscopeMode {
+    #[default]
+    HighPerformance = 0b000,
+    HighAccuracy = 0b001,
+    ODRTrigger = 0b011,
+    LowPowerMean2 = 0b100,
+    LowPowerMean4 = 0b101,
+    LowPowerMean8 = 0b110,
+    Normal = 0b111,
+}
+
+pub struct GyroscopeModeDataRate {
+    pub mode: GyroscopeMode,
+    pub rate: OutputDataRate,
+}
+impl GyroscopeModeDataRate {
+    fn to_reg(&self) -> u8 {
+        (self.mode as u8) << 4 | self.rate as u8
     }
 }
 
@@ -259,15 +315,15 @@ where
         self.write(regs::CTRL8, &[reg_value]).await
     }
 
-    pub async fn read_acceleration(&mut self) -> Result<AccelerationXYZ, Error<Spi::Error>> {
-        let mut output = AccelerationXYZ::default();
+    pub async fn read_acceleration(&mut self) -> Result<XYZVectorI16, Error<Spi::Error>> {
+        let mut output = XYZVectorI16::default();
         let buff = output.as_mut_bytes();
         self.read(regs::OUTX_L_A, buff).await?;
         Ok(output)
     }
 
-    pub async fn read_acceleration_high(&mut self) -> Result<AccelerationXYZ, Error<Spi::Error>> {
-        let mut output = AccelerationXYZ::default();
+    pub async fn read_acceleration_high(&mut self) -> Result<XYZVectorI16, Error<Spi::Error>> {
+        let mut output = XYZVectorI16::default();
         let buff = output.as_mut_bytes();
         self.read(regs::UI_OUTX_L_A_OIS_HG, buff).await?;
         Ok(output)
@@ -292,7 +348,25 @@ where
         &mut self,
         config: AccelerationModeDataRateHigh,
     ) -> Result<(), Error<Spi::Error>> {
-        let reg_value = config.to_reg();
-        self.write(regs::CTRL1_XL_HG, &[reg_value]).await
+        self.write(regs::CTRL1_XL_HG, &[config.to_reg()]).await
+    }
+
+    pub async fn filter_gyroscope(
+        &mut self,
+        config: GyroscopeBandwidthScale,
+    ) -> Result<(), Error<Spi::Error>> {
+        self.write(regs::CTRL6, &[config.to_reg()]).await
+    }
+    pub async fn control_gyroscope(
+        &mut self,
+        config: GyroscopeModeDataRate,
+    ) -> Result<(), Error<Spi::Error>> {
+        self.write(regs::CTRL2, &[config.to_reg()]).await
+    }
+
+    pub async fn read_gyroscope(&mut self) -> Result<XYZVectorI16, Error<Spi::Error>> {
+        let mut output = XYZVectorI16::default();
+        self.read(regs::OUTX_L_G, output.as_mut_bytes()).await?;
+        Ok(output)
     }
 }
