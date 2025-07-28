@@ -371,7 +371,7 @@ pub mod program {
                     lsm.control_fifo_counter().await?;
 
                     loop {
-                        Timer::after_millis(50).await;
+                        Timer::after_millis(100).await;
                         let r = lsm.read_acceleration().await?;
                         let h = lsm.read_acceleration_high().await?;
                         let g = lsm.read_gyroscope().await?;
@@ -379,6 +379,10 @@ pub mod program {
 
                         let s = lsm.get_fifo_status().await?;
                         defmt::info!("s: {:?}", s);
+
+                        let mut buffer = [0u8; 128];
+                        lsm.get_fifo(&mut buffer).await?;
+                        defmt::info!("b: {:?}", buffer);
 
                         // let temp = lsm.read_temperature().await?;
                         // let t = lsm.read_timestamp().await?;

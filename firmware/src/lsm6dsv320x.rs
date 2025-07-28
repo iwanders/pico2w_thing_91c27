@@ -8,6 +8,7 @@ use embedded_hal_async::spi::SpiDevice;
 // https://docs.embassy.dev/embassy-embedded-hal/git/default/shared_bus/asynch/spi/index.html
 
 // all pages refer to the pdf marked DS14623 - Rev 2
+// strike that, we also need an6119.
 //
 // Low G, high G and gyro can be toggled independently and run at different data rates.
 // High G is only available if low G is in high performance or high accuracy mode.
@@ -20,7 +21,11 @@ use embedded_hal_async::spi::SpiDevice;
 
 use zerocopy::{FromBytes, IntoBytes};
 
-// https://github.com/google/zerocopy/issues/1497 If only...
+// Should we use bitfield-struct?
+// THis seems to work:
+// #[bitfield(u64)]
+// #[derive(PartialEq, Eq, TryFromBytes, IntoBytes, Immutable, defmt::Format)] // <- Attributes after `bitfield` are carried over
+// struct MyBitfield {
 
 pub mod regs {
 
@@ -67,6 +72,11 @@ pub mod regs {
     pub const FIFO_CTRL3: u8 = 0x09;
     /// Fifo control register 4.
     pub const FIFO_CTRL4: u8 = 0x0a;
+
+    /// Fifo tag register.
+    pub const FIFO_DATA_OUT_TAG: u8 = 0x78;
+    /// First fifo data register.
+    pub const FIFO_DATA_OUT_X_L: u8 = 0x79;
 
     /// Counter batch data rate
     pub const COUNTER_BDR_REG1: u8 = 0x0b;
@@ -483,6 +493,7 @@ where
 
     pub async fn control_fifo_counter(&mut self) -> Result<(), Error<Spi::Error>> {
         // this seriously needs work.
+        // The high-g accelerometer BDR is not configurable and is always equal to the configured ODR.
         const XL_HG_BATCH_EN: u8 = 1 << 3;
         self.write(regs::COUNTER_BDR_REG1, &[XL_HG_BATCH_EN]).await
     }
@@ -491,5 +502,11 @@ where
         let mut output = FifoStatus::default();
         self.read(regs::FIFO_STATUS1, output.as_mut_bytes()).await?;
         Ok(output)
+    }
+
+    /// This does seem to allow more than reading a single value...
+    /// CFG_CHANGE is probably useful to store / emit into the fifo at some point?
+    pub async fn get_fifo(&mut self, values: &mut [u8]) -> Result<(), Error<Spi::Error>> {
+        self.read(regs::FIFO_DATA_OUT_TAG, values).await
     }
 }
