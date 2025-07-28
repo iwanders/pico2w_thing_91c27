@@ -251,6 +251,7 @@ pub mod program {
                 let mode = bme280::Mode::Forced;
                 let humidity_sampling = bme280::Sampling::X1;
                 defmt::debug!("status: {:b}", d.get_register(REG_BME280_STATUS).await);
+                //for _ in 0..30 {
                 loop {
                     // Do this weird dance to activate the control register for humidity before triggering a value.
                     let _ = d.set_ctrl_hum(humidity_sampling).await;
@@ -314,24 +315,43 @@ pub mod program {
                 let mut lsm_test = async move || -> Result<(), OurError> {
                     lsm.reset().await?;
                     Timer::after_millis(20).await; // wait a bit after the reset.
+
+                    // Low accelerometer setup;
                     use lsm6dsv320x::{
                         AccelerationDataRate, AccelerationMode, AccelerationModeDataRate,
                     };
                     lsm.control_acceleration(AccelerationModeDataRate {
                         mode: AccelerationMode::HighPerformance,
-                        rate: AccelerationDataRate::Hz15,
+                        rate: AccelerationDataRate::Hz480,
                     })
                     .await?;
-                    use lsm6dsv320x::{AccelerationFilterScale, AccelerationRange};
+                    use lsm6dsv320x::{AccelerationFilterScale, AccelerationScale};
                     lsm.filter_acceleration(AccelerationFilterScale {
-                        scale: AccelerationRange::G8,
+                        scale: AccelerationScale::G2,
+                    })
+                    .await?;
+
+                    // High acceleratometer setup;
+                    use lsm6dsv320x::{
+                        AccelerationDataRateHigh, AccelerationModeDataRateHigh,
+                        AccelerationScaleHigh,
+                    };
+                    lsm.control_acceleration_high(AccelerationModeDataRateHigh {
+                        scale: AccelerationScaleHigh::G320,
+                        rate: AccelerationDataRateHigh::Hz480,
+                        ..Default::default()
                     })
                     .await?;
 
                     loop {
-                        let r = lsm.read_acceleration().await?;
                         Timer::after_millis(50).await;
-                        defmt::info!("r: {:?}", r);
+                        let r = lsm.read_acceleration().await?;
+                        let h = lsm.read_acceleration_high().await?;
+                        defmt::info!("r: {:?}  h: {:?}", r, h);
+
+                        // let temp = lsm.read_temperature().await?;
+                        // let t = lsm.read_timestamp().await?;
+                        // defmt::info!("t: {}, temp: {:?}", t, temp);
                     }
 
                     Ok(())

@@ -37,6 +37,18 @@ pub mod regs {
 
     /// Acceleration Linear X low, two bytes, two's complement. Followed by y and z.
     pub const OUTX_L_A: u8 = 0x28;
+
+    /// Temperature data output register low, two bytes, two's complement, followed by H.
+    pub const OUT_TEMP_L: u8 = 0x20;
+
+    /// Timestamp data in, 4 bytes, u32, 1LSB is 21.7 us typical.
+    pub const TIMESTAMP0: u8 = 0x40;
+
+    /// Control register for high g accelerometer.
+    pub const CTRL1_XL_HG: u8 = 0x4e;
+
+    /// Data to the accelerometer full-scale and ODR settings, or according to the high-g mode configuration.
+    pub const UI_OUTX_L_A_OIS_HG: u8 = 0x34;
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, defmt::Format)]
@@ -117,7 +129,7 @@ pub struct AccelerationModeDataRate {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
 #[repr(u8)]
-pub enum AccelerationRange {
+pub enum AccelerationScale {
     #[default]
     G2 = 0b00,
     G4 = 0b01,
@@ -125,7 +137,7 @@ pub enum AccelerationRange {
     G16 = 0b11,
 }
 pub struct AccelerationFilterScale {
-    pub scale: AccelerationRange,
+    pub scale: AccelerationScale,
     // Skip filter stuff for now, it is spread out over ctrl8 and ctrl0.
 }
 
@@ -135,6 +147,51 @@ pub struct AccelerationXYZ {
     pub y: i16,
     pub z: i16,
 }
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
+#[repr(u8)]
+pub enum AccelerationScaleHigh {
+    #[default]
+    G32 = 0b000,
+    G64 = 0b001,
+    G128 = 0b010,
+    G256 = 0b011,
+    G320 = 0b100,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
+#[repr(u8)]
+pub enum AccelerationDataRateHigh {
+    #[default]
+    PowerDown = 0b000,
+    Hz480 = 0b011,
+    Hz960 = 0b100,
+    Hz1920 = 0b101,
+    Hz3840 = 0b110,
+    Hz7680 = 0b111,
+}
+/// Enables or disables readout of the high-g acceleration from the UI_* output registers, set to enabled for `read_acceleration_high`.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
+#[repr(u8)]
+pub enum AccelerationHighOut {
+    #[default]
+    Enabled = 1,
+    Disabled = 0,
+}
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
+pub struct AccelerationModeDataRateHigh {
+    pub regout: AccelerationHighOut,
+    pub scale: AccelerationScaleHigh,
+    pub rate: AccelerationDataRateHigh,
+}
+impl AccelerationModeDataRateHigh {
+    fn to_reg(&self) -> u8 {
+        (self.regout as u8) << 7 | (self.rate as u8) << 3 | (self.scale as u8)
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format, FromBytes, IntoBytes)]
+pub struct MilliCelsius(pub i32);
 
 impl<Spi: embedded_hal_async::spi::SpiDevice> LSM6DSV320X<Spi>
 where
@@ -207,5 +264,35 @@ where
         let buff = output.as_mut_bytes();
         self.read(regs::OUTX_L_A, buff).await?;
         Ok(output)
+    }
+
+    pub async fn read_acceleration_high(&mut self) -> Result<AccelerationXYZ, Error<Spi::Error>> {
+        let mut output = AccelerationXYZ::default();
+        let buff = output.as_mut_bytes();
+        self.read(regs::UI_OUTX_L_A_OIS_HG, buff).await?;
+        Ok(output)
+    }
+
+    /// Get temperature in millicelsius.
+    pub async fn read_temperature(&mut self) -> Result<MilliCelsius, Error<Spi::Error>> {
+        let mut output = 0i16;
+        self.read(regs::OUT_TEMP_L, output.as_mut_bytes()).await?;
+        Ok(MilliCelsius(output as i32 + 25000))
+    }
+
+    /// Read the timestamp, 1 LSB = 21.7 us typical.
+    /// TODO: needs to be enabled in FUNCTIONS_ENABLE
+    pub async fn read_timestamp(&mut self) -> Result<u32, Error<Spi::Error>> {
+        let mut output = 0u32;
+        self.read(regs::TIMESTAMP0, output.as_mut_bytes()).await?;
+        Ok(output)
+    }
+
+    pub async fn control_acceleration_high(
+        &mut self,
+        config: AccelerationModeDataRateHigh,
+    ) -> Result<(), Error<Spi::Error>> {
+        let reg_value = config.to_reg();
+        self.write(regs::CTRL1_XL_HG, &[reg_value]).await
     }
 }
