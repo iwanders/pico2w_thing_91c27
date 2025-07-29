@@ -1,25 +1,24 @@
 use embedded_hal_async::spi::SpiDevice;
+use zerocopy::{FromBytes, IntoBytes};
+
 // https://docs.rs/embedded-hal/1.0.0/embedded_hal/spi/index.html#for-driver-authors
 // > If your device has a CS pin, use SpiDevice. Do not manually manage the CS pin, the SpiDevice implementation will
 // > do it for you. By using SpiDevice, your driver will cooperate nicely with other drivers for other devices in the same shared SPI bus.
 // That's us!
 
-// https://github.com/rust-embedded/embedded-hal/issues/572
-// https://docs.embassy.dev/embassy-embedded-hal/git/default/shared_bus/asynch/spi/index.html
-
 // all pages refer to the pdf marked DS14623 - Rev 2
-// strike that, we also need an6119.
+// strike that, we also need an6119, that details fifo reading wraparound, and the compression algorithm.
 //
 // Low G, high G and gyro can be toggled independently and run at different data rates.
 // High G is only available if low G is in high performance or high accuracy mode.
 
-// Tsu(CS) is 20ns, so we need a 20ns delay at the start of an SPI transaction.
-// https://docs.rs/embedded-hal/1.0.0/embedded_hal/spi/index.html#cs-to-clock-delays
-// Drivers should NOT use Operation::DelayNs for this... well then.
-// I should patch up https://github.com/embassy-rs/embassy/blob/77a8bc27e9c34e363f321132ebb9e8d8ff684a9f/embassy-embedded-hal/src/shared_bus/asynch/spi.rs#L1-L212
-// Seems we can ignore it for now.
+// Todo:
+//  fix the hack in control_fifo_counter
+//  probably coalesce some configuration properties.
 
-use zerocopy::{FromBytes, IntoBytes};
+// https://github.com/rust-embedded/embedded-hal/issues/572
+// instead use;
+// https://docs.embassy.dev/embassy-embedded-hal/git/default/shared_bus/asynch/spi/index.html
 
 // Should we use bitfield-struct?
 // THis seems to work:

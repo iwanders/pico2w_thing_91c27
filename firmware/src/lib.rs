@@ -320,7 +320,7 @@ pub mod program {
                     use lsm6dsv320x::{AccelerationMode, AccelerationModeDataRate, OutputDataRate};
                     lsm.control_acceleration(AccelerationModeDataRate {
                         mode: AccelerationMode::HighPerformance,
-                        rate: OutputDataRate::Hz7680,
+                        rate: OutputDataRate::Hz480,
                     })
                     .await?;
                     use lsm6dsv320x::{AccelerationFilterScale, AccelerationScale};
@@ -336,7 +336,7 @@ pub mod program {
                     };
                     lsm.control_acceleration_high(AccelerationModeDataRateHigh {
                         scale: AccelerationScaleHigh::G320,
-                        rate: AccelerationDataRateHigh::Hz7680,
+                        rate: AccelerationDataRateHigh::Hz480,
                         ..Default::default()
                     })
                     .await?;
@@ -345,7 +345,7 @@ pub mod program {
                     use lsm6dsv320x::{GyroscopeMode, GyroscopeModeDataRate};
                     lsm.control_gyroscope(GyroscopeModeDataRate {
                         mode: GyroscopeMode::HighPerformance,
-                        rate: OutputDataRate::Hz7680,
+                        rate: OutputDataRate::Hz480,
                     })
                     .await?;
                     use lsm6dsv320x::{GyroscopeBandwidthScale, GyroscopeScale};
@@ -363,8 +363,8 @@ pub mod program {
                     .await?;
                     use lsm6dsv320x::FifoBatch;
                     lsm.control_fifo_batch(FifoBatch {
-                        gyroscope: OutputDataRate::Hz7680,
-                        acceleration: OutputDataRate::Hz7680,
+                        gyroscope: OutputDataRate::Hz480,
+                        acceleration: OutputDataRate::Hz480,
                     })
                     .await?;
                     // And this last one to start collecting high G samples to the fifo.
