@@ -320,7 +320,7 @@ pub mod program {
                     use lsm6dsv320x::{AccelerationMode, AccelerationModeDataRate, OutputDataRate};
                     lsm.control_acceleration(AccelerationModeDataRate {
                         mode: AccelerationMode::HighPerformance,
-                        rate: OutputDataRate::Hz480,
+                        rate: OutputDataRate::Hz7680,
                     })
                     .await?;
                     use lsm6dsv320x::{AccelerationFilterScale, AccelerationScale};
@@ -336,7 +336,7 @@ pub mod program {
                     };
                     lsm.control_acceleration_high(AccelerationModeDataRateHigh {
                         scale: AccelerationScaleHigh::G320,
-                        rate: AccelerationDataRateHigh::Hz480,
+                        rate: AccelerationDataRateHigh::Hz7680,
                         ..Default::default()
                     })
                     .await?;
@@ -345,7 +345,7 @@ pub mod program {
                     use lsm6dsv320x::{GyroscopeMode, GyroscopeModeDataRate};
                     lsm.control_gyroscope(GyroscopeModeDataRate {
                         mode: GyroscopeMode::HighPerformance,
-                        rate: OutputDataRate::Hz480,
+                        rate: OutputDataRate::Hz7680,
                     })
                     .await?;
                     use lsm6dsv320x::{GyroscopeBandwidthScale, GyroscopeScale};
@@ -357,18 +357,40 @@ pub mod program {
                     // Setup fifo.
                     use lsm6dsv320x::{FifoControl, FifoMode, TemperatureBatch};
                     lsm.control_fifo(FifoControl {
-                        mode: FifoMode::FifoModeStopWhenFull,
+                        mode: FifoMode::Continuous,
                         temperature: TemperatureBatch::Hz60,
                     })
                     .await?;
                     use lsm6dsv320x::FifoBatch;
                     lsm.control_fifo_batch(FifoBatch {
-                        gyroscope: OutputDataRate::Hz7Dot5,
-                        acceleration: OutputDataRate::Hz7Dot5,
+                        gyroscope: OutputDataRate::Hz7680,
+                        acceleration: OutputDataRate::Hz7680,
                     })
                     .await?;
                     // And this last one to start collecting high G samples to the fifo.
                     lsm.control_fifo_counter().await?;
+
+                    if true {
+                        let buffer = {
+                            const LEN: usize = 1792;
+                            static FIFO_BUFFER: StaticCell<[u8; LEN]> = StaticCell::new();
+                            FIFO_BUFFER.init([0u8; LEN])
+                        };
+                        loop {
+                            let s = lsm.get_fifo_status().await?;
+
+                            let b = embassy_time::Instant::now();
+                            lsm.get_fifo(&mut buffer[0..(s.unread() as usize) * 7])
+                                .await?;
+                            let e = embassy_time::Instant::now();
+                            defmt::info!("s: {:?} took: {} us", s, (e - b).as_micros());
+                            defmt::info!("b: {:?}", buffer[0..6]);
+                            // Okay, we can keep up with the data rate, it takes about 240 us to transfer 30 samples of
+                            // 7 bytes each. Even with a 1ms delay we can keep up.
+
+                            Timer::after_millis(1).await;
+                        }
+                    }
 
                     loop {
                         Timer::after_millis(100).await;

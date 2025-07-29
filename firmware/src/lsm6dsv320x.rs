@@ -281,9 +281,12 @@ pub enum TemperatureBatch {
 #[repr(u8)]
 pub enum FifoMode {
     #[default]
-    Disabled = 0b00,
+    Bypass = 0b00,
+    /// Start recording batches and put them into the fifo, stop when it is full. To start gain enter Bypass mode before
+    /// reenabling this mode.
     FifoModeStopWhenFull = 0b001,
     ContinuousWTMToFull = 0b010,
+    /// Starts operating in continuous mode, then switches to fifo in the event condition.
     ContinuousToFifo = 0b011,
     BypassToContinuous = 0b100,
     Continuous = 0b110,
@@ -506,6 +509,8 @@ where
 
     /// This does seem to allow more than reading a single value...
     /// CFG_CHANGE is probably useful to store / emit into the fifo at some point?
+    ///
+    /// AN6119; Rounding from FIFO_DATA_OUT_Z_H to FIFO_DATA_OUT_TAG is done automatically.
     pub async fn get_fifo(&mut self, values: &mut [u8]) -> Result<(), Error<Spi::Error>> {
         self.read(regs::FIFO_DATA_OUT_TAG, values).await
     }
