@@ -1,3 +1,4 @@
+use embassy_rp::Peri;
 /// Pio backed I2s input (hacked up from the output example)
 ///
 /// Specifically for; ICS-43434
@@ -16,7 +17,6 @@ use embassy_rp::pio::{
     Common, Config, Direction, FifoJoin, Instance, LoadedProgram, PioPin, ShiftConfig,
     ShiftDirection, StateMachine,
 };
-use embassy_rp::{into_ref, Peripheral, PeripheralRef};
 use fixed::traits::ToFixed;
 use pio;
 
@@ -53,7 +53,7 @@ impl<'a, PIO: Instance> PioI2sInProgram<'a, PIO> {
 
 /// Pio backed I2s output driver
 pub struct PioI2sIn<'a, P: Instance, const S: usize> {
-    dma: PeripheralRef<'a, AnyChannel>,
+    dma: Peri<'a, AnyChannel>,
     sm: StateMachine<'a, P, S>,
 }
 
@@ -62,16 +62,16 @@ impl<'a, P: Instance, const S: usize> PioI2sIn<'a, P, S> {
     pub fn new(
         common: &mut Common<'a, P>,
         mut sm: StateMachine<'a, P, S>,
-        dma: impl Peripheral<P = impl Channel> + 'a,
-        data_pin: impl PioPin,
-        bit_clock_pin: impl PioPin,
-        lr_clock_pin: impl PioPin,
+        dma: Peri<'a, impl Channel>,
+        data_pin: Peri<'a, impl PioPin>,
+        bit_clock_pin: Peri<'a, impl PioPin>,
+        lr_clock_pin: Peri<'a, impl PioPin>,
         sample_rate: u32,
         bit_depth: u32,
         channels: u32,
         program: &PioI2sInProgram<'a, P>,
     ) -> Self {
-        into_ref!(dma);
+        //into_ref!(dma);
 
         let data_pin = common.make_pio_pin(data_pin);
         let bit_clock_pin = common.make_pio_pin(bit_clock_pin);
@@ -102,7 +102,7 @@ impl<'a, P: Instance, const S: usize> PioI2sIn<'a, P, S> {
         sm.set_enable(true);
 
         Self {
-            dma: dma.map_into(),
+            dma: dma.into(),
             sm,
         }
     }

@@ -1,17 +1,17 @@
 #![allow(dead_code)]
-
 use embassy_executor::Spawner;
 use embassy_rp::gpio::{Input, Level, Output};
+use embassy_rp::Peri;
 
 use embassy_rp::{bind_interrupts, Peripherals};
 use embassy_time::{Duration, Timer};
 
 struct IcmPinTransfer {
-    spi: embassy_rp::peripherals::SPI0,
-    cs: embassy_rp::peripherals::PIN_5,
-    clk: embassy_rp::peripherals::PIN_2,
-    mosi: embassy_rp::peripherals::PIN_3,
-    miso: embassy_rp::peripherals::PIN_4,
+    spi: Peri<'static, embassy_rp::peripherals::SPI0>,
+    cs: Peri<'static, embassy_rp::peripherals::PIN_5>,
+    clk: Peri<'static, embassy_rp::peripherals::PIN_2>,
+    mosi: Peri<'static, embassy_rp::peripherals::PIN_3>,
+    miso: Peri<'static, embassy_rp::peripherals::PIN_4>,
 }
 
 async fn test_icm(p: IcmPinTransfer) {
@@ -44,11 +44,11 @@ async fn test_icm(p: IcmPinTransfer) {
 }
 
 struct LSM6DSV320XPinTransfer {
-    spi: embassy_rp::peripherals::SPI1,
-    cs: embassy_rp::peripherals::PIN_13,
-    clk: embassy_rp::peripherals::PIN_10,
-    mosi: embassy_rp::peripherals::PIN_11,
-    miso: embassy_rp::peripherals::PIN_12,
+    spi: Peri<'static, embassy_rp::peripherals::SPI1>,
+    cs: Peri<'static, embassy_rp::peripherals::PIN_13>,
+    clk: Peri<'static, embassy_rp::peripherals::PIN_10>,
+    mosi: Peri<'static, embassy_rp::peripherals::PIN_11>,
+    miso: Peri<'static, embassy_rp::peripherals::PIN_12>,
 }
 async fn test_lsm(p: LSM6DSV320XPinTransfer) {
     use embassy_rp::spi::{Config, Spi};
@@ -81,9 +81,9 @@ async fn test_lsm(p: LSM6DSV320XPinTransfer) {
 }
 
 struct BmePinTransfer {
-    i2c: embassy_rp::peripherals::I2C0,
-    sda: embassy_rp::peripherals::PIN_20,
-    scl: embassy_rp::peripherals::PIN_21,
+    i2c: Peri<'static, embassy_rp::peripherals::I2C0>,
+    sda: Peri<'static, embassy_rp::peripherals::PIN_20>,
+    scl: Peri<'static, embassy_rp::peripherals::PIN_21>,
 }
 async fn test_bme(p: BmePinTransfer) {
     use embassy_rp::i2c::{Config, I2c};
@@ -106,11 +106,11 @@ async fn test_bme(p: BmePinTransfer) {
     }
 }
 struct FlashPinTransfer {
-    spi: embassy_rp::peripherals::SPI0,
-    cs: embassy_rp::peripherals::PIN_17,
-    clk: embassy_rp::peripherals::PIN_18,
-    mosi: embassy_rp::peripherals::PIN_19,
-    miso: embassy_rp::peripherals::PIN_16,
+    spi: Peri<'static, embassy_rp::peripherals::SPI0>,
+    cs: Peri<'static, embassy_rp::peripherals::PIN_17>,
+    clk: Peri<'static, embassy_rp::peripherals::PIN_18>,
+    mosi: Peri<'static, embassy_rp::peripherals::PIN_19>,
+    miso: Peri<'static, embassy_rp::peripherals::PIN_16>,
 }
 async fn test_flash(p: FlashPinTransfer) {
     use embassy_rp::spi::{Config, Spi};
@@ -150,12 +150,12 @@ async fn test_flash(p: FlashPinTransfer) {
 }
 
 struct SdCardPinTransfer {
-    spi: embassy_rp::peripherals::SPI0,
-    cs: embassy_rp::peripherals::PIN_27,
-    clk: embassy_rp::peripherals::PIN_18,
-    mosi: embassy_rp::peripherals::PIN_19,
-    miso: embassy_rp::peripherals::PIN_16,
-    detect: embassy_rp::peripherals::PIN_22,
+    spi: Peri<'static, embassy_rp::peripherals::SPI0>,
+    cs: Peri<'static, embassy_rp::peripherals::PIN_27>,
+    clk: Peri<'static, embassy_rp::peripherals::PIN_18>,
+    mosi: Peri<'static, embassy_rp::peripherals::PIN_19>,
+    miso: Peri<'static, embassy_rp::peripherals::PIN_16>,
+    detect: Peri<'static, embassy_rp::peripherals::PIN_22>,
 }
 async fn test_sdcard(p: SdCardPinTransfer) {
     use embassy_rp::spi::{Config, Spi};
@@ -185,11 +185,11 @@ async fn test_sdcard(p: SdCardPinTransfer) {
 }
 
 struct MicPinTransfer {
-    pio_dev: embassy_rp::peripherals::PIO1,
-    dma_chan: embassy_rp::peripherals::DMA_CH0,
-    ws: embassy_rp::peripherals::PIN_7,
-    clk: embassy_rp::peripherals::PIN_8,
-    data: embassy_rp::peripherals::PIN_9,
+    pio_dev: Peri<'static, embassy_rp::peripherals::PIO1>,
+    dma_chan: Peri<'static, embassy_rp::peripherals::DMA_CH0>,
+    ws: Peri<'static, embassy_rp::peripherals::PIN_7>,
+    clk: Peri<'static, embassy_rp::peripherals::PIN_8>,
+    data: Peri<'static, embassy_rp::peripherals::PIN_9>,
 }
 async fn test_mic(p: MicPinTransfer) {
     use embassy_rp::pio::Pio;

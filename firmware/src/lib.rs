@@ -370,7 +370,7 @@ pub mod program {
                     // And this last one to start collecting high G samples to the fifo.
                     lsm.control_fifo_counter().await?;
 
-                    if true {
+                    if false {
                         let buffer = {
                             const LEN: usize = 1792;
                             static FIFO_BUFFER: StaticCell<[u8; LEN]> = StaticCell::new();
@@ -409,6 +409,7 @@ pub mod program {
                         // let temp = lsm.read_temperature().await?;
                         // let t = lsm.read_timestamp().await?;
                         // defmt::info!("t: {}, temp: {:?}", t, temp);
+                        defmt::info!("msp: {}", cortex_m::register::msp::read());
                     }
 
                     Ok(())
