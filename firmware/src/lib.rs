@@ -215,7 +215,7 @@ pub mod program {
         info!("Going into test.");
         //hw_test::hw_test(unsafe { embassy_rp::Peripherals::steal() }).await;
         //hw_test::test_wifi(unsafe { embassy_rp::Peripherals::steal() }, spawner).await;
-        hw_test::ble_test::main(spawner, unsafe { embassy_rp::Peripherals::steal() }).await;
+        //hw_test::ble_test::main(spawner, unsafe { embassy_rp::Peripherals::steal() }).await;
         // */
         let mut indicator = Output::new(p.PIN_26, Level::Low);
         let delay = Duration::from_millis(250);
@@ -370,7 +370,13 @@ pub mod program {
                     })
                     .await?;
                     // And this last one to start collecting high G samples to the fifo.
-                    lsm.control_fifo_counter().await?;
+                    use lsm6dsv320x::{BatchDataRateConfig, TriggerBDRSource};
+                    lsm.control_bdr_config(BatchDataRateConfig {
+                        trigger_bdr: TriggerBDRSource::Acceleration,
+                        batch_acceleration_high: true,
+                        threshold: 0,
+                    })
+                    .await?;
 
                     if false {
                         let buffer = {

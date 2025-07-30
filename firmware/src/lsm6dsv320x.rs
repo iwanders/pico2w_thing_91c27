@@ -313,6 +313,33 @@ impl FifoBatch {
     }
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
+#[repr(u8)]
+pub enum TriggerBDRSource {
+    #[default]
+    Acceleration = 0b00,
+    Gyroscope = 0b01,
+    GyroscopeEIS = 0b10,
+    AccelerationHigh = 0b11,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
+pub struct BatchDataRateConfig {
+    pub trigger_bdr: TriggerBDRSource,
+    pub batch_acceleration_high: bool,
+    pub threshold: u16,
+}
+impl BatchDataRateConfig {
+    fn to_reg1(&self) -> u8 {
+        (self.trigger_bdr as u8) << 5
+            | (self.batch_acceleration_high as u8) << 3
+            | (self.threshold >> 8) as u8
+    }
+    fn to_reg2(&self) -> u8 {
+        self.threshold as u8
+    }
+}
+
 #[derive(Copy, Clone, Eq, PartialEq, Default, FromBytes, IntoBytes)]
 pub struct FifoStatus {
     status1: u8,
@@ -493,11 +520,16 @@ where
         self.write(regs::FIFO_CTRL3, &[config.to_reg()]).await
     }
 
-    pub async fn control_fifo_counter(&mut self) -> Result<(), Error<Spi::Error>> {
-        // this seriously needs work.
-        // The high-g accelerometer BDR is not configurable and is always equal to the configured ODR.
-        const XL_HG_BATCH_EN: u8 = 1 << 3;
-        self.write(regs::COUNTER_BDR_REG1, &[XL_HG_BATCH_EN]).await
+    /// Configure whether the high g values are batched, when the batch data rate increases and what the threshold is.
+    pub async fn control_bdr_config(
+        &mut self,
+        config: BatchDataRateConfig,
+    ) -> Result<(), Error<Spi::Error>> {
+        self.write(
+            regs::COUNTER_BDR_REG1,
+            &[config.to_reg1(), config.to_reg2()],
+        )
+        .await
     }
 
     pub async fn get_fifo_status(&mut self) -> Result<FifoStatus, Error<Spi::Error>> {

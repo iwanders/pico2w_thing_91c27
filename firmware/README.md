@@ -71,3 +71,12 @@ Currently the offset & lengths need to be read from the partition table and inse
 In the future, we could consider a single partition with static data, seems `picotool load` can write to arbitrary addresses. We can
 write all metadata/files into a single data partition with some 'file' header and then just iterate over those after obtaining the
 partition table to find the correct partition.
+
+## Commisioning / AHK / Matter
+Apple homekit either uses BLE or it uses WiFi, it doesn't facilitate providing wifi passwords easily.
+
+Matter uses ble for setup, then switches to wifi.
+
+There is a project [rs-matter](https://github.com/project-chip/rs-matter) that implements the spec in Rust, one of its devs has an [integration with embassy](https://github.com/ivmarkov/rs-matter-embassy) that appears to make this all pretty simple. The official sdk for matter is [here](https://github.com/project-chip/connectedhomeip) from the looks of it.
+
+That does seem a LOT more daunting than just mocking an Apple Homekit Accessory though, if I just want to control a few switches and read some values.
