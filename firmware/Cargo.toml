@@ -34,7 +34,11 @@ embedded-sdmmc = "0.7.0"
 embedded-hal-bus = { version = "0.1", features = ["async"] }
 
 # wifi/bluetooth chip.
-cyw43 = { version = "0.4.0", features = ["defmt", "firmware-logs"] }
+cyw43 = { version = "0.4.0", features = [
+  "defmt",
+  "firmware-logs",
+  "bluetooth",
+] }
 
 # Misc stuff to make board work.
 critical-section = "1.2.0"
@@ -89,7 +93,7 @@ embassy-rp = { version = "0.6.0", features = [
   "run-from-ram",
 ] }
 cyw43-pio = { version = "0.5.1", features = ["defmt"] }
-#trouble-host = { version = "0.2.4", features = ["defmt"] }
+trouble-host = { version = "0.2.4", features = ["defmt"] }
 embassy-futures = "0.1.1"
 
 

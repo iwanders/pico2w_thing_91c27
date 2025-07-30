@@ -65,8 +65,9 @@ pub mod program {
         embassy_rp::binary_info::rp_program_build_attribute!(),
     ];
 
-    bind_interrupts!(struct Irqs {
-        //PIO0_IRQ_0 => PioInterruptHandler<PIO0>;
+    //use embassy_rp::pio::InterruptHandler as PioInterruptHandler;
+    bind_interrupts!(pub struct Irqs {
+        //PIO0_IRQ_0 => PioInterruptHandler<embassy_rp::peripherals::PIO0>;
         USBCTRL_IRQ => UsbInterruptHandler<USB>;
         //PIO1_IRQ_0 => embassy_rp::pio:: InterruptHandler<embassy_rp::peripherals::PIO1>;
     });
@@ -214,6 +215,7 @@ pub mod program {
         info!("Going into test.");
         //hw_test::hw_test(unsafe { embassy_rp::Peripherals::steal() }).await;
         //hw_test::test_wifi(unsafe { embassy_rp::Peripherals::steal() }, spawner).await;
+        hw_test::ble_test::main(spawner, unsafe { embassy_rp::Peripherals::steal() }).await;
         // */
         let mut indicator = Output::new(p.PIN_26, Level::Low);
         let delay = Duration::from_millis(250);
