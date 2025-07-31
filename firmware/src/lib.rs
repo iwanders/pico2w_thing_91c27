@@ -7,6 +7,7 @@ pub mod defmt_serial;
 
 pub mod static_files;
 
+pub mod icm42688;
 pub mod lsm6dsv320x;
 
 #[cfg(target_arch = "arm")]
@@ -270,28 +271,14 @@ pub mod program {
             }
         }
 
-        if true {
-            // spi: p.SPI1,
-            // cs: p.PIN_13,
-            // clk: p.PIN_10,
-            // mosi: p.PIN_11,
-            // miso: p.PIN_12,
-
+        if false {
             use embassy_rp::spi::{Config, Spi};
             let mut cs = Output::new(p.PIN_13, Level::High);
             let mut config = Config::default();
 
+            // Max clock is 10 MHz for SPI.
             config.frequency = 10_000_000;
-            // Tsu(CS) is 20ns, so we need a 20ns delay at the start of an SPI transaction.]
-            // https://docs.rs/embedded-hal/1.0.0/embedded_hal/spi/index.html#cs-to-clock-delays
-            // Drivers should NOT use Operation::DelayNs for this... well then.
 
-            // page 26
-            // CS goes low for selection.
-            // Data is latched on the rising edge of SCLK, max clock is 24 MHz O_o
-            // Reads are two or more bytes, first byte is SPI address, following is the data.
-            // First bit of the first byte indicates read, then following 7 bites are register address.
-            //let mut spi = Spi::new_blocking(p.spi, p.clk, p.mosi, p.miso, config);
             let tx_dma = p.DMA_CH1;
             let rx_dma = p.DMA_CH2;
             let mut spi = Spi::new(p.SPI1, p.PIN_10, p.PIN_11, p.PIN_12, tx_dma, rx_dma, config);
@@ -424,6 +411,72 @@ pub mod program {
                 };
                 let r = lsm_test().await;
                 defmt::warn!("test r: {:?}", r);
+            }
+        }
+
+        if true {
+            // spi: Peri<'static, embassy_rp::peripherals::SPI0>,
+            // cs: Peri<'static, embassy_rp::peripherals::PIN_5>,
+            // clk: Peri<'static, embassy_rp::peripherals::PIN_2>,
+            // mosi: Peri<'static, embassy_rp::peripherals::PIN_3>,
+            // miso: Peri<'static, embassy_rp::peripherals::PIN_4>,
+            use embassy_rp::spi::{Config, Spi};
+            let mut cs = Output::new(p.PIN_5, Level::High);
+            let mut config = Config::default();
+
+            // Max SPI rate is 24 O_o
+            config.frequency = 24_000_000;
+
+            let tx_dma = p.DMA_CH3;
+            let rx_dma = p.DMA_CH4;
+            let mut spi = Spi::new(p.SPI0, p.PIN_2, p.PIN_3, p.PIN_4, tx_dma, rx_dma, config);
+            //let cspi = core::cell::RefCell::new(spi);
+            //let bus = embedded_hal_bus::spi::RefCellDevice::new_no_delay(&cspi, cs);
+
+            use embassy_embedded_hal::shared_bus::asynch::spi::SpiDevice;
+            use embassy_embedded_hal::shared_bus::SpiDeviceError;
+            use embassy_sync::blocking_mutex::raw::NoopRawMutex;
+            use embassy_sync::mutex::Mutex;
+            static SPI_BUS: StaticCell<
+                Mutex<NoopRawMutex, Spi<'_, embassy_rp::peripherals::SPI0, embassy_rp::spi::Async>>,
+            > = StaticCell::new();
+            let spi_bus = Mutex::new(spi);
+            let spi_bus = SPI_BUS.init(spi_bus);
+            let device = SpiDevice::new(spi_bus, cs);
+
+            type OurError =
+                icm42688::Error<SpiDeviceError<embassy_rp::spi::Error, core::convert::Infallible>>;
+            let mut icm = icm42688::ICM42688::new(device).await;
+            if let Ok(mut icm) = icm {
+                let mut lsm_test = async move || -> Result<(), OurError> {
+                    defmt::info!("Detected ICM");
+                    let _ = icm.reset().await;
+                    Timer::after_millis(10).await;
+
+                    // set the power register.
+                    use icm42688::{PowerConfig, SensorMode};
+                    icm.control_power(PowerConfig {
+                        gyroscope: SensorMode::LowNoise,
+                        acceleration: SensorMode::LowNoise,
+                    })
+                    .await?;
+                    // Wait the required time after enabling the sensors.
+                    Timer::after_millis(40).await;
+
+                    loop {
+                        Timer::after_millis(100).await;
+                        let r = icm.read_temperature().await?;
+                        defmt::info!("r: {:?}", r);
+                        let a = icm.read_acceleration().await?;
+                        defmt::info!("a: {:?}", a);
+                    }
+
+                    Ok(())
+                };
+                let r = lsm_test().await;
+                defmt::warn!("test r: {:?}", r);
+            } else {
+                defmt::warn!("Failed to detect ICM");
             }
         }
 

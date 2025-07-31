@@ -28,7 +28,10 @@ use zerocopy::{FromBytes, IntoBytes};
 
 pub mod regs {
 
+    /// Constant to apply to the register address in order to specify a read.
     pub const REGISTER_READ: u8 = 1 << 7;
+
+    /// The whoami register that always returns a constant value.
     pub const WHO_AM_I: u8 = 0x0F;
 
     /// Control register with software reset and spi register advance.
