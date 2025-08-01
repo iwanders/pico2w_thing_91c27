@@ -9,6 +9,8 @@ use zerocopy::{FromBytes, IntoBytes};
 // 20 bit data format details are in section 6.
 //
 // device powers up in sleep mode.
+//
+// Data is big endian!
 
 pub mod regs {
     pub const REGISTER_READ: u8 = 1 << 7;
@@ -118,6 +120,15 @@ pub struct XYZVectorI16 {
     pub y: i16,
     pub z: i16,
 }
+impl XYZVectorI16 {
+    pub fn swap_bytes(&self) -> Self {
+        Self {
+            x: self.x.swap_bytes(),
+            y: self.y.swap_bytes(),
+            z: self.z.swap_bytes(),
+        }
+    }
+}
 
 #[derive(Debug, Copy, Clone, PartialEq, defmt::Format)]
 pub enum Error<SpiError: embedded_hal_async::spi::Error> {
@@ -181,6 +192,7 @@ where
                 Operation::Read(data),
             ])
             .await?;
+        defmt::debug!("Read back: {:?}", data);
 
         Ok(())
     }
@@ -209,7 +221,7 @@ where
     pub async fn read_temperature(&mut self) -> Result<i16, Error<Spi::Error>> {
         let mut output = 0i16;
         self.read(regs::TEMP_DATA1, output.as_mut_bytes()).await?;
-        Ok(output)
+        Ok(output.swap_bytes())
     }
 
     /// Control the power register.
@@ -221,6 +233,6 @@ where
         let mut output = XYZVectorI16::default();
         let buff = output.as_mut_bytes();
         self.read(regs::ACCEL_DATA_X1, buff).await?;
-        Ok(output)
+        Ok(output.swap_bytes())
     }
 }
