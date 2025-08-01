@@ -19,6 +19,9 @@ pub mod regs {
     /// Contains SPI settings and reset.
     pub const DEVICE_CONFIG: u8 = 0x11;
 
+    /// First fifo config
+    pub const FIFO_CONFIG: u8 = 0x16;
+
     /// Temperature data registers, first of two.
     pub const TEMP_DATA1: u8 = 0x1D;
 
@@ -26,6 +29,22 @@ pub mod regs {
     pub const PWR_MGMT0: u8 = 0x4E;
     /// First acceleration data register.
     pub const ACCEL_DATA_X1: u8 = 0x1F;
+    /// First gyroscope data register.
+    pub const GYRO_DATA_X1: u8 = 0x25;
+
+    /// Gyroscope config
+    pub const GYRO_CONFIG0: u8 = 0x4f;
+    /// Acceleration config.
+    pub const ACCEL_CONFIG0: u8 = 0x50;
+
+    /// Fifo entry count start
+    pub const FIFO_COUNTH: u8 = 0x2E;
+
+    /// The fifo config that determines which values go to the fifo.
+    pub const FIFO_CONFIG1: u8 = 0x5F;
+
+    /// The actual fifo data.
+    pub const FIFO_DATA: u8 = 0x30;
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
@@ -41,8 +60,35 @@ pub enum GyroscopeOutputDataRate {
     Hz200 = 0b0111,
     Hz50 = 0b1001,
     Hz25 = 0b1010,
-    Hz12dot5 = 0b1011,
+    /// 12.5 Hz
+    Hz12_5 = 0b1011,
     Hz500 = 0b1111,
+}
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
+#[repr(u8)]
+pub enum GyroscopeScale {
+    #[default]
+    Dps2000 = 0b000,
+    Dps1000 = 0b001,
+    Dps500 = 0b010,
+    Dps250 = 0b011,
+    Dps125 = 0b100,
+    /// +/- 62.5 degrees
+    Dps62_5 = 0b101,
+    /// +/- 61.25 degrees
+    Dps31_25 = 0b110,
+    /// +/- 15.625 degrees
+    Dps15_625 = 0b111,
+}
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
+pub struct GyroscopeConfig {
+    pub scale: GyroscopeScale,
+    pub rate: GyroscopeOutputDataRate,
+}
+impl GyroscopeConfig {
+    pub fn to_reg(&self) -> u8 {
+        self.rate as u8 | (self.scale as u8) << 5
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
@@ -69,27 +115,28 @@ pub enum AccelerationOutputDataRate {
     Hz100 = 0b1000,
     Hz50 = 0b1001,
     Hz25 = 0b1010,
-    Hz12dot5 = 0b1011,
-    Hz6dot25 = 0b1100,
-    Hz3dot125 = 0b1101,
-    Hz1dot5626 = 0b1110,
+
+    /// 12.5 Hz
+    Hz12_5 = 0b1011,
+    /// 6.25 Hz
+    Hz6_25 = 0b1100,
+    /// 3.125 Hz
+    Hz3_125 = 0b1101,
+    /// 1.5626 Hz
+    Hz1_5626 = 0b1110,
     Hz500 = 0b1111,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
-#[repr(u8)]
-pub enum GyroscopeScale {
-    #[default]
-    DPS2000 = 0b000,
-    DPS1000 = 0b001,
-    DPS500 = 0b010,
-    DPS250 = 0b011,
-    DPS125 = 0b100,
-    DPS62dot5 = 0b101,
-    DPS31dot25 = 0b110,
-    DPS15dot625 = 0b111,
+pub struct AccelerationConfig {
+    pub scale: AccelerationScale,
+    pub rate: AccelerationOutputDataRate,
 }
-
+impl AccelerationConfig {
+    pub fn to_reg(&self) -> u8 {
+        self.rate as u8 | (self.scale as u8) << 5
+    }
+}
 // Temp data in FIFO is; (FIFO_TEMP_DATA / 2.07) + 25
 // Temp data direct is ; (TEMP_DATA / 132.48) + 25
 //
@@ -127,6 +174,48 @@ impl XYZVectorI16 {
             y: self.y.swap_bytes(),
             z: self.z.swap_bytes(),
         }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format, IntoBytes)]
+#[repr(u8)]
+pub enum FifoMode {
+    #[default]
+    Bypass = 0b00,
+    StreamToFifo = 0b01,
+    StopOnFull = 0b10,
+}
+impl FifoMode {
+    fn to_reg(&self) -> u8 {
+        (*self as u8) << 6
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
+pub struct FifoConfig {
+    pub resume_partial: bool,
+    pub watermark_gt_persist: bool,
+    pub high_resolution: bool,
+    pub fsync: bool,
+    pub batch_temperature: bool,
+    pub batch_gyro: bool,
+    pub batch_accel: bool,
+    pub watermark: u16,
+}
+
+impl FifoConfig {
+    pub fn to_regs(&self) -> [u8; 3] {
+        [
+            (self.resume_partial as u8) << 6
+                | (self.watermark_gt_persist as u8) << 5
+                | (self.high_resolution as u8) << 4
+                | (self.fsync as u8) << 3
+                | (self.batch_temperature as u8) << 2
+                | (self.batch_gyro as u8) << 1
+                | (self.batch_accel as u8) << 0,
+            self.watermark as u8,
+            (self.watermark >> 8) as u8,
+        ]
     }
 }
 
@@ -171,6 +260,9 @@ pub enum AccelerationMode {
     Normal = 0b111,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format, FromBytes, IntoBytes)]
+pub struct MilliCelsius(pub i32);
+
 impl<Spi: embedded_hal_async::spi::SpiDevice> ICM42688<Spi>
 where
     Spi: SpiDevice<u8>,
@@ -192,7 +284,6 @@ where
                 Operation::Read(data),
             ])
             .await?;
-        defmt::debug!("Read back: {:?}", data);
 
         Ok(())
     }
@@ -218,10 +309,15 @@ where
     }
 
     /// Get temperature in millicelsius.
-    pub async fn read_temperature(&mut self) -> Result<i16, Error<Spi::Error>> {
+    pub async fn read_temperature(&mut self) -> Result<MilliCelsius, Error<Spi::Error>> {
         let mut output = 0i16;
         self.read(regs::TEMP_DATA1, output.as_mut_bytes()).await?;
-        Ok(output.swap_bytes())
+        let raw = output.swap_bytes();
+        // (TEMP_DATA / 132.48) + 25
+        // Calculate scaling factor for millicelsius, and then scale by 1000.0 get get three points of resolution.
+        const SCALAR: i32 = ((1.0 / 132.48) * 1000.0 * 1000.0) as i32;
+        let milli_celsius = (raw as i32 * SCALAR) / 1000 + 25000;
+        Ok(MilliCelsius(milli_celsius))
     }
 
     /// Control the power register.
@@ -234,5 +330,44 @@ where
         let buff = output.as_mut_bytes();
         self.read(regs::ACCEL_DATA_X1, buff).await?;
         Ok(output.swap_bytes())
+    }
+
+    pub async fn read_gyroscope(&mut self) -> Result<XYZVectorI16, Error<Spi::Error>> {
+        let mut output = XYZVectorI16::default();
+        let buff = output.as_mut_bytes();
+        self.read(regs::GYRO_DATA_X1, buff).await?;
+        Ok(output.swap_bytes())
+    }
+
+    pub async fn control_fifo_mode(&mut self, config: FifoMode) -> Result<(), Error<Spi::Error>> {
+        self.write(regs::FIFO_CONFIG, &[config.to_reg()]).await
+    }
+
+    pub async fn control_fifo_config(
+        &mut self,
+        config: FifoConfig,
+    ) -> Result<(), Error<Spi::Error>> {
+        self.write(regs::FIFO_CONFIG1, &config.to_regs()).await
+    }
+
+    // Should probably combine the bottom one with the register before it that is INT_STATUS.
+    pub async fn read_fifo_count(&mut self) -> Result<u16, Error<Spi::Error>> {
+        let mut output = u16::default();
+        self.read(regs::FIFO_COUNTH, output.as_mut_bytes()).await?;
+        Ok(output.swap_bytes())
+    }
+    /// Read bytes from the fifo.
+    pub async fn get_fifo(&mut self, values: &mut [u8]) -> Result<(), Error<Spi::Error>> {
+        self.read(regs::FIFO_DATA, values).await
+    }
+
+    pub async fn control_gyro(&mut self, config: GyroscopeConfig) -> Result<(), Error<Spi::Error>> {
+        self.write(regs::GYRO_CONFIG0, &[config.to_reg()]).await
+    }
+    pub async fn control_accel(
+        &mut self,
+        config: AccelerationConfig,
+    ) -> Result<(), Error<Spi::Error>> {
+        self.write(regs::ACCEL_CONFIG0, &[config.to_reg()]).await
     }
 }

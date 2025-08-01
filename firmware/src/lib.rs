@@ -460,15 +460,59 @@ pub mod program {
                         acceleration: SensorMode::LowNoise,
                     })
                     .await?;
+
+                    // Set the rates.
+                    use icm42688::{GyroscopeConfig, GyroscopeOutputDataRate, GyroscopeScale};
+                    icm.control_gyro(GyroscopeConfig {
+                        scale: GyroscopeScale::Dps2000,
+                        rate: GyroscopeOutputDataRate::Hz200,
+                    })
+                    .await?;
+
+                    use icm42688::{
+                        AccelerationConfig, AccelerationOutputDataRate, AccelerationScale,
+                    };
+                    icm.control_accel(AccelerationConfig {
+                        scale: AccelerationScale::G2,
+                        rate: AccelerationOutputDataRate::Hz3_125,
+                    })
+                    .await?;
+
                     // Wait the required time after enabling the sensors.
                     Timer::after_millis(40).await;
+
+                    // Enable the fifo.
+                    use icm42688::FifoConfig;
+                    icm.control_fifo_config(FifoConfig {
+                        resume_partial: true,
+                        watermark_gt_persist: true,
+                        high_resolution: false,
+                        fsync: false,
+                        batch_temperature: true,
+                        batch_gyro: true,
+                        batch_accel: true,
+                        watermark: 0,
+                    })
+                    .await?;
+                    //
+                    icm.control_fifo_mode(icm42688::FifoMode::StreamToFifo)
+                        .await?;
 
                     loop {
                         Timer::after_millis(100).await;
                         let r = icm.read_temperature().await?;
-                        defmt::info!("r: {:?}", r);
+                        defmt::info!("t: {:?}", r);
                         let a = icm.read_acceleration().await?;
-                        defmt::info!("a: {:?}", a);
+                        let g = icm.read_gyroscope().await?;
+                        defmt::info!("a: {:?},  g {:?}", a, g);
+                        let f = icm.read_fifo_count().await?;
+                        defmt::info!("f: {:?},  ", f);
+
+                        let mut buffer = [0u8; 128];
+                        let buffer_len = buffer.len();
+                        icm.get_fifo(&mut buffer[0..buffer_len.min(f as usize)])
+                            .await?;
+                        defmt::info!("b: {:?}", buffer);
                     }
 
                     Ok(())
