@@ -77,6 +77,6 @@ Apple homekit either uses BLE or it uses WiFi, it doesn't facilitate providing w
 
 Matter uses ble for setup, then switches to wifi.
 
-There is a project [rs-matter](https://github.com/project-chip/rs-matter) that implements the spec in Rust, one of its devs has an [integration with embassy](https://github.com/ivmarkov/rs-matter-embassy) that appears to make this all pretty simple. The official sdk for matter is [here](https://github.com/project-chip/connectedhomeip) from the looks of it.
+There is a project [rs-matter](https://github.com/project-chip/rs-matter) that implements the spec in Rust, one of its devs has an [integration with embassy](https://github.com/ivmarkov/rs-matter-embassy) that appears to make this all pretty simple. The official sdk for matter is [here](https://github.com/project-chip/connectedhomeip) from the looks of it. The [rs-matter](https://github.com/project-chip/rs-matter) project hasn't had a release in a long time, on Linux its examples are flaky at the time of writing. Resulting in `Error::TLVTypeMismatch` for the on off example and iOS 18.5, pairing with the QR code in the terminal is slick though. And [rs-matter-embassy](https://github.com/sysgrok/rs-matter-embassy) seems to be more ready made, but its examples pull OpenThreads, and seem to also depend on libssl?
 
 That does seem a LOT more daunting than just mocking an Apple Homekit Accessory though, if I just want to control a few switches and read some values.
