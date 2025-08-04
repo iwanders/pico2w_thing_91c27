@@ -105,13 +105,6 @@ smol = "2.0.2"
 # We use this feature here, that's set to opt into the host binaries.
 std = []
 
-[profile.release]
-lto = true
-opt-level = "s"
-incremental = false
-codegen-units = 1
-# note: debug = true is okay - debuginfo isn't flashed to the device!
-debug = true
 
 [[bin]]
 name = "pack_assets"
