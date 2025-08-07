@@ -1,5 +1,4 @@
 #![cfg_attr(not(test), no_std)]
-//use heapless::String;
 
 #[cfg(test)]
 extern crate std;
@@ -7,26 +6,41 @@ extern crate std;
 use trouble_host::prelude::*;
 pub mod characteristic;
 pub mod service;
+pub mod util;
 pub mod uuid;
+use util::GattString;
 
-// Service 0000003E-0000-1000-8000-0026BB765291.
 #[gatt_service(uuid = service::ACCESSORY_INFORMATION)]
-//#[gatt_service(uuid = BluetoothUuid16::new(0xFED3))]
 pub struct AccessoryInformationService {
+    /// Describes hardware revision string; "<major>.<minor>.<revision>"
     #[characteristic(uuid=characteristic::HARDWARE_REVISION)]
-    // String, paired read.
-    // What type do we put here to easily make this all work??
-    hardware_revision: u8,
-    // 00000053-0000-1000-8000-0026BB765291
+    hardware_revision: GattString<16>,
 
-    // 00000030-0000-1000-8000-0026BB765291
-    // // What's this?
-    // E604E95D-A759-4817-87D3-AA005083A0D1
-    // 00000021-0000-1000-8000-0026BB765291
-    // 00000023-0000-1000-8000-0026BB765291
-    // // And this??
-    // 34AB8811-AC7F-4340-BAC3-FD6A85F9943B
-    // 00000020-0000-1000-8000-0026BB765291
-    // 00000052-0000-1000-8000-0026BB765291
-    // 00000014-0000-1000-8000-0026BB765291
+    /// Manufacturer serial number, length must be greater than one.
+    #[characteristic(uuid=characteristic::SERIAL_NUMBER)]
+    serial_number: GattString<64>,
+
+    /// Service instance ID, must be a 16 bit unsigned integer.
+    #[characteristic(uuid=characteristic::SERVICE_INSTANCE)]
+    service_instance: u16,
+
+    /// Manufacturer specific model, length must be greater than one.
+    #[characteristic(uuid=characteristic::SERIAL_NUMBER)]
+    model: GattString<64>,
+
+    /// Name for the device.
+    #[characteristic(uuid=characteristic::NAME)]
+    name: GattString<64>,
+
+    /// Manufacturer name that created the device.
+    #[characteristic(uuid=characteristic::MANUFACTURER)]
+    manufacturer: GattString<64>,
+
+    /// Firmware revision string; "<major>.<minor>.<revision>"
+    #[characteristic(uuid=characteristic::FIRMWARE_REVISION)]
+    manufacturer: GattString<16>,
+
+    /// Identify routine, triggers something, it does not contain data.
+    #[characteristic(uuid=characteristic::IDENTIFY)]
+    identify: bool,
 }
