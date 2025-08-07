@@ -38,9 +38,48 @@ pub struct AccessoryInformationService {
 
     /// Firmware revision string; "<major>.<minor>.<revision>"
     #[characteristic(uuid=characteristic::FIRMWARE_REVISION)]
-    manufacturer: GattString<16>,
+    firmware_revision: GattString<16>,
 
     /// Identify routine, triggers something, it does not contain data.
     #[characteristic(uuid=characteristic::IDENTIFY)]
     identify: bool,
+}
+
+/// Service properties struct.
+pub struct ServiceProperties {
+    pub primary: bool,
+    pub hidden: bool,
+    pub supports_configuration: bool,
+}
+type ServicePropertiesType = [u8; 2];
+
+// This is... very clunky :/
+impl ServiceProperties {
+    pub fn as_u16(&self) -> u16 {
+        (if self.primary { 0x01 } else { 0x00 })
+            | (if self.hidden { 0x02 } else { 0x00 })
+            | (if self.supports_configuration {
+                0x04
+            } else {
+                0x00
+            })
+    }
+    pub fn into_gatt(self) -> ServicePropertiesType {
+        self.as_u16().to_le_bytes()
+    }
+}
+
+#[gatt_service(uuid = service::PROTOCOL_INFORMATION)]
+pub struct ProtocolInformationService {
+    /// Service instance ID, must be a 16 bit unsigned integer.
+    #[characteristic(uuid=characteristic::SERVICE_INSTANCE)]
+    service_instance: u16,
+
+    /// Service signature, only two bytes.
+    #[characteristic(uuid=characteristic::SERVICE_SIGNATURE)]
+    service_signature: ServicePropertiesType,
+
+    /// Version string.
+    #[characteristic(uuid=characteristic::VERSION, value="2.2.0".into())]
+    version: GattString<16>,
 }

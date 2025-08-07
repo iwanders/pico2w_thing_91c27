@@ -28,3 +28,9 @@ pub const FIRMWARE_REVISION: HomekitUuid16 = HomekitUuid16::new(0x0052);
 
 /// Identify trigger.
 pub const IDENTIFY: HomekitUuid16 = HomekitUuid16::new(0x0014);
+
+/// Service Signature.
+pub const SERVICE_SIGNATURE: HomekitUuid16 = HomekitUuid16::new(0x00A5);
+
+/// Version string
+pub const VERSION: HomekitUuid16 = HomekitUuid16::new(0x0037);
