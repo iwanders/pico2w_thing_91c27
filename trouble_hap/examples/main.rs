@@ -127,6 +127,18 @@ mod ble_bas_peripheral {
                                 let value = server.get(&level);
                                 info!("[gatt] Read Event to Level Characteristic: {:?}", value);
                             }
+                            let peek = event.payload();
+                            match peek.incoming() {
+                                trouble_host::att::AttClient::Request(att_req) => {
+                                    info!("[gatt-attclient]: {:?}", att_req);
+                                }
+                                trouble_host::att::AttClient::Command(att_cmd) => {
+                                    info!("[gatt-attclient]: {:?}", att_cmd);
+                                }
+                                trouble_host::att::AttClient::Confirmation(att_cfm) => {
+                                    info!("[gatt-attclient]: {:?}", att_cfm);
+                                }
+                            }
                         }
                         GattEvent::Write(event) => {
                             if event.handle() == level.handle {
@@ -136,14 +148,42 @@ mod ble_bas_peripheral {
                                 );
                             }
                         }
-                        _ => {}
+                        GattEvent::Other(t) => {
+                            let peek = t.payload();
+                            if let Some(handle) = peek.handle() {
+                                info!("[gatt] other event on handle: {handle}");
+                            }
+                            match peek.incoming() {
+                                trouble_host::att::AttClient::Request(att_req) => {
+                                    info!("[gatt-attclient]: {:?}", att_req);
+                                }
+                                trouble_host::att::AttClient::Command(att_cmd) => {
+                                    info!("[gatt-attclient]: {:?}", att_cmd);
+                                }
+                                trouble_host::att::AttClient::Confirmation(att_cfm) => {
+                                    info!("[gatt-attclient]: {:?}", att_cfm);
+                                }
+                            }
+                            info!("[gatt] other event ");
+                        } //_ => {}
                     };
                     // This step is also performed at drop(), but writing it explicitly is necessary
                     // in order to ensure reply is sent.
-                    match event.accept() {
-                        Ok(reply) => reply.send().await,
-                        Err(e) => warn!("[gatt] error sending response: {:?}", e),
-                    };
+                    //
+                    if let GattEvent::Read(event) = event {
+                        if event.handle() == level.handle {
+                            warn!("Sending a reply for the battery handle.!");
+                            let peek = event.payload();
+                            let data = [8u8];
+                            let rsp = trouble_host::att::AttRsp::Read { data: &data };
+                            event.into_payload().reply(rsp).await?;
+                        }
+                    }
+                    //
+                    // match event.accept() {
+                    //     Ok(reply) => reply.send().await,
+                    //     Err(e) => warn!("[gatt] error sending response: {:?}", e),
+                    // };
                 }
                 _ => {} // ignore other Gatt Connection Events
             }

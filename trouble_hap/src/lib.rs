@@ -10,6 +10,9 @@ pub mod util;
 pub mod uuid;
 use util::GattString;
 
+// We probably should handle some gatt reads manually with:
+// https://github.com/embassy-rs/trouble/pull/311
+
 #[gatt_service(uuid = service::ACCESSORY_INFORMATION)]
 pub struct AccessoryInformationService {
     /// Describes hardware revision string; "<major>.<minor>.<revision>"
