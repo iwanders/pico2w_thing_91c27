@@ -1,9 +1,11 @@
 use heapless::String;
 use trouble_host::prelude::{AsGatt, FromGatt};
+
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Default, Eq, PartialEq, Clone, Debug)]
 #[repr(transparent)]
 pub struct GattString<const N: usize>(pub String<N>);
+
 impl<const N: usize> AsGatt for GattString<N> {
     const MIN_SIZE: usize = 0;
 

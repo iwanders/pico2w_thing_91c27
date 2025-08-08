@@ -171,6 +171,12 @@ mod ble_bas_peripheral {
                     // in order to ensure reply is sent.
                     //
                     if let GattEvent::Read(event) = event {
+                        let chr = server
+                            .table()
+                            .find_characteristic_by_value_handle(event.handle());
+                        if let Ok(c) = chr {
+                            let zz = c.to_owned();
+                        }
                         if event.handle() == level.handle {
                             warn!("Sending a reply for the battery handle.!");
                             let peek = event.payload();

@@ -48,13 +48,33 @@ pub struct AccessoryInformationService {
     identify: bool,
 }
 
+// https://github.com/embassy-rs/trouble/issues/375
+trait NonBorrowedGatt {
+    fn as_gatt(&self) -> impl AsRef<[u8]>;
+}
+
+macro_rules! as_gatt {
+    ($l:ty) => {
+        impl AsGatt for $l {
+            const MIN_SIZE: usize = 0;
+
+            const MAX_SIZE: usize = 512;
+
+            fn as_gatt(&self) -> &[u8] {
+                &[]
+            }
+        }
+    };
+}
+
 /// Service properties struct.
+#[derive(Default, Copy, Clone, Debug)]
 pub struct ServiceProperties {
     pub primary: bool,
     pub hidden: bool,
     pub supports_configuration: bool,
 }
-type ServicePropertiesType = [u8; 2];
+as_gatt!(ServiceProperties);
 
 // This is... very clunky :/
 impl ServiceProperties {
@@ -67,7 +87,9 @@ impl ServiceProperties {
                 0x00
             })
     }
-    pub fn into_gatt(self) -> ServicePropertiesType {
+}
+impl NonBorrowedGatt for ServiceProperties {
+    fn as_gatt(&self) -> impl AsRef<[u8]> {
         self.as_u16().to_le_bytes()
     }
 }
@@ -80,7 +102,7 @@ pub struct ProtocolInformationService {
 
     /// Service signature, only two bytes.
     #[characteristic(uuid=characteristic::SERVICE_SIGNATURE)]
-    service_signature: ServicePropertiesType,
+    service_signature: ServiceProperties,
 
     /// Version string.
     #[characteristic(uuid=characteristic::VERSION, value="2.2.0".into())]
