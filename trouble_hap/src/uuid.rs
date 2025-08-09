@@ -2,9 +2,14 @@ use trouble_host::attribute::Uuid;
 
 // definitely pfilfered from the trouble uuid module.
 //
-pub const HOMEKIT_BASE_UUID_BYTES: [u8; 16] = [
+pub const HOMEKIT_BASE_UUID_BYTES_WRONG_ENDIANNESS: [u8; 16] = [
     0x00, 0x00, 0x00, 0x00, // end of first block
     0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0x26, 0xBB, 0x76, 0x52, 0x91,
+];
+
+pub const HOMEKIT_BASE_UUID_BYTES: [u8; 16] = [
+    0x91, 0x52, 0x76, 0xbb, 0x26, 0x0, 0x0, 0x80, 0x0, 0x10, 0x0, 0x0, // First block.
+    0x0, 0x0, 0x0, 0x0,
 ];
 
 pub const HOMEKIT_BASE_UUID: Uuid = Uuid::new_long(HOMEKIT_BASE_UUID_BYTES);
@@ -31,8 +36,8 @@ impl HomekitUuid16 {
     pub const fn to_le_bytes_long(&self) -> [u8; 16] {
         let mut raw_bytes = HOMEKIT_BASE_UUID_BYTES;
         let [high, low] = self.to_le_bytes();
-        raw_bytes[3] = high;
-        raw_bytes[2] = low;
+        raw_bytes[12] = high;
+        raw_bytes[13] = low;
         raw_bytes
     }
 }
@@ -98,7 +103,7 @@ mod test {
         let full_uuid: Uuid = SERVICE_UUID.into();
         info!("full uiid: {:?}", full_uuid);
         if let Uuid::Uuid128(z) = full_uuid {
-            assert_eq!(z[3], 0x3e);
+            assert_eq!(z[12], 0x3e);
         }
     }
 }

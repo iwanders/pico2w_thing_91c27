@@ -50,15 +50,13 @@ mod ble_bas_peripheral {
             // So it was caching my services, and it cost me a while to figure that out, make a true random address here
             // here.
             let mut rng = rand::rng();
-
             use rand::prelude::*;
-            // Try printing a random unicode code point (probably a bad idea)!
 
             Address::random([
-                rng.random::<u8>(),
-                rng.random::<u8>(),
-                rng.random::<u8>(),
-                rng.random::<u8>(),
+                0xff,
+                0x8f,
+                0x1a,
+                0x05,
                 rng.random::<u8>(),
                 rng.random::<u8>(),
             ])
