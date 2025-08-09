@@ -16,6 +16,15 @@ use util::GattString;
 
 // This is also a bit of a problem;
 // https://github.com/embassy-rs/trouble/issues/375
+//
+
+// Hmm, maybe this does what we need;
+// https://github.com/sysgrok/rs-matter-embassy/blob/79a2a7786ad28e2ae186e4136e22c93a2c343599/rs-matter-embassy/src/ble.rs#L301
+// it creates a service with 'External' types.
+// It puts context and resources in a a struct; https://github.com/sysgrok/rs-matter-embassy/blob/ca6cef42001fb208875504eac7ab3cb9f22b7149/rs-matter-embassy/src/ble.rs#L148-L158
+// That struct then has a handle_indications and handle_events method, that actually services the endpoints.
+// Maybe it is okay if we define the server in this module, the
+// https://github.com/embassy-rs/trouble/issues/391 issue mentions re-using a specific server?
 
 #[gatt_service(uuid = service::ACCESSORY_INFORMATION)]
 pub struct AccessoryInformationService {
@@ -87,16 +96,16 @@ impl ServiceProperties {
             })
     }
 }
-type FacadeDummyType = u8;
+type FacadeDummyType = [u8; 0];
 
 #[gatt_service(uuid = service::PROTOCOL_INFORMATION)]
-pub struct ProtocolInformationServiceFacade {
+pub struct ProtocolInformationService {
     /// Service instance ID, must be a 16 bit unsigned integer.
     #[characteristic(uuid=characteristic::SERVICE_INSTANCE)]
     service_instance: u16,
 
     /// Service signature, only two bytes.
-    #[characteristic(uuid=characteristic::SERVICE_SIGNATURE)]
+    #[characteristic(uuid=characteristic::SERVICE_SIGNATURE, read)]
     service_signature: FacadeDummyType,
 
     /// Version string.
@@ -104,16 +113,47 @@ pub struct ProtocolInformationServiceFacade {
     version: GattString<16>,
 }
 
-pub struct ProtocolInformationService {
-    pub service_signature: ServiceProperties,
+pub struct HapPeripheralContext {
+    protocol_service_properties: ServiceProperties,
 }
-impl ProtocolInformationService {
+
+impl HapPeripheralContext {
     pub fn new() -> Self {
         Self {
-            service_signature: ServiceProperties::default(),
+            protocol_service_properties: Default::default(),
+        }
+    }
+    pub async fn process_gatt_event<'stack, 'server, P: PacketPool>(
+        &mut self,
+        protocol_service: &ProtocolInformationService,
+        event: trouble_host::gatt::GattEvent<'stack, 'server, P>,
+    ) -> Result<Option<trouble_host::gatt::GattEvent<'stack, 'server, P>>, trouble_host::Error>
+    {
+        return Ok(None);
+        match event {
+            GattEvent::Read(event) => {
+                if event.handle() == protocol_service.service_signature.handle {
+                    //warn!("Sending a reply for the battery handle.!");
+                    //let peek = event.payload();
+                    //self.service_signature.
+                    //let data = &self.service_signature;
+                    //let data = self.protocol_service_properties.as_u16().to_le_bytes();
+                    let data = [55];
+                    let rsp = trouble_host::att::AttRsp::Read { data: &data };
+                    event.into_payload().reply(rsp).await?;
+
+                    return Ok(None);
+                } else {
+                    // its not for us, wrap it back up
+                    Ok(Some(GattEvent::Read(event)))
+                }
+            }
+            remainder => Ok(Some(remainder)),
         }
     }
 }
+
+/*
 
 impl ProtocolInformationServiceFacade {
     pub async fn handle<'stack, 'server, P: PacketPool>(
@@ -143,3 +183,4 @@ impl ProtocolInformationServiceFacade {
         }
     }
 }
+*/
