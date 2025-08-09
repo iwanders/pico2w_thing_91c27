@@ -12,6 +12,10 @@ use util::GattString;
 
 // We probably should handle some gatt reads manually with:
 // https://github.com/embassy-rs/trouble/pull/311
+//
+
+// This is also a bit of a problem;
+// https://github.com/embassy-rs/trouble/issues/375
 
 #[gatt_service(uuid = service::ACCESSORY_INFORMATION)]
 pub struct AccessoryInformationService {
@@ -48,7 +52,6 @@ pub struct AccessoryInformationService {
     identify: bool,
 }
 
-// https://github.com/embassy-rs/trouble/issues/375
 trait NonBorrowedGatt {
     fn as_gatt(&self) -> impl AsRef<[u8]>;
 }
@@ -107,4 +110,31 @@ pub struct ProtocolInformationService {
     /// Version string.
     #[characteristic(uuid=characteristic::VERSION, value="2.2.0".into())]
     version: GattString<16>,
+}
+
+impl ProtocolInformationService {
+    pub async fn handle<'stack, 'server, P: PacketPool>(
+        &self,
+        event: trouble_host::gatt::GattEvent<'stack, 'server, P>,
+    ) -> Result<Option<trouble_host::gatt::GattEvent<'stack, 'server, P>>, trouble_host::Error>
+    {
+        match event {
+            GattEvent::Read(event) => {
+                if event.handle() == self.service_signature.handle {
+                    //warn!("Sending a reply for the battery handle.!");
+                    let peek = event.payload();
+                    //self.service_signature.
+                    //let data = &self.service_signature;
+                    let rsp = trouble_host::att::AttRsp::Read { data: &data };
+                    event.into_payload().reply(rsp).await?;
+
+                    return Ok(None);
+                } else {
+                    // its not for us, wrap it back up
+                    Ok(Some(GattEvent::Read(event)))
+                }
+            }
+            remainder => Ok(Some(remainder)),
+        }
+    }
 }

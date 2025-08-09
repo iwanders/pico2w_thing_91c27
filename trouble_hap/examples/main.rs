@@ -21,6 +21,7 @@ mod ble_bas_peripheral {
     #[gatt_server]
     struct Server {
         battery_service: BatteryService,
+        protocol_service: trouble_hap::ProtocolInformationService,
     }
 
     /// Battery service
@@ -169,27 +170,15 @@ mod ble_bas_peripheral {
                     };
                     // This step is also performed at drop(), but writing it explicitly is necessary
                     // in order to ensure reply is sent.
-                    //
-                    if let GattEvent::Read(event) = event {
-                        let chr = server
-                            .table()
-                            .find_characteristic_by_value_handle(event.handle());
-                        if let Ok(c) = chr {
-                            let zz = c.to_owned();
-                        }
-                        if event.handle() == level.handle {
-                            warn!("Sending a reply for the battery handle.!");
-                            let peek = event.payload();
-                            let data = [8u8];
-                            let rsp = trouble_host::att::AttRsp::Read { data: &data };
-                            event.into_payload().reply(rsp).await?;
-                        }
+
+                    let fallthrough_event = server.protocol_service.handle(event).await?;
+
+                    if let Some(event) = fallthrough_event {
+                        match event.accept() {
+                            Ok(reply) => reply.send().await,
+                            Err(e) => warn!("[gatt] error sending response: {:?}", e),
+                        };
                     }
-                    //
-                    // match event.accept() {
-                    //     Ok(reply) => reply.send().await,
-                    //     Err(e) => warn!("[gatt] error sending response: {:?}", e),
-                    // };
                 }
                 _ => {} // ignore other Gatt Connection Events
             }
