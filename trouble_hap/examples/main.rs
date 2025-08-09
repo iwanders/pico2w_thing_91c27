@@ -21,7 +21,7 @@ mod ble_bas_peripheral {
     #[gatt_server]
     struct Server {
         battery_service: BatteryService,
-        protocol_service: trouble_hap::ProtocolInformationService,
+        protocol_service: trouble_hap::ProtocolInformationServiceFacade,
     }
 
     /// Battery service
@@ -62,12 +62,14 @@ mod ble_bas_peripheral {
         }))
         .unwrap();
 
+        let mut service = trouble_hap::ProtocolInformationService::new();
+
         let _ = join(ble_task(runner), async {
             loop {
                 match advertise("Trouble Example", &mut peripheral, &server).await {
                     Ok(conn) => {
                         // set up tasks when the connection is established to a central, so they don't run when no one is connected.
-                        let a = gatt_events_task(&server, &conn);
+                        let a = gatt_events_task(&mut service, &server, &conn);
                         let b = custom_task(&server, &conn, &stack);
                         // run until any task ends (usually because the connection has been closed),
                         // then return to advertising state.
@@ -114,6 +116,7 @@ mod ble_bas_peripheral {
     /// This function will handle the GATT events and process them.
     /// This is how we interact with read and write requests.
     async fn gatt_events_task<P: PacketPool>(
+        service: &mut trouble_hap::ProtocolInformationService,
         server: &Server<'_>,
         conn: &GattConnection<'_, '_, P>,
     ) -> Result<(), Error> {
@@ -171,7 +174,7 @@ mod ble_bas_peripheral {
                     // This step is also performed at drop(), but writing it explicitly is necessary
                     // in order to ensure reply is sent.
 
-                    let fallthrough_event = server.protocol_service.handle(event).await?;
+                    let fallthrough_event = server.protocol_service.handle(service, event).await?;
 
                     if let Some(event) = fallthrough_event {
                         match event.accept() {

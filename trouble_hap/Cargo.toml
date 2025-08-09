@@ -12,6 +12,9 @@ edition = "2024"
 trouble-host = { git = "https://github.com/embassy-rs/trouble", features = [
     "peripheral",
 ], rev = "1e6f2d743857ab6888a8a59199ad0c186bbf38c7" }
+# trouble-host = { path="../../, features = [
+#     "peripheral",
+# ], rev = "1e6f2d743857ab6888a8a59199ad0c186bbf38c7" }
 embassy-sync = { version = "0.7.0" }
 static_cell = "2.1"
 embassy-futures = "0.1.1"

@@ -52,10 +52,6 @@ pub struct AccessoryInformationService {
     identify: bool,
 }
 
-trait NonBorrowedGatt {
-    fn as_gatt(&self) -> impl AsRef<[u8]>;
-}
-
 macro_rules! as_gatt {
     ($l:ty) => {
         impl AsGatt for $l {
@@ -91,30 +87,38 @@ impl ServiceProperties {
             })
     }
 }
-impl NonBorrowedGatt for ServiceProperties {
-    fn as_gatt(&self) -> impl AsRef<[u8]> {
-        self.as_u16().to_le_bytes()
-    }
-}
+type FacadeDummyType = u8;
 
 #[gatt_service(uuid = service::PROTOCOL_INFORMATION)]
-pub struct ProtocolInformationService {
+pub struct ProtocolInformationServiceFacade {
     /// Service instance ID, must be a 16 bit unsigned integer.
     #[characteristic(uuid=characteristic::SERVICE_INSTANCE)]
     service_instance: u16,
 
     /// Service signature, only two bytes.
     #[characteristic(uuid=characteristic::SERVICE_SIGNATURE)]
-    service_signature: ServiceProperties,
+    service_signature: FacadeDummyType,
 
     /// Version string.
     #[characteristic(uuid=characteristic::VERSION, value="2.2.0".into())]
     version: GattString<16>,
 }
 
+pub struct ProtocolInformationService {
+    pub service_signature: ServiceProperties,
+}
 impl ProtocolInformationService {
+    pub fn new() -> Self {
+        Self {
+            service_signature: ServiceProperties::default(),
+        }
+    }
+}
+
+impl ProtocolInformationServiceFacade {
     pub async fn handle<'stack, 'server, P: PacketPool>(
         &self,
+        srv: &mut ProtocolInformationService,
         event: trouble_host::gatt::GattEvent<'stack, 'server, P>,
     ) -> Result<Option<trouble_host::gatt::GattEvent<'stack, 'server, P>>, trouble_host::Error>
     {
@@ -125,6 +129,7 @@ impl ProtocolInformationService {
                     let peek = event.payload();
                     //self.service_signature.
                     //let data = &self.service_signature;
+                    let data = srv.service_signature.as_u16().to_le_bytes();
                     let rsp = trouble_host::att::AttRsp::Read { data: &data };
                     event.into_payload().reply(rsp).await?;
 
