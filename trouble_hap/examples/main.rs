@@ -20,23 +20,23 @@ mod ble_bas_peripheral {
     // GATT Server definition
     #[gatt_server]
     struct Server {
-        battery_service: BatteryService,
+        //battery_service: BatteryService,
         //protocol_service: trouble_hap::ProtocolInformationServiceFacade,
         accessory_information_service: trouble_hap::AccessoryInformationService,
         protocol_service: trouble_hap::ProtocolInformationService,
     }
 
     /// Battery service
-    #[gatt_service(uuid = service::BATTERY)]
-    struct BatteryService {
-        /// Battery Level
-        #[descriptor(uuid = descriptors::VALID_RANGE, read, value = [0, 100])]
-        #[descriptor(uuid = descriptors::MEASUREMENT_DESCRIPTION, name = "hello", read, value = "Battery Level")]
-        #[characteristic(uuid = characteristic::BATTERY_LEVEL, read, notify, value = 10)]
-        level: u8,
-        #[characteristic(uuid = "408813df-5dd4-1f87-ec11-cdb001100000", write, read, notify)]
-        status: bool,
-    }
+    // #[gatt_service(uuid = service::BATTERY)]
+    // struct BatteryService {
+    //     /// Battery Level
+    //     #[descriptor(uuid = descriptors::VALID_RANGE, read, value = [0, 100])]
+    //     #[descriptor(uuid = descriptors::MEASUREMENT_DESCRIPTION, name = "hello", read, value = "Battery Level")]
+    //     #[characteristic(uuid = characteristic::BATTERY_LEVEL, read, notify, value = 10)]
+    //     level: u8,
+    //     #[characteristic(uuid = "408813df-5dd4-1f87-ec11-cdb001100000", write, read, notify)]
+    //     status: bool,
+    // }
 
     /// Run the BLE stack.
     pub async fn run<C>(controller: C)
@@ -45,7 +45,26 @@ mod ble_bas_peripheral {
     {
         // Using a fixed "random" address can be useful for testing. In real scenarios, one would
         // use e.g. the MAC 6 byte array as the address (how to get that varies by the platform).
-        let address: Address = Address::random([0xff, 0x8f, 0x1a, 0x05, 0xe4, 0xff]);
+        const ACTUAL_RANDOM_ADDRESS: bool = true;
+        let address: Address = if ACTUAL_RANDOM_ADDRESS {
+            // So it was caching my services, and it cost me a while to figure that out, make a true random address here
+            // here.
+            let mut rng = rand::rng();
+
+            use rand::prelude::*;
+            // Try printing a random unicode code point (probably a bad idea)!
+
+            Address::random([
+                rng.random::<u8>(),
+                rng.random::<u8>(),
+                rng.random::<u8>(),
+                rng.random::<u8>(),
+                rng.random::<u8>(),
+                rng.random::<u8>(),
+            ])
+        } else {
+            Address::random([0xff, 0x8f, 0x1a, 0x05, 0xe4, 0xf1])
+        };
         info!("Our address = {:?}", address);
 
         let mut resources: HostResources<DefaultPacketPool, CONNECTIONS_MAX, L2CAP_CHANNELS_MAX> =
@@ -65,6 +84,7 @@ mod ble_bas_peripheral {
         }))
         .unwrap();
 
+        // Setup the accessory information.
         let value = trouble_hap::AccessoryInformationStatic {
             name: "Trouble_HAP",
             ..Default::default()
@@ -73,12 +93,6 @@ mod ble_bas_peripheral {
             .accessory_information_service
             .set_information_static(&server, &value)
             .unwrap();
-
-        let namzze = server
-            .accessory_information_service
-            .hardware_revision
-            .get(&server);
-        info!("name: {namzze:?}");
 
         let mut hap_context = trouble_hap::HapPeripheralContext::new();
 
@@ -138,17 +152,17 @@ mod ble_bas_peripheral {
         server: &Server<'_>,
         conn: &GattConnection<'_, '_, P>,
     ) -> Result<(), Error> {
-        let level = server.battery_service.level;
+        //let level = server.battery_service.level;
         let reason = loop {
             match conn.next().await {
                 GattConnectionEvent::Disconnected { reason } => break reason,
                 GattConnectionEvent::Gatt { event } => {
                     match &event {
                         GattEvent::Read(event) => {
-                            if event.handle() == level.handle {
+                            /*if event.handle() == level.handle {
                                 let value = server.get(&level);
                                 info!("[gatt] Read Event to Level Characteristic: {:?}", value);
-                            }
+                            }*/
                             let peek = event.payload();
                             match peek.incoming() {
                                 trouble_host::att::AttClient::Request(att_req) => {
@@ -163,12 +177,13 @@ mod ble_bas_peripheral {
                             }
                         }
                         GattEvent::Write(event) => {
+                            /*
                             if event.handle() == level.handle {
                                 info!(
                                     "[gatt] Write Event to Level Characteristic: {:?}",
                                     event.data()
                                 );
-                            }
+                            }*/
                         }
                         GattEvent::Other(t) => {
                             let peek = t.payload();
@@ -202,6 +217,8 @@ mod ble_bas_peripheral {
                             Ok(reply) => reply.send().await,
                             Err(e) => warn!("[gatt] error sending response: {:?}", e),
                         };
+                    } else {
+                        warn!("Omitted processing for event because it was handled");
                     }
                 }
                 _ => {} // ignore other Gatt Connection Events
@@ -268,14 +285,14 @@ mod ble_bas_peripheral {
         stack: &Stack<'_, C, P>,
     ) {
         let mut tick: u8 = 0;
-        let level = server.battery_service.level;
+        //let level = server.battery_service.level;
         loop {
             tick = tick.wrapping_add(1);
             info!("[custom_task] notifying connection of tick {}", tick);
-            if level.notify(conn, &tick).await.is_err() {
-                info!("[custom_task] error notifying connection");
-                break;
-            };
+            // if level.notify(conn, &tick).await.is_err() {
+            //     info!("[custom_task] error notifying connection");
+            //     break;
+            // };
             // read RSSI (Received Signal Strength Indicator) of the connection.
             if let Ok(rssi) = conn.raw().rssi(stack).await {
                 info!("[custom_task] RSSI: {:?}", rssi);

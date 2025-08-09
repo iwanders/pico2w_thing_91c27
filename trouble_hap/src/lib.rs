@@ -68,6 +68,7 @@ pub struct AccessoryInformationService {
     pub identify: bool,
 }
 
+/// Helper to set all accessory information from static values in bulk.
 #[derive(Copy, Clone, Debug)]
 pub struct AccessoryInformationStatic {
     pub hardware_revision: &'static str,
