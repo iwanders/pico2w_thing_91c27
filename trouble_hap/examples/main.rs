@@ -22,8 +22,18 @@ mod ble_bas_peripheral {
     struct Server {
         //battery_service: BatteryService,
         //protocol_service: trouble_hap::ProtocolInformationServiceFacade,
-        accessory_information_service: trouble_hap::AccessoryInformationService,
-        protocol_service: trouble_hap::ProtocolInformationService,
+        accessory_information: trouble_hap::AccessoryInformationService,
+        protocol: trouble_hap::ProtocolInformationService,
+        pairing: trouble_hap::PairingService,
+    }
+    impl Server<'_> {
+        pub fn as_hap(&self) -> trouble_hap::HapServices {
+            trouble_hap::HapServices {
+                information: &self.accessory_information,
+                protocol: &self.protocol,
+                pairing: &self.pairing,
+            }
+        }
     }
 
     /// Battery service
@@ -58,10 +68,10 @@ mod ble_bas_peripheral {
                 0x1a,
                 0x05,
                 rng.random::<u8>(),
-                rng.random::<u8>(),
+                rng.random::<u8>() | 0b11, // ensure its considered a static device address.
             ])
         } else {
-            Address::random([0xff, 0x8f, 0x1a, 0x05, 0xe4, 0xf1])
+            Address::random([0xff, 0x8f, 0x1a, 0x05, 0xe4, 0xff])
         };
         info!("Our address = {:?}", address);
 
@@ -88,7 +98,7 @@ mod ble_bas_peripheral {
             ..Default::default()
         };
         let _ = server
-            .accessory_information_service
+            .accessory_information
             .set_information_static(&server, &value)
             .unwrap();
 
@@ -206,7 +216,7 @@ mod ble_bas_peripheral {
                     // in order to ensure reply is sent.
 
                     let fallthrough_event = hap_context
-                        .process_gatt_event(&server.protocol_service, event)
+                        .process_gatt_event(&server.as_hap(), event)
                         .await?;
                     //let fallthrough_event = Some(event);
 
