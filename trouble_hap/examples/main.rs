@@ -57,9 +57,10 @@ mod ble_bas_peripheral {
             ..
         } = stack.build();
 
+        let name = "Z"; // There's _very_ few bytes left in the advertisement
         info!("Starting advertising and GATT service");
         let server = Server::new_with_config(GapConfig::Peripheral(PeripheralConfig {
-            name: "TrouBLE",
+            name,
             appearance: &appearance::power_device::GENERIC_POWER_DEVICE,
         }))
         .unwrap();
@@ -68,7 +69,7 @@ mod ble_bas_peripheral {
 
         let _ = join(ble_task(runner), async {
             loop {
-                match advertise("Trouble Example", &mut peripheral, &server).await {
+                match advertise(name, &mut peripheral, &server).await {
                     Ok(conn) => {
                         // set up tasks when the connection is established to a central, so they don't run when no one is connected.
                         let a = gatt_events_task(&mut hap_context, &server, &conn);
@@ -201,12 +202,29 @@ mod ble_bas_peripheral {
         peripheral: &mut Peripheral<'values, C, DefaultPacketPool>,
         server: &'server Server<'values>,
     ) -> Result<GattConnection<'values, 'server, DefaultPacketPool>, BleHostError<C::Error>> {
+        const DEVICE_ADDRESS: [u8; 6] = [0xA8, 0x41, 0xf4, 0xd3, 0xd0, 0x4d];
+        let adv_config = trouble_hap::adv::AdvertisementConfig {
+            device_id: trouble_hap::adv::DeviceId([
+                DEVICE_ADDRESS[0],
+                DEVICE_ADDRESS[1],
+                DEVICE_ADDRESS[2],
+                DEVICE_ADDRESS[3],
+                DEVICE_ADDRESS[4],
+                DEVICE_ADDRESS[5],
+            ]),
+            accessory_category: 7,
+            ..Default::default()
+        };
+        let hap_adv = adv_config.to_advertisement();
+        let adv = hap_adv.as_advertisement();
+
         let mut advertiser_data = [0; 31];
         let len = AdStructure::encode_slice(
             &[
                 AdStructure::Flags(LE_GENERAL_DISCOVERABLE | BR_EDR_NOT_SUPPORTED),
-                AdStructure::ServiceUuids16(&[[0x0f, 0x18]]),
+                //AdStructure::ServiceUuids16(&[[0x0f, 0x18]]),
                 AdStructure::CompleteLocalName(name.as_bytes()),
+                adv,
             ],
             &mut advertiser_data[..],
         )?;

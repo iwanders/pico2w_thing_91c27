@@ -13,6 +13,8 @@ pub mod util;
 pub mod uuid;
 use util::GattString;
 
+pub mod adv;
+
 // We probably should handle some gatt reads manually with:
 // https://github.com/embassy-rs/trouble/pull/311
 //
@@ -154,35 +156,3 @@ impl HapPeripheralContext {
         }
     }
 }
-
-/*
-
-impl ProtocolInformationServiceFacade {
-    pub async fn handle<'stack, 'server, P: PacketPool>(
-        &self,
-        srv: &mut ProtocolInformationService,
-        event: trouble_host::gatt::GattEvent<'stack, 'server, P>,
-    ) -> Result<Option<trouble_host::gatt::GattEvent<'stack, 'server, P>>, trouble_host::Error>
-    {
-        match event {
-            GattEvent::Read(event) => {
-                if event.handle() == self.service_signature.handle {
-                    //warn!("Sending a reply for the battery handle.!");
-                    let peek = event.payload();
-                    //self.service_signature.
-                    //let data = &self.service_signature;
-                    let data = srv.service_signature.as_u16().to_le_bytes();
-                    let rsp = trouble_host::att::AttRsp::Read { data: &data };
-                    event.into_payload().reply(rsp).await?;
-
-                    return Ok(None);
-                } else {
-                    // its not for us, wrap it back up
-                    Ok(Some(GattEvent::Read(event)))
-                }
-            }
-            remainder => Ok(Some(remainder)),
-        }
-    }
-}
-*/
