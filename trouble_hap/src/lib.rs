@@ -166,6 +166,26 @@ pub struct ProtocolInformationService {
     version: GattString<16>,
 }
 
+#[gatt_service(uuid = service::PAIRING)]
+pub struct PairingService {
+    /// Service instance ID, must be a 16 bit unsigned integer.
+    #[characteristic(uuid=characteristic::SERVICE_INSTANCE)]
+    service_instance: u16,
+
+    #[characteristic(uuid=characteristic::PAIRING_PAIR_SETUP, read, write)]
+    pair_setup: FacadeDummyType,
+
+    #[characteristic(uuid=characteristic::PAIRING_PAIR_VERIFY, read, write)]
+    pair_verify: FacadeDummyType,
+
+    #[characteristic(uuid=characteristic::PAIRING_FEATURES, read)]
+    features: FacadeDummyType,
+
+    // Paired read and write only.
+    #[characteristic(uuid=characteristic::PAIRING_PAIRINGS, read, write)]
+    pairings: FacadeDummyType,
+}
+
 pub struct HapPeripheralContext {
     protocol_service_properties: ServiceProperties,
 }
@@ -184,6 +204,7 @@ impl HapPeripheralContext {
     {
         match event {
             GattEvent::Read(event) => {
+                warn!("Read request!");
                 if event.handle() == protocol_service.service_signature.handle {
                     warn!("Got a read request on the service signature handle.");
                     //let peek = event.payload();
@@ -198,6 +219,10 @@ impl HapPeripheralContext {
                     // its not for us, wrap it back up
                     Ok(Some(GattEvent::Read(event)))
                 }
+            }
+            GattEvent::Write(event) => {
+                warn!("Write request!");
+                Ok(Some(GattEvent::Write(event)))
             }
             remainder => Ok(Some(remainder)),
         }
