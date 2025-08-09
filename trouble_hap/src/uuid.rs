@@ -78,8 +78,16 @@ impl From<HomekitUuid16> for Uuid {
 mod test {
     use super::*;
 
+    fn init() {
+        let _ = env_logger::builder()
+            .is_test(true)
+            .filter_level(log::LevelFilter::max())
+            .try_init();
+    }
+
     #[test]
     fn test_ble_uuid() {
+        init();
         const SERVICE_UUID: HomekitUuid16 = HomekitUuid16::new(0x003E);
         assert_eq!(u16::from(SERVICE_UUID), 0x003E);
         let uuid: u16 = SERVICE_UUID.into();
@@ -87,6 +95,7 @@ mod test {
         const UUID: [u8; 2] = SERVICE_UUID.to_le_bytes();
         assert_eq!(UUID, [0x3E, 0x00]);
         let full_uuid: Uuid = SERVICE_UUID.into();
+        info!("full uiid: {:?}", full_uuid);
         if let Uuid::Uuid128(z) = full_uuid {
             assert_eq!(z[3], 0x3e);
         }

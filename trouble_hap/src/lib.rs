@@ -1,5 +1,8 @@
 #![cfg_attr(not(test), no_std)]
 
+// This mod MUST go first, so that the others see its macros.
+pub(crate) mod fmt;
+
 #[cfg(test)]
 extern crate std;
 
@@ -129,11 +132,10 @@ impl HapPeripheralContext {
         event: trouble_host::gatt::GattEvent<'stack, 'server, P>,
     ) -> Result<Option<trouble_host::gatt::GattEvent<'stack, 'server, P>>, trouble_host::Error>
     {
-        return Ok(None);
         match event {
             GattEvent::Read(event) => {
                 if event.handle() == protocol_service.service_signature.handle {
-                    //warn!("Sending a reply for the battery handle.!");
+                    info!("Got a read request on the service signature handle.");
                     //let peek = event.payload();
                     //self.service_signature.
                     //let data = &self.service_signature;
