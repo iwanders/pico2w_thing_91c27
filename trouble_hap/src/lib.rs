@@ -15,6 +15,8 @@ use util::GattString;
 
 pub mod adv;
 
+use embassy_sync::blocking_mutex::raw::RawMutex;
+
 // We probably should handle some gatt reads manually with:
 // https://github.com/embassy-rs/trouble/pull/311
 //
@@ -35,59 +37,104 @@ pub mod adv;
 pub struct AccessoryInformationService {
     /// Describes hardware revision string; "<major>.<minor>.<revision>"
     #[characteristic(uuid=characteristic::HARDWARE_REVISION)]
-    hardware_revision: GattString<16>,
+    pub hardware_revision: GattString<16>,
 
     /// Manufacturer serial number, length must be greater than one.
     #[characteristic(uuid=characteristic::SERIAL_NUMBER)]
-    serial_number: GattString<64>,
+    pub serial_number: GattString<64>,
 
     /// Service instance ID, must be a 16 bit unsigned integer.
     #[characteristic(uuid=characteristic::SERVICE_INSTANCE)]
-    service_instance: u16,
+    pub service_instance: u16,
 
     /// Manufacturer specific model, length must be greater than one.
     #[characteristic(uuid=characteristic::SERIAL_NUMBER)]
-    model: GattString<64>,
+    pub model: GattString<64>,
 
     /// Name for the device.
     #[characteristic(uuid=characteristic::NAME)]
-    name: GattString<64>,
+    pub name: GattString<64>,
 
     /// Manufacturer name that created the device.
     #[characteristic(uuid=characteristic::MANUFACTURER)]
-    manufacturer: GattString<64>,
+    pub manufacturer: GattString<64>,
 
     /// Firmware revision string; "<major>.<minor>.<revision>"
     #[characteristic(uuid=characteristic::FIRMWARE_REVISION)]
-    firmware_revision: GattString<16>,
+    pub firmware_revision: GattString<16>,
 
     /// Identify routine, triggers something, it does not contain data.
     #[characteristic(uuid=characteristic::IDENTIFY)]
-    identify: bool,
+    pub identify: bool,
 }
 
-macro_rules! as_gatt {
-    ($l:ty) => {
-        impl AsGatt for $l {
-            const MIN_SIZE: usize = 0;
-
-            const MAX_SIZE: usize = 512;
-
-            fn as_gatt(&self) -> &[u8] {
-                &[]
-            }
+#[derive(Copy, Clone, Debug)]
+pub struct AccessoryInformationStatic {
+    pub hardware_revision: &'static str,
+    pub serial_number: &'static str,
+    //pub service_instance: u16,
+    pub model: &'static str,
+    pub name: &'static str,
+    pub manufacturer: &'static str,
+    pub firmware_revision: &'static str,
+}
+impl Default for AccessoryInformationStatic {
+    fn default() -> Self {
+        Self {
+            hardware_revision: "0.0.1",
+            serial_number: "1234567890ABC",
+            //service_instance: 0,
+            model: "AmazingDevice",
+            name: "Trouble_HAP",
+            manufacturer: "TestManufacturer",
+            firmware_revision: "0.0.1",
         }
-    };
+    }
+}
+
+impl AccessoryInformationService {
+    pub fn set_information_static<
+        M: RawMutex,
+        P: PacketPool,
+        const AT: usize,
+        const CT: usize,
+        const CN: usize,
+    >(
+        &self,
+        server: &AttributeServer<'_, M, P, AT, CT, CN>,
+        value: &AccessoryInformationStatic,
+    ) -> Result<(), Error> {
+        self.hardware_revision
+            .set(server, &util::GattString::from(value.hardware_revision))?;
+        self.serial_number
+            .set(server, &util::GattString::from(value.serial_number))?;
+        self.model
+            .set(server, &util::GattString::from(value.model))?;
+        self.name.set(server, &util::GattString::from(value.name))?;
+        self.manufacturer
+            .set(server, &util::GattString::from(value.manufacturer))?;
+        self.firmware_revision
+            .set(server, &util::GattString::from(value.firmware_revision))?;
+        Ok(())
+    }
 }
 
 /// Service properties struct.
-#[derive(Default, Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct ServiceProperties {
     pub primary: bool,
     pub hidden: bool,
     pub supports_configuration: bool,
 }
-as_gatt!(ServiceProperties);
+impl Default for ServiceProperties {
+    fn default() -> Self {
+        Self {
+            primary: true,
+            hidden: false,
+            supports_configuration: false,
+        }
+    }
+}
 
 // This is... very clunky :/
 impl ServiceProperties {
@@ -137,12 +184,11 @@ impl HapPeripheralContext {
         match event {
             GattEvent::Read(event) => {
                 if event.handle() == protocol_service.service_signature.handle {
-                    info!("Got a read request on the service signature handle.");
+                    warn!("Got a read request on the service signature handle.");
                     //let peek = event.payload();
                     //self.service_signature.
                     //let data = &self.service_signature;
-                    //let data = self.protocol_service_properties.as_u16().to_le_bytes();
-                    let data = [55];
+                    let data = self.protocol_service_properties.as_u16().to_le_bytes();
                     let rsp = trouble_host::att::AttRsp::Read { data: &data };
                     event.into_payload().reply(rsp).await?;
 

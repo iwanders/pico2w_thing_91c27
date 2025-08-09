@@ -22,7 +22,7 @@ mod ble_bas_peripheral {
     struct Server {
         battery_service: BatteryService,
         //protocol_service: trouble_hap::ProtocolInformationServiceFacade,
-        //accessory_information_service: trouble_hap::AccessoryInformationService,
+        accessory_information_service: trouble_hap::AccessoryInformationService,
         protocol_service: trouble_hap::ProtocolInformationService,
     }
 
@@ -64,6 +64,21 @@ mod ble_bas_peripheral {
             appearance: &appearance::power_device::GENERIC_POWER_DEVICE,
         }))
         .unwrap();
+
+        let value = trouble_hap::AccessoryInformationStatic {
+            name: "Trouble_HAP",
+            ..Default::default()
+        };
+        let _ = server
+            .accessory_information_service
+            .set_information_static(&server, &value)
+            .unwrap();
+
+        let namzze = server
+            .accessory_information_service
+            .hardware_revision
+            .get(&server);
+        info!("name: {namzze:?}");
 
         let mut hap_context = trouble_hap::HapPeripheralContext::new();
 
