@@ -48,7 +48,7 @@ pub struct AccessoryInformationService {
     pub service_instance: u16,
 
     /// Manufacturer specific model, length must be greater than one.
-    #[characteristic(uuid=characteristic::SERIAL_NUMBER, read)]
+    #[characteristic(uuid=characteristic::MODEL, read)]
     pub model: GattString<64>,
 
     /// Name for the device.
@@ -238,6 +238,7 @@ impl HapPeripheralContext {
                 if event.handle() == hap.pairing.service_instance.handle {
                     warn!("Reading pairing.service_instance");
                     // This is currently the last read the phone does.
+                    // Now we really have to figure out what to return.
                 } else if event.handle() == hap.pairing.pair_setup.handle {
                     warn!("Reading pairing.pair_setup ");
                 } else if event.handle() == hap.pairing.pair_verify.handle {
