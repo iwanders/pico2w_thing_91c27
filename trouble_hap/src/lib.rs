@@ -40,7 +40,12 @@ use embassy_sync::blocking_mutex::raw::RawMutex;
 //
 // server.table().find_characteristic_by_value_handle(handle);
 // exists, but there doesn't appear to be a way to set the descriptor values besides in the host-macro
-//
+
+// Todo:
+// - Figure out how to dynamically assignthe descriptors?
+// - Each characteristic is 7.3.5.1; HAP Characteristic Signature Read Procedure
+//   - Presentation format is _also_ required, see 7.4.5
+
 #[gatt_service(uuid = service::ACCESSORY_INFORMATION)]
 pub struct AccessoryInformationService {
     /// Describes hardware revision string; "<major>.<minor>.<revision>"
@@ -300,6 +305,8 @@ impl HapPeripheralContext {
                 } else if event.handle() == hap.protocol.service_signature.handle {
                     warn!("Writing protocol.service_signature  {:?}", event.data());
                     // Writing protocol.service_signature  [0, 6, 107, 2, 0]
+                    // Yes, that matches the hap service signature read
+                    // https://github.com/apple/HomeKitADK/blob/fb201f98f5fdc7fef6a455054f08b59cca5d1ec8/HAP/HAPBLEProcedure.c#L249
                 } else if event.handle() == hap.protocol.version.handle {
                     warn!("Writing protocol.version  {:?}", event.data());
                 }
