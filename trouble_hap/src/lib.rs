@@ -8,6 +8,7 @@ extern crate std;
 
 use trouble_host::prelude::*;
 pub mod characteristic;
+pub mod descriptor;
 pub mod service;
 pub mod util;
 pub mod uuid;
@@ -33,38 +34,54 @@ use embassy_sync::blocking_mutex::raw::RawMutex;
 // Maybe it is okay if we define the server in this module, the
 // https://github.com/embassy-rs/trouble/issues/391 issue mentions re-using a specific server?
 
+// Descriptor!? dc46f0fe-81d2-4616-b5d9-6abdd796939a
+// Ooh this characteristic instance id descriptor must be EACH characteristic.
+// (uuid = \"1234\", value = 42, read, write, notify, indicate)
+//
+// server.table().find_characteristic_by_value_handle(handle);
+// exists, but there doesn't appear to be a way to set the descriptor values besides in the host-macro
+//
 #[gatt_service(uuid = service::ACCESSORY_INFORMATION)]
 pub struct AccessoryInformationService {
     /// Describes hardware revision string; "<major>.<minor>.<revision>"
-    #[characteristic(uuid=characteristic::HARDWARE_REVISION, read)]
+    #[descriptor(uuid=descriptor::CHARACTERISTIC_INSTANCE_UUID, read, value=[0x01, 0x01])]
+    #[characteristic(uuid=characteristic::HARDWARE_REVISION, read, write)]
     pub hardware_revision: GattString<16>,
 
     /// Manufacturer serial number, length must be greater than one.
-    #[characteristic(uuid=characteristic::SERIAL_NUMBER, read)]
+    #[descriptor(uuid=descriptor::CHARACTERISTIC_INSTANCE_UUID, read, value=[0x01, 0x02])]
+    #[characteristic(uuid=characteristic::SERIAL_NUMBER, read, write)]
     pub serial_number: GattString<64>,
 
     /// Service instance ID, must be a 16 bit unsigned integer.
-    #[characteristic(uuid=characteristic::SERVICE_INSTANCE, read)]
+    // Service instance id for accessory information must be 1.
+    #[descriptor(uuid=descriptor::CHARACTERISTIC_INSTANCE_UUID, read, value=[0x01, 0x03])]
+    #[characteristic(uuid=characteristic::SERVICE_INSTANCE, read, value = 1)]
     pub service_instance: u16,
 
     /// Manufacturer specific model, length must be greater than one.
-    #[characteristic(uuid=characteristic::MODEL, read)]
+    #[descriptor(uuid=descriptor::CHARACTERISTIC_INSTANCE_UUID, read, value=[0x01, 0x04])]
+    #[characteristic(uuid=characteristic::MODEL, read, write)]
     pub model: GattString<64>,
 
     /// Name for the device.
-    #[characteristic(uuid=characteristic::NAME, read)]
+    #[descriptor(uuid=descriptor::CHARACTERISTIC_INSTANCE_UUID, read, value=[0x01, 0x05])]
+    #[characteristic(uuid=characteristic::NAME, read, write)]
     pub name: GattString<64>,
 
     /// Manufacturer name that created the device.
-    #[characteristic(uuid=characteristic::MANUFACTURER, read)]
+    #[descriptor(uuid=descriptor::CHARACTERISTIC_INSTANCE_UUID, read, value=[0x01, 0x06])]
+    #[characteristic(uuid=characteristic::MANUFACTURER, read, write)]
     pub manufacturer: GattString<64>,
 
     /// Firmware revision string; "<major>.<minor>.<revision>"
-    #[characteristic(uuid=characteristic::FIRMWARE_REVISION, read)]
+    #[descriptor(uuid=descriptor::CHARACTERISTIC_INSTANCE_UUID, read, value=[0x01, 0x07])]
+    #[characteristic(uuid=characteristic::FIRMWARE_REVISION, read, write)]
     pub firmware_revision: GattString<16>,
 
     /// Identify routine, triggers something, it does not contain data.
-    #[characteristic(uuid=characteristic::IDENTIFY, write)]
+    #[descriptor(uuid=descriptor::CHARACTERISTIC_INSTANCE_UUID, read, value=[0x01, 0x08])]
+    #[characteristic(uuid=characteristic::IDENTIFY, read, write)]
     pub identify: bool,
 }
 
@@ -149,19 +166,24 @@ impl ServiceProperties {
             })
     }
 }
+
 type FacadeDummyType = [u8; 0];
 
 #[gatt_service(uuid = service::PROTOCOL_INFORMATION)]
 pub struct ProtocolInformationService {
     /// Service instance ID, must be a 16 bit unsigned integer.
-    #[characteristic(uuid=characteristic::SERVICE_INSTANCE, read)]
+    // May not be 1, value 1 is for accessory information.
+    #[descriptor(uuid=descriptor::CHARACTERISTIC_INSTANCE_UUID, read, value=[0x02, 0x01])]
+    #[characteristic(uuid=characteristic::SERVICE_INSTANCE, read, value = 0x02)]
     service_instance: u16,
 
     /// Service signature, only two bytes.
-    #[characteristic(uuid=characteristic::SERVICE_SIGNATURE, read)]
+    #[descriptor(uuid=descriptor::CHARACTERISTIC_INSTANCE_UUID, read, value=[0x02, 0x02])]
+    #[characteristic(uuid=characteristic::SERVICE_SIGNATURE, read, write)]
     service_signature: FacadeDummyType,
 
     /// Version string.
+    #[descriptor(uuid=descriptor::CHARACTERISTIC_INSTANCE_UUID, read, value=[0x02, 0x03])]
     #[characteristic(uuid=characteristic::VERSION, value="2.2.0".into(), read)]
     version: GattString<16>,
 }
@@ -169,19 +191,26 @@ pub struct ProtocolInformationService {
 #[gatt_service(uuid = service::PAIRING)]
 pub struct PairingService {
     /// Service instance ID, must be a 16 bit unsigned integer.
-    #[characteristic(uuid=characteristic::SERVICE_INSTANCE, read)]
+    // May not be 1, value 1 is for accessory information.
+    #[descriptor(uuid=descriptor::CHARACTERISTIC_INSTANCE_UUID, read, value=[0x03, 0x01])]
+    #[characteristic(uuid=characteristic::SERVICE_INSTANCE, read, value = 3)]
     service_instance: u16,
 
+    #[descriptor(uuid=descriptor::CHARACTERISTIC_INSTANCE_UUID, read, value=[0x03, 0x02])]
     #[characteristic(uuid=characteristic::PAIRING_PAIR_SETUP, read, write)]
     pair_setup: FacadeDummyType,
 
+    #[descriptor(uuid=descriptor::CHARACTERISTIC_INSTANCE_UUID, read, value=[0x03, 0x03])]
     #[characteristic(uuid=characteristic::PAIRING_PAIR_VERIFY, read, write)]
     pair_verify: FacadeDummyType,
 
-    #[characteristic(uuid=characteristic::PAIRING_FEATURES, read)]
-    features: FacadeDummyType,
+    // Software authentication is 0x2.
+    #[descriptor(uuid=descriptor::CHARACTERISTIC_INSTANCE_UUID, read, value=[0x03, 0x04])]
+    #[characteristic(uuid=characteristic::PAIRING_FEATURES, read, value=0x02)]
+    features: u8,
 
     // Paired read and write only.
+    #[descriptor(uuid=descriptor::CHARACTERISTIC_INSTANCE_UUID, read, value=[0x03, 0x05])]
     #[characteristic(uuid=characteristic::PAIRING_PAIRINGS, read, write)]
     pairings: FacadeDummyType,
 }
@@ -237,8 +266,6 @@ impl HapPeripheralContext {
 
                 if event.handle() == hap.pairing.service_instance.handle {
                     warn!("Reading pairing.service_instance");
-                    // This is currently the last read the phone does.
-                    // Now we really have to figure out what to return.
                 } else if event.handle() == hap.pairing.pair_setup.handle {
                     warn!("Reading pairing.pair_setup ");
                 } else if event.handle() == hap.pairing.pair_verify.handle {
@@ -252,7 +279,42 @@ impl HapPeripheralContext {
                 Ok(Some(GattEvent::Read(event)))
             }
             GattEvent::Write(event) => {
-                warn!("Write request!");
+                if event.handle() == hap.information.hardware_revision.handle {
+                    warn!("Writing information.hardware_revision {:?}", event.data());
+                } else if event.handle() == hap.information.serial_number.handle {
+                    warn!("Writing information.serial_number  {:?}", event.data());
+                } else if event.handle() == hap.information.model.handle {
+                    warn!("Writing information.model  {:?}", event.data());
+                } else if event.handle() == hap.information.name.handle {
+                    warn!("Writing information.name  {:?}", event.data());
+                } else if event.handle() == hap.information.manufacturer.handle {
+                    warn!("Writing information.manufacturer  {:?}", event.data());
+                } else if event.handle() == hap.information.firmware_revision.handle {
+                    warn!("Writing information.firmware_revision  {:?}", event.data());
+                } else if event.handle() == hap.information.service_instance.handle {
+                    warn!("Writing information.service_instance  {:?}", event.data());
+                }
+
+                if event.handle() == hap.protocol.service_instance.handle {
+                    warn!("Writing protocol.service_instance  {:?}", event.data());
+                } else if event.handle() == hap.protocol.service_signature.handle {
+                    warn!("Writing protocol.service_signature  {:?}", event.data());
+                    // Writing protocol.service_signature  [0, 6, 107, 2, 0]
+                } else if event.handle() == hap.protocol.version.handle {
+                    warn!("Writing protocol.version  {:?}", event.data());
+                }
+
+                if event.handle() == hap.pairing.service_instance.handle {
+                    warn!("Writing pairing.service_instance");
+                } else if event.handle() == hap.pairing.pair_setup.handle {
+                    warn!("Writing pairing.pair_setup  {:?}", event.data());
+                } else if event.handle() == hap.pairing.pair_verify.handle {
+                    warn!("Writing pairing.pair_verify  {:?}", event.data());
+                } else if event.handle() == hap.pairing.features.handle {
+                    warn!("Writing pairing.features  {:?}", event.data());
+                } else if event.handle() == hap.pairing.pairings.handle {
+                    warn!("Writing pairing.pairings  {:?}", event.data());
+                }
                 Ok(Some(GattEvent::Write(event)))
             }
             remainder => Ok(Some(remainder)),
