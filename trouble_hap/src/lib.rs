@@ -46,6 +46,23 @@ use embassy_sync::blocking_mutex::raw::RawMutex;
 // - Each characteristic is 7.3.5.1; HAP Characteristic Signature Read Procedure
 //   - Presentation format is _also_ required, see 7.4.5
 
+// How are we going to test this?
+// Home assistant
+// https://github.com/home-assistant/core/blob/b481aaba772960810fc6b2c5bb1d331729d91660/requirements_all.txt#L19
+// uses
+//  https://github.com/Jc2k/aiohomekit/  which does both bluetooth and wifi
+//  It links to https://github.com/jlusiardi/homekit_python/
+//  that may have support for peripheral and controller??
+//  and doesn't build, swap ed25519; https://github.com/warner/python-ed25519/issues/20
+//
+// The majority of logic will actually not be on the BLE interface.
+// Could even test against https://github.com/ewilken/hap-rs
+// if we also had tcp.
+//
+// Http transport seems to just use the same underlying bytes as the ble side?
+//
+//
+
 #[gatt_service(uuid = service::ACCESSORY_INFORMATION)]
 pub struct AccessoryInformationService {
     /// Describes hardware revision string; "<major>.<minor>.<revision>"
@@ -229,6 +246,40 @@ pub struct HapServices<'a> {
     pub information: &'a AccessoryInformationService,
     pub protocol: &'a ProtocolInformationService,
     pub pairing: &'a PairingService,
+}
+
+pub mod ble {
+    use super::*;
+    // use zerocopy::{FromBytes, IntoBytes};
+    // https://github.com/apple/HomeKitADK/blob/fb201f98f5fdc7fef6a455054f08b59cca5d1ec8/HAP/HAPPDU.h#L26
+    #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+    #[repr(u8)]
+    enum OpCode {
+        CharacteristicSignatureRead = 0x01,
+        CharacteristicWrite = 0x02,
+        CharacteristicRead = 0x03,
+        CharacteristicTimedWrite = 0x04,
+        CharacteristicExecuteWrite = 0x05,
+        ServiceSignatureRead = 0x06,
+        CharacteristicConfiguration = 0x07,
+        ProtocolConfiguration = 0x08,
+        Token = 0x10,
+        TokenUpdate = 0x11,
+        Info = 0x12,
+    }
+
+    //https://github.com/apple/HomeKitADK/blob/fb201f98f5fdc7fef6a455054f08b59cca5d1ec8/HAP/HAPBLETransaction.h#L120
+    #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+    #[repr(C, packed)]
+    struct TransactionRequestHeader {
+        opcode: OpCode,
+        iid: u16,
+        // Followed by the payload, but we can't handle that in one go.
+    }
+
+    // #[bitfield(u8)]
+    // #[derive(PartialEq, Eq, TryFromBytes, IntoBytes, Immutable, defmt::Format)] // <- Attributes after `bitfield` are carried over
+    // struct ControlField {}
 }
 
 impl HapPeripheralContext {
