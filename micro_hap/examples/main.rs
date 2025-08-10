@@ -21,14 +21,14 @@ mod ble_bas_peripheral {
     #[gatt_server]
     struct Server {
         //battery_service: BatteryService,
-        //protocol_service: trouble_hap::ProtocolInformationServiceFacade,
-        accessory_information: trouble_hap::AccessoryInformationService,
-        protocol: trouble_hap::ProtocolInformationService,
-        pairing: trouble_hap::PairingService,
+        //protocol_service: micro_hap::ProtocolInformationServiceFacade,
+        accessory_information: micro_hap::AccessoryInformationService,
+        protocol: micro_hap::ProtocolInformationService,
+        pairing: micro_hap::PairingService,
     }
     impl Server<'_> {
-        pub fn as_hap(&self) -> trouble_hap::HapServices {
-            trouble_hap::HapServices {
+        pub fn as_hap(&self) -> micro_hap::HapServices {
+            micro_hap::HapServices {
                 information: &self.accessory_information,
                 protocol: &self.protocol,
                 pairing: &self.pairing,
@@ -93,8 +93,8 @@ mod ble_bas_peripheral {
         .unwrap();
 
         // Setup the accessory information.
-        let value = trouble_hap::AccessoryInformationStatic {
-            name: "Trouble_HAP",
+        let value = micro_hap::AccessoryInformationStatic {
+            name: "micro_hap",
             ..Default::default()
         };
         let _ = server
@@ -102,7 +102,7 @@ mod ble_bas_peripheral {
             .set_information_static(&server, &value)
             .unwrap();
 
-        let mut hap_context = trouble_hap::HapPeripheralContext::new();
+        let mut hap_context = micro_hap::HapPeripheralContext::new();
 
         let _ = join(ble_task(runner), async {
             loop {
@@ -156,7 +156,7 @@ mod ble_bas_peripheral {
     /// This function will handle the GATT events and process them.
     /// This is how we interact with read and write requests.
     async fn gatt_events_task<P: PacketPool>(
-        hap_context: &mut trouble_hap::HapPeripheralContext,
+        hap_context: &mut micro_hap::HapPeripheralContext,
         server: &Server<'_>,
         conn: &GattConnection<'_, '_, P>,
     ) -> Result<(), Error> {
@@ -243,8 +243,8 @@ mod ble_bas_peripheral {
         server: &'server Server<'values>,
     ) -> Result<GattConnection<'values, 'server, DefaultPacketPool>, BleHostError<C::Error>> {
         const DEVICE_ADDRESS: [u8; 6] = [0xA8, 0x41, 0xf4, 0xd3, 0xd0, 0x4d];
-        let adv_config = trouble_hap::adv::AdvertisementConfig {
-            device_id: trouble_hap::adv::DeviceId([
+        let adv_config = micro_hap::adv::AdvertisementConfig {
+            device_id: micro_hap::adv::DeviceId([
                 DEVICE_ADDRESS[0],
                 DEVICE_ADDRESS[1],
                 DEVICE_ADDRESS[2],

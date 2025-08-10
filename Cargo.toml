@@ -1,11 +1,7 @@
 [workspace]
 resolver = "2"
 
-members = [
-  "firmware",
-  "trouble_hap",
-
-]
+members = ["firmware", "micro_hap"]
 
 
 [workspace.dependencies]
