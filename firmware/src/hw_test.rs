@@ -168,7 +168,7 @@ async fn test_sdcard(p: SdCardPinTransfer) {
     let cs = Output::new(p.cs, Level::High);
     let detect_state = detect.get_level();
     let mut config = Config::default();
-    config.frequency = 1_000_000; // 133MHz max!?
+    config.frequency = 64_000_000; // 133MHz max!?
     defmt::info!("sd card detect pin high: {:?}", detect_state == Level::High);
 
     if detect_state == Level::Low {
@@ -762,11 +762,12 @@ pub mod ble_test {
 pub async fn hw_test(p: Peripherals) -> ! {
     let delay = Duration::from_millis(250);
 
+    Timer::after(delay).await;
     const TEST_ICM: bool = false;
     const TEST_LSM: bool = false;
     const TEST_BME: bool = false;
     const TEST_FLASH: bool = false;
-    const TEST_SDCARD: bool = false;
+    const TEST_SDCARD: bool = true;
     const TEST_BATTERY_VOLTAGE: bool = false;
     const TEST_MIC: bool = false;
 

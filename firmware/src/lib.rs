@@ -214,7 +214,7 @@ pub mod program {
         // Test section
         //*
         info!("Going into test.");
-        //hw_test::hw_test(unsafe { embassy_rp::Peripherals::steal() }).await;
+        hw_test::hw_test(unsafe { embassy_rp::Peripherals::steal() }).await;
         //hw_test::test_wifi(unsafe { embassy_rp::Peripherals::steal() }, spawner).await;
         //hw_test::ble_test::main(spawner, unsafe { embassy_rp::Peripherals::steal() }).await;
         // */
