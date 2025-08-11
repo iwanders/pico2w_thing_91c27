@@ -379,6 +379,8 @@ Seems for 0402 one should subtract 1mil (0.0254mm) from the pad? Or about -10%?
 Lets go with:
 > Board Setup -> Solder Mask/Paste -> Solder Paste Settings -> Relative clearance -10%
 
+Note after assembling all three boards; wouldn't change a thing about the solder stencil.
+
 
 ## Prep
 
@@ -416,3 +418,6 @@ Leds have 'flat' edge towards inside of the board.
 
 - More solder paste would've been better, first squeeze didn't apply enough, had to wipe everything and retry, still sparse on the imu's, they don't seem to float above the board. Probably need to move slower and more deliberate push it into the holes. One of the imu's is _very_ close to the pcb, instead of 'laying' on solder.
 - hw test passes, microphone, bme, flash, imu's are reachable, as is sd card. Charger and power switchover seems to work as well.
+
+## Third board
+Same as second, but without the LSM. Had to do two passes with the solder paste, but turned out fine.

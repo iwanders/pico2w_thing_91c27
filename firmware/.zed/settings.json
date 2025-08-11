@@ -1,13 +1,13 @@
 {
-  "lsp": {
-    "rust-analyzer": {
-      "initialization_options": {
-        "cargo": {
-          "features": [],
-          "targets": "thumbv8m.main-none-eabi",
-          "allTargets": false
+    "lsp": {
+        "rust-analyzer": {
+            "initialization_options": {
+                "cargo": {
+                    "features": [],
+                    "targets": "thumbv8m.main-none-eabi",
+                    "allTargets": false
+                }
+            }
         }
-      }
     }
-  }
 }

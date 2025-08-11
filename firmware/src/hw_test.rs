@@ -168,7 +168,7 @@ async fn test_sdcard(p: SdCardPinTransfer) {
     let cs = Output::new(p.cs, Level::High);
     let detect_state = detect.get_level();
     let mut config = Config::default();
-    config.frequency = 64_000_000; // 133MHz max!?
+    config.frequency = 24_000_000; // 133MHz max!?
     defmt::info!("sd card detect pin high: {:?}", detect_state == Level::High);
 
     if detect_state == Level::Low {
@@ -178,7 +178,16 @@ async fn test_sdcard(p: SdCardPinTransfer) {
         let spi_dev = ExclusiveDevice::new_no_delay(spi, DummyCsPin);
         //
         let sdcard = SdCard::new(spi_dev, cs, embassy_time::Delay);
-        defmt::info!("Card size is {} bytes", sdcard.num_bytes().unwrap());
+
+        let mut indicator = Output::new(unsafe { Peripherals::steal().PIN_26 }, Level::Low);
+
+        loop {
+            indicator.set_high();
+            let bytes = sdcard.num_bytes();
+            indicator.set_low();
+            Timer::after_millis(1).await;
+        }
+        // defmt::info!("Card size is {} bytes", sdcard.num_bytes().unwrap());
     } else {
         defmt::warn!("No SD card detected, can't test sd card functionaltiy.");
     }
