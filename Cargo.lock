@@ -1631,7 +1631,7 @@ dependencies = [
  "static_cell",
  "tokio",
  "trouble-example-apps",
- "trouble-host 0.2.4 (git+https://github.com/embassy-rs/trouble?rev=1e6f2d743857ab6888a8a59199ad0c186bbf38c7)",
+ "trouble-host 0.2.4 (git+https://github.com/embassy-rs/trouble?rev=a2cdd1444370185b2a5b118b446a8947b200b602)",
  "trouble-linux-examples",
  "zerocopy",
 ]
@@ -2559,6 +2559,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "trouble-host"
+version = "0.2.4"
+source = "git+https://github.com/embassy-rs/trouble?rev=a2cdd1444370185b2a5b118b446a8947b200b602#a2cdd1444370185b2a5b118b446a8947b200b602"
+dependencies = [
+ "bt-hci",
+ "embassy-futures",
+ "embassy-sync",
+ "embassy-time",
+ "embedded-io",
+ "futures",
+ "heapless 0.8.0",
+ "log",
+ "rand_core 0.6.4",
+ "static_cell",
+ "trouble-host-macros 0.2.0 (git+https://github.com/embassy-rs/trouble?rev=a2cdd1444370185b2a5b118b446a8947b200b602)",
+ "zerocopy",
+]
+
+[[package]]
 name = "trouble-host-macros"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2576,6 +2595,19 @@ dependencies = [
 name = "trouble-host-macros"
 version = "0.2.0"
 source = "git+https://github.com/embassy-rs/trouble?rev=1e6f2d743857ab6888a8a59199ad0c186bbf38c7#1e6f2d743857ab6888a8a59199ad0c186bbf38c7"
+dependencies = [
+ "convert_case",
+ "darling",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.104",
+ "uuid",
+]
+
+[[package]]
+name = "trouble-host-macros"
+version = "0.2.0"
+source = "git+https://github.com/embassy-rs/trouble?rev=a2cdd1444370185b2a5b118b446a8947b200b602#a2cdd1444370185b2a5b118b446a8947b200b602"
 dependencies = [
  "convert_case",
  "darling",
