@@ -1633,6 +1633,7 @@ dependencies = [
  "trouble-example-apps",
  "trouble-host 0.2.4 (git+https://github.com/embassy-rs/trouble?rev=a2cdd1444370185b2a5b118b446a8947b200b602)",
  "trouble-linux-examples",
+ "uuid",
  "zerocopy",
 ]
 
@@ -2719,12 +2720,13 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
-version = "1.17.0"
+version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3cf4199d1e5d15ddd86a694e4d0dffa9c323ce759fea589f00fef9d81cc1931d"
+checksum = "f33196643e165781c20a5ead5582283a7dacbb87855d867fbc2df3f81eddc1be"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
+ "zerocopy",
 ]
 
 [[package]]
