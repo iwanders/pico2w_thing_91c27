@@ -22,4 +22,5 @@ $ head -c 100 /dev/urandom  | md5sum | head -c 5
 
 
 # License
-License is [`BSD-3-Clause`](./LICENSE).
+License is [`BSD-3-Clause`](./LICENSE) for the board & firmware. Apache-2.0 for the `micro_hap` component, since that's
+based on the code from [HomeKitADK](https://github.com/apple/HomeKitADK).
