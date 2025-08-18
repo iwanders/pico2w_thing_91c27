@@ -1642,6 +1642,7 @@ dependencies = [
  "env_logger",
  "heapless 0.8.0",
  "httparse",
+ "lazy_static",
  "log",
  "rand 0.9.2",
  "rand_core 0.9.3",
