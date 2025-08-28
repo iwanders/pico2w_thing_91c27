@@ -1784,6 +1784,7 @@ dependencies = [
  "trouble-host 0.2.4 (git+https://github.com/embassy-rs/trouble?rev=a2cdd1444370185b2a5b118b446a8947b200b602)",
  "trouble-linux-examples",
  "uuid",
+ "x25519-dalek",
  "zerocopy",
 ]
 
@@ -3316,6 +3317,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f42320e61fe2cfd34354ecb597f86f413484a798ba44a8ca1165c58d42da6c1"
 dependencies = [
  "bitflags 2.9.1",
+]
+
+[[package]]
+name = "x25519-dalek"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7e468321c81fb07fa7f4c636c3972b9100f0346e5b6a9f2bd0603a52f7ed277"
+dependencies = [
+ "curve25519-dalek",
+ "rand_core 0.6.4",
 ]
 
 [[package]]
