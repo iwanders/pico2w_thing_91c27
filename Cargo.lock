@@ -397,7 +397,30 @@ dependencies = [
  "embedded-io-async",
  "futures-intrusive",
  "heapless 0.8.0",
+ "uuid",
+]
+
+[[package]]
+name = "bt-hci"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a496a585c0e2e00195e558af18342f79afd67598d3edb32e78c006e606a31386"
+dependencies = [
+ "btuuid",
+ "embassy-sync",
+ "embedded-io",
+ "embedded-io-async",
+ "futures-intrusive",
+ "heapless 0.8.0",
  "log",
+]
+
+[[package]]
+name = "btuuid"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0acfef8a77a02866e04f7e2ad3f4c7b32d575696c49c4bbad742b4aecb8e4a3"
+dependencies = [
  "uuid",
 ]
 
@@ -629,7 +652,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "154c5dd2b077718c534593c50f90e854aa143a19191b9be9c41afc21a5045d83"
 dependencies = [
- "bt-hci",
+ "bt-hci 0.3.2",
  "cortex-m",
  "cortex-m-rt",
  "defmt 1.0.1",
@@ -1762,7 +1785,7 @@ name = "micro_hap"
 version = "0.1.0"
 dependencies = [
  "bitfield-struct",
- "bt-hci",
+ "bt-hci 0.4.0",
  "chacha20poly1305",
  "crypto-bigint",
  "defmt 1.0.1",
@@ -1787,7 +1810,7 @@ dependencies = [
  "static_cell",
  "tokio",
  "trouble-example-apps",
- "trouble-host 0.2.4",
+ "trouble-host 0.2.4 (git+https://github.com/embassy-rs/trouble?rev=b57bb1c32fa16d1f81a2b0123ec723c9da7defb4)",
  "trouble-linux-examples",
  "uuid",
  "x25519-dalek",
@@ -2722,38 +2745,21 @@ dependencies = [
 [[package]]
 name = "trouble-example-apps"
 version = "0.1.0"
-source = "git+https://github.com/embassy-rs/trouble?rev=1e6f2d743857ab6888a8a59199ad0c186bbf38c7#1e6f2d743857ab6888a8a59199ad0c186bbf38c7"
+source = "git+https://github.com/embassy-rs/trouble?rev=b57bb1c32fa16d1f81a2b0123ec723c9da7defb4#b57bb1c32fa16d1f81a2b0123ec723c9da7defb4"
 dependencies = [
- "bt-hci",
- "embassy-executor 0.7.0",
+ "bt-hci 0.4.0",
+ "embassy-executor 0.8.0",
  "embassy-futures",
  "embassy-sync",
  "embassy-time",
  "embedded-hal 1.0.0",
+ "embedded-hal-async",
  "embedded-io",
  "heapless 0.8.0",
  "log",
  "rand_core 0.6.4",
  "static_cell",
- "trouble-host 0.2.4 (git+https://github.com/embassy-rs/trouble?rev=1e6f2d743857ab6888a8a59199ad0c186bbf38c7)",
-]
-
-[[package]]
-name = "trouble-host"
-version = "0.2.4"
-dependencies = [
- "bt-hci",
- "embassy-futures",
- "embassy-sync",
- "embassy-time",
- "embedded-io",
- "futures",
- "heapless 0.8.0",
- "log",
- "rand_core 0.6.4",
- "static_cell",
- "trouble-host-macros 0.2.0",
- "zerocopy",
+ "trouble-host 0.2.4 (git+https://github.com/embassy-rs/trouble?rev=b57bb1c32fa16d1f81a2b0123ec723c9da7defb4)",
 ]
 
 [[package]]
@@ -2762,7 +2768,7 @@ version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c18ffc4e0c94e3b322116e6aaf8b6323fe3a42a9a9d1b6631606c16eb2885a2d"
 dependencies = [
- "bt-hci",
+ "bt-hci 0.3.2",
  "defmt 1.0.1",
  "embassy-futures",
  "embassy-sync",
@@ -2779,9 +2785,9 @@ dependencies = [
 [[package]]
 name = "trouble-host"
 version = "0.2.4"
-source = "git+https://github.com/embassy-rs/trouble?rev=1e6f2d743857ab6888a8a59199ad0c186bbf38c7#1e6f2d743857ab6888a8a59199ad0c186bbf38c7"
+source = "git+https://github.com/embassy-rs/trouble?rev=b57bb1c32fa16d1f81a2b0123ec723c9da7defb4#b57bb1c32fa16d1f81a2b0123ec723c9da7defb4"
 dependencies = [
- "bt-hci",
+ "bt-hci 0.4.0",
  "embassy-futures",
  "embassy-sync",
  "embassy-time",
@@ -2791,20 +2797,8 @@ dependencies = [
  "log",
  "rand_core 0.6.4",
  "static_cell",
- "trouble-host-macros 0.2.0 (git+https://github.com/embassy-rs/trouble?rev=1e6f2d743857ab6888a8a59199ad0c186bbf38c7)",
+ "trouble-host-macros 0.2.0 (git+https://github.com/embassy-rs/trouble?rev=b57bb1c32fa16d1f81a2b0123ec723c9da7defb4)",
  "zerocopy",
-]
-
-[[package]]
-name = "trouble-host-macros"
-version = "0.2.0"
-dependencies = [
- "convert_case",
- "darling",
- "proc-macro2",
- "quote",
- "syn 2.0.104",
- "uuid",
 ]
 
 [[package]]
@@ -2824,7 +2818,7 @@ dependencies = [
 [[package]]
 name = "trouble-host-macros"
 version = "0.2.0"
-source = "git+https://github.com/embassy-rs/trouble?rev=1e6f2d743857ab6888a8a59199ad0c186bbf38c7#1e6f2d743857ab6888a8a59199ad0c186bbf38c7"
+source = "git+https://github.com/embassy-rs/trouble?rev=b57bb1c32fa16d1f81a2b0123ec723c9da7defb4#b57bb1c32fa16d1f81a2b0123ec723c9da7defb4"
 dependencies = [
  "convert_case",
  "darling",
@@ -2837,9 +2831,9 @@ dependencies = [
 [[package]]
 name = "trouble-linux-examples"
 version = "0.1.0"
-source = "git+https://github.com/embassy-rs/trouble?rev=1e6f2d743857ab6888a8a59199ad0c186bbf38c7#1e6f2d743857ab6888a8a59199ad0c186bbf38c7"
+source = "git+https://github.com/embassy-rs/trouble?rev=b57bb1c32fa16d1f81a2b0123ec723c9da7defb4#b57bb1c32fa16d1f81a2b0123ec723c9da7defb4"
 dependencies = [
- "bt-hci",
+ "bt-hci 0.4.0",
  "embassy-time",
  "embedded-io",
  "env_logger",
@@ -2848,7 +2842,7 @@ dependencies = [
  "rand 0.8.5",
  "tokio",
  "trouble-example-apps",
- "trouble-host 0.2.4 (git+https://github.com/embassy-rs/trouble?rev=1e6f2d743857ab6888a8a59199ad0c186bbf38c7)",
+ "trouble-host 0.2.4 (git+https://github.com/embassy-rs/trouble?rev=b57bb1c32fa16d1f81a2b0123ec723c9da7defb4)",
 ]
 
 [[package]]
