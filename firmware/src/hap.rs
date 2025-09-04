@@ -93,7 +93,7 @@ pub struct ActualPairSupport {
     pub pairings: heapless::index_map::FnvIndexMap<
         micro_hap::pairing::PairingId,
         micro_hap::pairing::Pairing,
-        5,
+        2,
     >,
     pub global_state_number: u16,
     pub config_number: u16,
