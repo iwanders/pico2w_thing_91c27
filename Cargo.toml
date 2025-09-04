@@ -5,3 +5,5 @@ members = ["firmware", "micro_hap"]
 
 
 [workspace.dependencies]
+
+micro_hap = { version = "0.1.0", path = "micro_hap", default-features = false }

@@ -7,6 +7,7 @@ pub mod defmt_serial;
 
 pub mod static_files;
 
+pub mod hap;
 pub mod icm42688;
 pub mod lsm6dsv320x;
 
@@ -216,7 +217,7 @@ pub mod program {
         info!("Going into test.");
         hw_test::hw_test(unsafe { embassy_rp::Peripherals::steal() }).await;
         //hw_test::test_wifi(unsafe { embassy_rp::Peripherals::steal() }, spawner).await;
-        //hw_test::ble_test::main(spawner, unsafe { embassy_rp::Peripherals::steal() }).await;
+        hap::main(spawner, unsafe { embassy_rp::Peripherals::steal() }).await;
         // */
         let mut indicator = Output::new(p.PIN_26, Level::Low);
         let delay = Duration::from_millis(250);

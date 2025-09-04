@@ -1,0 +1,25 @@
+{
+    "lsp": {
+        "rust-analyzer": {
+            "initialization_options": {
+                //"source": "discover",
+                //"checkOnSave": false,
+                "check": {
+                    "targets": ["thumbv8m.main-none-eabihf"],
+                    "allTargets": false,
+                    "bins": false
+                },
+                "cargo": {
+                    "features": [],
+                    "targets": ["thumbv8m.main-none-eabihf"],
+                    "allTargets": false,
+                    "bins": false
+                },
+                "linked_projects": [
+                    //"firmware/Cargo.toml",
+                    //"micro_hap/Cargo.toml"
+                ]
+            }
+        }
+    }
+}
