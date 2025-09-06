@@ -29,7 +29,7 @@ impl AccessoryInterface for LightBulbAccessory {
         } else if char_id == micro_hap::ble::CHAR_ID_LIGHTBULB_ON {
             Some(self.bulb_on_state.as_bytes())
         } else {
-            todo!("accessory interface for char id: 0x{:0>2x?}", char_id)
+            todo!("accessory interface for char id: 0x{:02?}", char_id)
         }
     }
     fn write_characteristic(
@@ -55,7 +55,7 @@ impl AccessoryInterface for LightBulbAccessory {
             info!("Set bulb to: {:?}", self.bulb_on_state);
             Ok(response)
         } else {
-            todo!("accessory interface for char id: 0x{:0>2x?}", char_id)
+            todo!("accessory interface for char id: 0x{:02?}", char_id)
         }
     }
 }
