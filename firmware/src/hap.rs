@@ -29,7 +29,7 @@ use micro_hap::{
 // Does the SRP stuff just take too long?
 //
 
-async fn benchmark_srp() {
+async fn _benchmark_srp() {
     let pair_setup: &mut micro_hap::pairing::ServerPairSetup = {
         static STATE: StaticCell<micro_hap::pairing::ServerPairSetup> = StaticCell::new();
         STATE.init_with(micro_hap::pairing::ServerPairSetup::default)
@@ -92,18 +92,21 @@ async fn benchmark_srp() {
         let a = embassy_time::Instant::now();
         let d = a - t;
         let duration_ms = d.as_millis();
-        info!("finished ephemeral: {:ms}", duration_ms); // 4.857s.
+        info!("finished ephemeral: {:ms}", duration_ms); // 4.857s, now down to 0.544, that ought to be enough.
 
         // Now update the next random.
         pair_setup.b.copy_from_slice(&pair_setup.B[0..32]);
     }
 }
 
-struct LightBulbAccessory {
+type BulbInterface<'a> = &'a mut dyn FnMut(bool);
+
+struct LightBulbAccessory<'a> {
     name: HeaplessString<32>,
     bulb_on_state: bool,
+    bulb: BulbInterface<'a>,
 }
-impl AccessoryInterface for LightBulbAccessory {
+impl<'a> AccessoryInterface for LightBulbAccessory<'a> {
     fn read_characteristic(&self, char_id: CharId) -> Option<impl Into<&[u8]>> {
         if char_id == micro_hap::ble::CHAR_ID_LIGHTBULB_NAME {
             Some(self.name.as_bytes())
@@ -134,6 +137,7 @@ impl AccessoryInterface for LightBulbAccessory {
             };
             self.bulb_on_state = val_as_bool;
             info!("Set bulb to: {:?}", self.bulb_on_state);
+            (self.bulb)(val_as_bool);
             Ok(response)
         } else {
             todo!("accessory interface for char id: 0x{:02?}", char_id)
@@ -286,7 +290,7 @@ impl micro_hap::pairing::PairSupport for ActualPairSupport {
 // use bt_hci::controller::ControllerCmdSync;
 const DEVICE_ADDRESS: [u8; 6] = [0xff, 0x8f, 0x1a, 0x07, 0xe4, 0xff];
 /// Run the BLE stack.
-pub async fn run<C>(controller: C)
+pub async fn run<'p, C>(controller: C, pin: embassy_rp::gpio::Output<'p>)
 where
     C: Controller, // + ControllerCmdSync<LeReadLocalSupportedFeatures>
                    // + ControllerCmdSync<LeSetDataLength>,
@@ -327,11 +331,16 @@ where
         ..Default::default()
     };
     // let _ = server.accessory_information.unwrap();
+    //
+
+    let mut pin = pin;
+    let mut bulb = move |value: bool| pin.set_level(if value { Level::High } else { Level::Low });
 
     // https://github.com/apple/HomeKitADK/blob/fb201f98f5fdc7fef6a455054f08b59cca5d1ec8/Applications/Lightbulb/DB.c#L472
     let mut accessory = LightBulbAccessory {
         name: "Light Bulb".try_into().unwrap(),
         bulb_on_state: false,
+        bulb: &mut bulb,
     };
     // let mut accessory = micro_hap::NopAccessory;
     let pair_ctx = {
@@ -406,7 +415,7 @@ where
         STATE.init(ActualPairSupport::default())
     };
 
-    benchmark_srp().await;
+    // _benchmark_srp().await;
 
     let _ = join(ble_task(runner), async {
         loop {
@@ -698,6 +707,7 @@ pub async fn main(spawner: Spawner, p: Peripherals) {
         p.PIN_29,
         p.DMA_CH0,
     );
+    // let ledpin = Output::new(, Level::Low);
 
     static STATE: StaticCell<cyw43::State> = StaticCell::new();
     let state = STATE.init(cyw43::State::new());
@@ -708,5 +718,6 @@ pub async fn main(spawner: Spawner, p: Peripherals) {
 
     let controller: ExternalController<_, 10> = ExternalController::new(bt_device);
 
-    run(controller).await;
+    let bulb_pin = Output::new(p.PIN_26, Level::Low);
+    run(controller, bulb_pin).await;
 }
