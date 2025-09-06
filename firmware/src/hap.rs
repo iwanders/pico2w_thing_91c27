@@ -165,7 +165,7 @@ impl micro_hap::pairing::PairSupport for ActualPairSupport {
 // use bt_hci::cmd::le::LeReadLocalSupportedFeatures;
 // use bt_hci::cmd::le::LeSetDataLength;
 // use bt_hci::controller::ControllerCmdSync;
-const DEVICE_ADDRESS: [u8; 6] = [0xff, 0x8f, 0x1a, 0x05, 0xe4, 0xff];
+const DEVICE_ADDRESS: [u8; 6] = [0xff, 0x8f, 0x1a, 0x04, 0xe4, 0xff];
 /// Run the BLE stack.
 pub async fn run<C>(controller: C)
 where
@@ -306,7 +306,7 @@ where
                     match x {
                         embassy_futures::select::Either::First(a) => {
                             if let Err(e) = a {
-                                error!("Error occured in processing: ");
+                                error!("Error occured in processing: {:?}", e);
                             }
                         }
                         embassy_futures::select::Either::Second(_) => {}
@@ -415,13 +415,18 @@ async fn gatt_events_task<P: PacketPool>(
 
                 let fallthrough_event = hap_context
                     .process_gatt_event(&server.as_hap(), support, accessory, event)
-                    .await?;
+                    .await;
+                if let Err(e) = &fallthrough_event {
+                    error!("fallthrough_event error: {:?}", e)
+                };
+
+                let fallthrough_event = fallthrough_event?;
 
                 if let Some(event) = fallthrough_event {
                     match event.accept() {
                         Ok(reply) => reply.send().await,
                         Err(e) => {
-                            // warn!("[gatt] error sending response: {:?}", e)
+                            warn!("[gatt] error sending response: {:?}", e)
                         }
                     };
                 } else {
@@ -431,7 +436,7 @@ async fn gatt_events_task<P: PacketPool>(
             _ => {} // ignore other Gatt Connection Events
         }
     };
-    // info!("[gatt] disconnected: {:?}", reason);
+    info!("[gatt] disconnected: {:?}", reason);
     Ok(())
 }
 
