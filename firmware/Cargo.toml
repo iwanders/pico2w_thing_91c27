@@ -70,7 +70,7 @@ zerocopy = { version = "0.8.26", features = ["derive"] }
 
 
 [target.'cfg(target_arch = "arm")'.dependencies]
-micro_hap = { workspace = true }
+micro_hap = { workspace = true } #, features = ["defmt"]
 #trouble-host = { version = "0.2.4", features = ["defmt"] }
 trouble-host = { features = [
     "peripheral",
