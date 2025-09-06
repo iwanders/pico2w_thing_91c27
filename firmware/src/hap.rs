@@ -18,6 +18,10 @@ use micro_hap::{
     ble::broadcast::BleBroadcastParameters, AccessoryInterface, CharId, CharacteristicResponse,
 };
 
+//
+// Currently, the pico 2w pairing process fails on the SentM2 SRP stage, after the 418 length packet the connection
+// gets closed. Seemingly without any reason.
+
 struct LightBulbAccessory {
     name: HeaplessString<32>,
     bulb_on_state: bool,
@@ -160,7 +164,9 @@ impl micro_hap::pairing::PairSupport for ActualPairSupport {
 
     fn store_pairing(&mut self, pairing: &Pairing) -> Result<(), PairingError> {
         error!("Storing pairing");
-        self.pairings.insert(pairing.id, *pairing);
+        self.pairings
+            .insert(pairing.id, *pairing)
+            .map_err(|_| PairingError::IncorrectLength)?;
         Ok(())
     }
 
@@ -201,7 +207,7 @@ impl micro_hap::pairing::PairSupport for ActualPairSupport {
 // use bt_hci::cmd::le::LeReadLocalSupportedFeatures;
 // use bt_hci::cmd::le::LeSetDataLength;
 // use bt_hci::controller::ControllerCmdSync;
-const DEVICE_ADDRESS: [u8; 6] = [0xff, 0x8f, 0x1a, 0x04, 0xe4, 0xff];
+const DEVICE_ADDRESS: [u8; 6] = [0xff, 0x8f, 0x1a, 0x07, 0xe4, 0xff];
 /// Run the BLE stack.
 pub async fn run<C>(controller: C)
 where
@@ -222,7 +228,7 @@ where
         ..
     } = stack.build();
 
-    let name = "Z"; // There's _very_ few bytes left in the advertisement
+    let name = "W"; // There's _very_ few bytes left in the advertisement
     info!("Starting advertising and GATT service");
     let server = Server::new_with_config(GapConfig::Peripheral(PeripheralConfig {
         name,
@@ -351,7 +357,6 @@ where
                     }
                 }
                 Err(e) => {
-                    #[cfg(feature = "defmt")]
                     let e = defmt::Debug2Format(&e);
                     panic!("[adv] error: {:?}", e);
                 }
@@ -400,6 +405,7 @@ async fn gatt_events_task<P: PacketPool>(
     let reason = loop {
         match conn.next().await {
             GattConnectionEvent::Disconnected { reason } => break reason,
+
             GattConnectionEvent::Gatt { event } => {
                 match &event {
                     GattEvent::Read(event) => {
@@ -410,39 +416,36 @@ async fn gatt_events_task<P: PacketPool>(
                         let peek = event.payload();
                         match peek.incoming() {
                             trouble_host::att::AttClient::Request(att_req) => {
-                                // info!("[gatt-attclient]: {:?}", att_req);
+                                info!("[gatt-attclient]: {:?}", att_req);
                             }
                             trouble_host::att::AttClient::Command(att_cmd) => {
-                                // info!("[gatt-attclient]: {:?}", att_cmd);
+                                info!("[gatt-attclient]: {:?}", att_cmd);
                             }
                             trouble_host::att::AttClient::Confirmation(att_cfm) => {
-                                // info!("[gatt-attclient]: {:?}", att_cfm);
+                                info!("[gatt-attclient]: {:?}", att_cfm);
                             }
                         }
                     }
                     GattEvent::Write(event) => {
-                        /*
-                        if event.handle() == level.handle {
-                            info!(
-                                "[gatt] Write Event to Level Characteristic: {:?}",
-                                event.data()
-                            );
-                        }*/
+                        info!(
+                            "[gatt] Write Event to Level Characteristic: {:?}",
+                            event.data()
+                        );
                     }
                     GattEvent::Other(t) => {
                         let peek = t.payload();
                         if let Some(handle) = peek.handle() {
-                            // info!("[gatt] other event on handle: {handle}");
+                            info!("[gatt] other event on handle: {}", handle);
                         }
                         match peek.incoming() {
                             trouble_host::att::AttClient::Request(att_req) => {
-                                // info!("[gatt-attclient]: {:?}", att_req);
+                                info!("[gatt-attclient]: {:?}", att_req);
                             }
                             trouble_host::att::AttClient::Command(att_cmd) => {
-                                // info!("[gatt-attclient]: {:?}", att_cmd);
+                                info!("[gatt-attclient]: {:?}", att_cmd);
                             }
                             trouble_host::att::AttClient::Confirmation(att_cfm) => {
-                                // info!("[gatt-attclient]: {:?}", att_cfm);
+                                info!("[gatt-attclient]: {:?}", att_cfm);
                             }
                         }
                         info!("[gatt] other event ");
@@ -486,6 +489,7 @@ async fn advertise<'values, 'server, C: Controller>(
     static_info: &micro_hap::AccessoryInformationStatic,
 ) -> Result<Connection<'values, DefaultPacketPool>, BleHostError<C::Error>> {
     // ) -> Result<GattConnection<'values, 'server, DefaultPacketPool>, BleHostError<C::Error>> {
+    let _ = server;
     let adv_config = micro_hap::adv::AdvertisementConfig {
         device_id: static_info.device_id,
         setup_id: static_info.setup_id,
@@ -534,6 +538,7 @@ async fn custom_task<C: Controller, P: PacketPool>(
     conn: &GattConnection<'_, '_, P>,
     stack: &Stack<'_, C, P>,
 ) {
+    let _ = server;
     let mut tick: u8 = 0;
     // let level = server.battery_service.level;
     loop {
