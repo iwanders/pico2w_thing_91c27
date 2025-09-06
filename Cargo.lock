@@ -378,7 +378,7 @@ source = "git+https://github.com/embassy-rs/trouble?rev=26ec6794d0a976dd91cd694b
 dependencies = [
  "bt-hci",
  "critical-section",
- "embassy-time 0.5.0",
+ "embassy-time",
  "embedded-io",
  "env_logger",
  "libc",
@@ -632,7 +632,7 @@ dependencies = [
  "embassy-futures",
  "embassy-net-driver-channel",
  "embassy-sync",
- "embassy-time 0.5.0",
+ "embassy-time",
  "embedded-hal 1.0.0",
  "embedded-io-async",
  "futures",
@@ -801,7 +801,7 @@ dependencies = [
  "embassy-futures",
  "embassy-hal-internal",
  "embassy-sync",
- "embassy-time 0.5.0",
+ "embassy-time",
  "embedded-hal 0.2.7",
  "embedded-hal 1.0.0",
  "embedded-hal-async",
@@ -895,7 +895,7 @@ dependencies = [
  "embassy-futures",
  "embassy-hal-internal",
  "embassy-sync",
- "embassy-time 0.5.0",
+ "embassy-time",
  "embassy-time-driver",
  "embassy-time-queue-utils",
  "embassy-usb-driver",
@@ -932,22 +932,6 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "heapless 0.8.0",
-]
-
-[[package]]
-name = "embassy-time"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f820157f198ada183ad62e0a66f554c610cdcd1a9f27d4b316358103ced7a1f8"
-dependencies = [
- "cfg-if",
- "critical-section",
- "document-features",
- "embassy-time-driver",
- "embedded-hal 0.2.7",
- "embedded-hal 1.0.0",
- "embedded-hal-async",
- "futures-util",
 ]
 
 [[package]]
@@ -1224,7 +1208,7 @@ dependencies = [
  "embassy-futures",
  "embassy-rp",
  "embassy-sync",
- "embassy-time 0.5.0",
+ "embassy-time",
  "embassy-usb",
  "embedded-hal-async",
  "embedded-hal-bus",
@@ -1238,7 +1222,7 @@ dependencies = [
  "serde_bytes",
  "smol",
  "static_cell",
- "trouble-host 0.2.4",
+ "trouble-host",
  "zerocopy",
 ]
 
@@ -1695,7 +1679,7 @@ dependencies = [
  "embassy-executor",
  "embassy-futures",
  "embassy-sync",
- "embassy-time 0.5.0",
+ "embassy-time",
  "embedded-io-adapters",
  "env_logger",
  "heapless 0.9.1",
@@ -1709,7 +1693,7 @@ dependencies = [
  "srp",
  "static_cell",
  "tokio",
- "trouble-host 0.2.4 (git+https://github.com/embassy-rs/trouble?rev=26ec6794d0a976dd91cd694b631c72b16ddf651b)",
+ "trouble-host",
  "uuid",
  "x25519-dalek",
  "zerocopy",
@@ -2603,50 +2587,21 @@ dependencies = [
 [[package]]
 name = "trouble-host"
 version = "0.2.4"
-dependencies = [
- "bt-hci",
- "embassy-futures",
- "embassy-sync",
- "embassy-time 0.4.0",
- "embedded-io",
- "futures",
- "heapless 0.8.0",
- "rand_core 0.6.4",
- "static_cell",
- "trouble-host-macros 0.2.0",
- "zerocopy",
-]
-
-[[package]]
-name = "trouble-host"
-version = "0.2.4"
 source = "git+https://github.com/embassy-rs/trouble?rev=26ec6794d0a976dd91cd694b631c72b16ddf651b#26ec6794d0a976dd91cd694b631c72b16ddf651b"
 dependencies = [
  "bt-hci",
  "defmt 1.0.1",
  "embassy-futures",
  "embassy-sync",
- "embassy-time 0.5.0",
+ "embassy-time",
  "embedded-io",
  "futures",
  "heapless 0.9.1",
  "log",
  "rand_core 0.6.4",
  "static_cell",
- "trouble-host-macros 0.2.0 (git+https://github.com/embassy-rs/trouble?rev=26ec6794d0a976dd91cd694b631c72b16ddf651b)",
+ "trouble-host-macros",
  "zerocopy",
-]
-
-[[package]]
-name = "trouble-host-macros"
-version = "0.2.0"
-dependencies = [
- "convert_case",
- "darling",
- "proc-macro2",
- "quote",
- "syn 2.0.104",
- "uuid",
 ]
 
 [[package]]
