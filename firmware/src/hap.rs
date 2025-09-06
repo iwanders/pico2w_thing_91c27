@@ -98,6 +98,8 @@ pub struct ActualPairSupport {
     pub global_state_number: u16,
     pub config_number: u16,
     pub broadcast_parameters: BleBroadcastParameters,
+    pub random_bytes: &'static [u8],
+    pub random_byte_index: usize,
 }
 impl Default for ActualPairSupport {
     fn default() -> Self {
@@ -110,6 +112,39 @@ impl Default for ActualPairSupport {
             global_state_number: 1,
             config_number: 1,
             broadcast_parameters: Default::default(),
+            // [random.randrange(0,255) for i in range(512)]
+            random_byte_index: 0,
+            random_bytes: &[
+                175, 37, 92, 197, 240, 140, 237, 84, 151, 244, 199, 38, 241, 51, 93, 148, 199, 20,
+                34, 56, 27, 118, 245, 101, 158, 19, 199, 132, 16, 59, 154, 45, 165, 249, 75, 158,
+                49, 89, 185, 246, 197, 61, 128, 246, 221, 171, 185, 58, 242, 94, 197, 84, 33, 34,
+                161, 158, 204, 239, 117, 116, 33, 41, 76, 189, 48, 116, 81, 96, 22, 127, 106, 112,
+                36, 136, 174, 148, 191, 67, 130, 107, 151, 195, 161, 24, 55, 115, 227, 169, 160,
+                22, 20, 21, 10, 1, 17, 132, 201, 237, 74, 170, 49, 105, 110, 219, 245, 239, 175,
+                17, 125, 145, 121, 13, 236, 155, 10, 43, 82, 64, 93, 242, 30, 37, 62, 190, 125,
+                131, 227, 61, 1, 123, 211, 166, 253, 141, 44, 239, 6, 82, 201, 207, 17, 155, 141,
+                67, 173, 172, 179, 224, 108, 177, 43, 137, 75, 18, 54, 61, 218, 252, 74, 98, 166,
+                173, 11, 250, 148, 21, 113, 107, 50, 17, 211, 75, 49, 223, 156, 14, 155, 196, 10,
+                97, 6, 107, 41, 123, 113, 57, 18, 89, 214, 62, 94, 165, 200, 83, 46, 81, 169, 114,
+                238, 52, 188, 111, 250, 175, 41, 42, 217, 55, 240, 89, 197, 48, 35, 252, 140, 224,
+                145, 22, 35, 96, 154, 251, 248, 90, 228, 2, 150, 233, 74, 82, 237, 175, 117, 167,
+                114, 150, 213, 24, 125, 186, 83, 203, 153, 127, 233, 93, 70, 24, 237, 113, 157, 43,
+                93, 220, 225, 210, 42, 130, 56, 200, 117, 248, 200, 19, 112, 241, 91, 6, 46, 159,
+                130, 251, 76, 86, 148, 134, 150, 97, 31, 240, 18, 211, 110, 42, 142, 73, 8, 27,
+                212, 169, 105, 250, 85, 12, 224, 103, 216, 183, 191, 54, 83, 5, 152, 180, 238, 124,
+                227, 83, 97, 207, 30, 126, 220, 244, 101, 43, 199, 152, 148, 51, 41, 187, 69, 10,
+                22, 210, 54, 141, 40, 136, 213, 249, 171, 21, 83, 230, 118, 199, 9, 90, 32, 48,
+                234, 1, 210, 148, 241, 75, 252, 26, 116, 64, 59, 212, 48, 6, 161, 248, 70, 55, 176,
+                95, 144, 58, 219, 60, 35, 115, 100, 49, 93, 86, 178, 68, 231, 211, 239, 156, 34,
+                27, 39, 31, 110, 108, 171, 17, 202, 133, 170, 254, 156, 185, 70, 105, 44, 184, 41,
+                117, 45, 210, 49, 172, 101, 209, 25, 155, 111, 59, 252, 32, 230, 61, 244, 109, 162,
+                216, 17, 220, 238, 48, 104, 204, 44, 135, 33, 120, 135, 36, 114, 182, 216, 117,
+                247, 254, 111, 13, 150, 66, 164, 36, 181, 163, 127, 6, 81, 77, 151, 161, 154, 100,
+                239, 115, 82, 185, 95, 183, 125, 14, 168, 69, 66, 38, 5, 54, 15, 13, 3, 185, 162,
+                59, 44, 80, 22, 15, 206, 43, 7, 54, 151, 252, 11, 254, 203, 19, 209, 88, 105, 204,
+                39, 49, 237, 61, 146, 85, 218, 188, 78, 191, 156, 83, 197, 130, 115, 109, 26, 154,
+                215, 213, 159, 46, 86, 186,
+            ],
         }
     }
 }
@@ -119,7 +154,8 @@ impl micro_hap::pairing::PairSupport for ActualPairSupport {
     }
 
     fn get_random(&mut self) -> u8 {
-        (self as *mut Self) as u8
+        self.random_byte_index += 1;
+        self.random_bytes[self.random_byte_index]
     }
 
     fn store_pairing(&mut self, pairing: &Pairing) -> Result<(), PairingError> {
@@ -278,7 +314,14 @@ where
 
     hap_context.print_handles();
 
-    let mut support = ActualPairSupport::default();
+    //let mut support = ActualPairSupport::default();
+    // Put this in static memory instead of the stack, we got some very short messages without this, did we corrupt the
+    // stack? How can we detect that?
+    // Still getting connection termination.
+    let support = {
+        static STATE: StaticCell<ActualPairSupport> = StaticCell::new();
+        STATE.init(ActualPairSupport::default())
+    };
 
     let _ = join(ble_task(runner), async {
         loop {
@@ -292,13 +335,8 @@ where
                         .with_attribute_server(&server)
                         .expect("Failed to create attribute server");
                     // set up tasks when the connection is established to a central, so they don't run when no one is connected.
-                    let a = gatt_events_task(
-                        &mut hap_context,
-                        &mut accessory,
-                        &mut support,
-                        &server,
-                        &conn,
-                    );
+                    let a =
+                        gatt_events_task(&mut hap_context, &mut accessory, support, &server, &conn);
                     let b = custom_task(&server, &conn, &stack);
                     // run until any task ends (usually because the connection has been closed),
                     // then return to advertising state.
