@@ -20,7 +20,11 @@ $ head -c 100 /dev/urandom  | md5sum | head -c 5
 91c27
 ```
 
+## micro_hap
+
+A large portion of this repository's history is around the HomeKit Accessory Protocol implementation.
+This is now split out as the [micro_hap](https://github.com/iwanders/micro_hap) repository.
+
 
 # License
-License is [`BSD-3-Clause`](./LICENSE) for the board & firmware. Apache-2.0 for the `micro_hap` component, since that's
-based on the code from [HomeKitADK](https://github.com/apple/HomeKitADK).
+License is [`BSD-3-Clause`](./LICENSE) for the board & firmware.
