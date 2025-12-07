@@ -53,6 +53,7 @@ Changed it back to two partitions, one for the program, and a second one for the
 by filename.
 
 - `make partition` creates the partition table and flashes it to the device.
+- Reboot the device with `picotool reboot`
 - `make partition-static-files-upload` creates the static files and flashes them into the static files partition.
 
 Note that the ids in picotool's `-p` is a zero indexed partition counter, not the partition id.

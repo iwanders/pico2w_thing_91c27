@@ -7,6 +7,7 @@ pub mod defmt_serial;
 
 pub mod static_files;
 
+#[cfg(target_arch = "arm")]
 pub mod hap;
 pub mod icm42688;
 pub mod lsm6dsv320x;

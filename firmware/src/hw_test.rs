@@ -548,6 +548,7 @@ pub async fn hw_test(p: Peripherals) -> ! {
             let rounded_temp_x10: i16 = ((temp * 10.0) + 0.5 * sign) as i16;
             (rounded_temp_x10 as f32) / 10.0
         }
+        /*
         bind_interrupts!(struct Irqs {
             ADC_IRQ_FIFO => InterruptHandler;
         });
@@ -563,6 +564,7 @@ pub async fn hw_test(p: Peripherals) -> ! {
             defmt::info!("Temp: {} degrees", convert_to_celsius(temp));
             Timer::after_secs(1).await;
         }
+        */
     }
 
     if TEST_MIC {

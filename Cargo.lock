@@ -277,9 +277,9 @@ dependencies = [
 
 [[package]]
 name = "bt-hci"
-version = "0.4.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a496a585c0e2e00195e558af18342f79afd67598d3edb32e78c006e606a31386"
+checksum = "bb938a3b4c5cc6c2409275bad789c0346a0495fa071a0acc5d72b9bd3175a2f7"
 dependencies = [
  "btuuid",
  "defmt 1.0.1",
@@ -287,7 +287,7 @@ dependencies = [
  "embedded-io",
  "embedded-io-async",
  "futures-intrusive",
- "heapless 0.8.0",
+ "heapless 0.9.1",
 ]
 
 [[package]]
@@ -512,9 +512,9 @@ dependencies = [
 
 [[package]]
 name = "cyw43"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85d050df7c6c6d253d1044fd5f011873ec6f434f77c202e7e7e88d5b12a1e943"
+checksum = "bff28275bda1b427b4cc6fb23c22505fef8ace0ccfadc9bffe3fdd6120ff1513"
 dependencies = [
  "bt-hci",
  "cortex-m",
@@ -533,9 +533,9 @@ dependencies = [
 
 [[package]]
 name = "cyw43-pio"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86bd7dea4d32a73557be29bfadaaa916e758115ed8b42cfca4fda0a111f07644"
+checksum = "c1504988186aca75ebe6f0b8450c309baf342bc73b988844983ad6ba97291efe"
 dependencies = [
  "cyw43",
  "defmt 1.0.1",
@@ -770,11 +770,10 @@ dependencies = [
 
 [[package]]
 name = "embassy-rp"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a284935af0a869de3fa14af74b5f932389dd66d7048012f1083b06f38d05399"
+checksum = "af8d5ac11a8bc209d359ad98bb10a10f786471dd474790f3a4f991c77ae94f6f"
 dependencies = [
- "atomic-polyfill",
  "cfg-if",
  "cortex-m",
  "cortex-m-rt",
@@ -1051,6 +1050,7 @@ checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 name = "firmware"
 version = "0.1.0"
 dependencies = [
+ "chacha20",
  "cortex-m",
  "cortex-m-rt",
  "critical-section",
@@ -1453,19 +1453,23 @@ checksum = "32a282da65faaf38286cf3be983213fcf1d2e2a58700e808f83f4ea9a4804bc0"
 [[package]]
 name = "micro_hap"
 version = "0.1.0"
-source = "git+https://github.com/iwanders/micro_hap.git?rev=0d8ca03310b44c449e260141be459330cffe25b3#0d8ca03310b44c449e260141be459330cffe25b3"
+source = "git+https://github.com/iwanders/micro_hap.git?rev=baa8f3f93dc6a390b164e3d7b982b80eddccef78#baa8f3f93dc6a390b164e3d7b982b80eddccef78"
 dependencies = [
  "bitfield-struct",
  "chacha20poly1305",
  "crypto-bigint",
  "defmt 1.0.1",
  "ed25519-dalek",
+ "embassy-futures",
  "embassy-sync",
+ "embassy-time",
  "heapless 0.9.1",
  "hkdf",
  "lazy_static",
+ "serde",
  "sha2",
  "static_cell",
+ "thiserror",
  "trouble-host",
  "uuid",
  "x25519-dalek",
@@ -2175,8 +2179,8 @@ dependencies = [
 
 [[package]]
 name = "trouble-host"
-version = "0.2.4"
-source = "git+https://github.com/embassy-rs/trouble?rev=26ec6794d0a976dd91cd694b631c72b16ddf651b#26ec6794d0a976dd91cd694b631c72b16ddf651b"
+version = "0.5.0"
+source = "git+https://github.com/embassy-rs/trouble?rev=51cf300cb4951370ce043ffe5f67594a420cfd3e#51cf300cb4951370ce043ffe5f67594a420cfd3e"
 dependencies = [
  "bt-hci",
  "defmt 1.0.1",
@@ -2194,8 +2198,8 @@ dependencies = [
 
 [[package]]
 name = "trouble-host-macros"
-version = "0.2.0"
-source = "git+https://github.com/embassy-rs/trouble?rev=26ec6794d0a976dd91cd694b631c72b16ddf651b#26ec6794d0a976dd91cd694b631c72b16ddf651b"
+version = "0.3.0"
+source = "git+https://github.com/embassy-rs/trouble?rev=51cf300cb4951370ce043ffe5f67594a420cfd3e#51cf300cb4951370ce043ffe5f67594a420cfd3e"
 dependencies = [
  "convert_case",
  "darling",
@@ -2299,6 +2303,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f33196643e165781c20a5ead5582283a7dacbb87855d867fbc2df3f81eddc1be"
 dependencies = [
  "js-sys",
+ "serde",
  "wasm-bindgen",
  "zerocopy",
 ]
