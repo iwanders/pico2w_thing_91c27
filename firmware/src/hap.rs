@@ -102,8 +102,6 @@ impl<'a, 'b> AccessoryInterface for LightBulbAccessory<'a, 'b> {
         }
     }
 }
-/// Max number of connections
-const CONNECTIONS_MAX: usize = 3;
 
 /// Max number of L2CAP channels.
 const L2CAP_CHANNELS_MAX: usize = 5; // Signal + att
@@ -238,11 +236,11 @@ impl PlatformSupport for ActualPairSupport {
 }
 
 type BMEDevice = BME280<embassy_rp::i2c::I2c<'static, I2C0, embassy_rp::i2c::Async>>;
-async fn temperature_task(
+async fn measurement_task(
     // mut adc: embassy_rp::adc::Adc<'_, embassy_rp::adc::Async>,
     // mut temp_adc: embassy_rp::adc::Channel<'_>,
     sender: DynSender<'_, DataUpdate>,
-    char_id: CharId,
+    char_ids: &[CharId],
     control_sender: micro_hap::HapInterfaceSender<'_>,
     mut bme280: BMEDevice,
 ) {
@@ -280,7 +278,9 @@ async fn temperature_task(
             };
             sender.send(update);
             info!("Notifying characteristic change");
-            control_sender.characteristic_changed(char_id).await; // send the notification.
+            for char_id in char_ids.iter() {
+                control_sender.characteristic_changed(*char_id).await; // send the notification.
+            }
             info!("  notify done.");
         }
     }
@@ -533,9 +533,9 @@ pub async fn run<'p, 'cyw, C>(
             humidity_value: 0.0,
             temperature_value: 0.0,
         });
-    let mut rcv0 = WATCH.receiver().unwrap();
-    let mut latest_data = WATCH.dyn_receiver().unwrap();
-    let mut temperature_sender = WATCH.dyn_sender();
+    // let rcv0 = WATCH.receiver().unwrap();
+    let latest_data = WATCH.dyn_receiver().unwrap();
+    let temperature_sender = WATCH.dyn_sender();
 
     let mut accessory = LightBulbAccessory {
         name: "Light Bulb".try_into().unwrap(),
@@ -557,15 +557,16 @@ pub async fn run<'p, 'cyw, C>(
     let support = &mut support;
 
     let temperature_char_id = temperature_handles.value.hap;
+    let humidity_char_id = humidity_handles.value.hap;
 
     let _ = join(
         join(
             ble_task(runner),
-            temperature_task(
+            measurement_task(
                 // adc,
                 // temp_adc,
                 temperature_sender,
-                temperature_char_id,
+                &[temperature_char_id, humidity_char_id],
                 control_sender,
                 bme280,
             ),

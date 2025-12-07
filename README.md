@@ -1,6 +1,6 @@
 # Pico2w_thingy_91c27
 
-A work in progress repo for a PCB with a bunch of sensors on it that attaches to a Raspberry Pi Pico 2W to log things.
+A project for a PCB with a bunch of sensors on it that attaches to a Raspberry Pi Pico 2W to log things.
 
 - ICM-42688 IMU
 - LSM6DSV320X IMU
@@ -11,6 +11,9 @@ A work in progress repo for a PCB with a bunch of sensors on it that attaches to
 
 
 See the [./board/](./board/) or the [./firmware/](./firmware/) readme's for more information.
+
+This project led to [micro_hap](https://github.com/iwanders/micro_hap), a no_alloc, no_std implementation of Apple's
+HomeKit accessory protocol. Currently the firmware makes a HomeKit temperature & humidity sensor.
 
 
 ## What's with the name?
