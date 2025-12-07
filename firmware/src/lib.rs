@@ -236,6 +236,7 @@ pub mod program {
             let mut i2c = I2c::new_blocking(p.i2c, p.scl, p.sda, config);
         */
 
+        /*
         if false {
             use bme280::reg::*;
             use embassy_rp::i2c::I2c;
@@ -271,7 +272,7 @@ pub mod program {
                     }
                 }
             }
-        }
+        }*/
 
         if false {
             use embassy_rp::spi::{Config, Spi};

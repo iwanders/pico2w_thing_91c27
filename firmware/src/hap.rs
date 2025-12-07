@@ -1,3 +1,4 @@
+use crate::bme280::BME280;
 use cyw43_pio::{PioSpi, DEFAULT_CLOCK_DIVIDER, RM2_CLOCK_DIVIDER};
 use defmt::{error, info, unwrap, warn};
 use embassy_executor::Spawner;
@@ -225,46 +226,46 @@ impl PlatformSupport for ActualPairSupport {
     }
 }
 
+type BMEDevice = BME280<embassy_rp::i2c::I2c<'static, I2C0, embassy_rp::i2c::Async>>;
 async fn temperature_task(
-    mut adc: embassy_rp::adc::Adc<'_, embassy_rp::adc::Async>,
-    mut temp_adc: embassy_rp::adc::Channel<'_>,
+    // mut adc: embassy_rp::adc::Adc<'_, embassy_rp::adc::Async>,
+    // mut temp_adc: embassy_rp::adc::Channel<'_>,
     sender: DynSender<'_, f32>,
     char_id: CharId,
     control_sender: micro_hap::HapInterfaceSender<'_>,
+    mut bme280: BMEDevice,
 ) {
-    let mut i: usize = 0;
+    let _ = bme280.reset().await;
+    let temp_sampling = crate::bme280::Sampling::X1;
+    let press_sampling = crate::bme280::Sampling::X1;
+    let mode = crate::bme280::Mode::Forced;
+    let humidity_sampling = crate::bme280::Sampling::X1;
     loop {
         embassy_time::Timer::after_secs(1).await;
-        i += 1;
-        if i > 1000 {
-            i = 0;
-        }
 
-        let read = adc.read(&mut temp_adc).await;
-        match read {
-            Ok(value) => {
-                info!("Sampled temperature adc with: {}", value);
-                // conversion; https://github.com/raspberrypi/pico-micropython-examples/blob/1dc8d73a08f0e791c7694855cb61a5bfe8537756/adc/temperature.py#L5-L14
-
-                let conversion_factor = 3.3f32 / 65535f32;
-                let reading = value as f32 * conversion_factor;
-                let mut temperature = 27.0 - (reading - 0.706) / 0.001721;
-                // This looks so wrong, or my adc reference voltage is way way off.
-
-                // Since this is so wrong, we just fake a value every other value.
-                if i.rem_euclid(2) == 0 {
-                    temperature = i as f32 * 0.1;
-                }
-
-                info!("Sending temperature: {}", temperature);
-                sender.send(temperature);
-                info!("Notifying characteristic change");
-                control_sender.characteristic_changed(char_id).await; // send the notification.
-                info!("  notify done.");
-            }
-            Err(e) => {
-                warn!("adc sample failed: {:?}", e);
-            }
+        // Set humidity control before measurement, since measurement triggers the measurement.
+        let _ = bme280.set_ctrl_hum(humidity_sampling).await;
+        let _ = bme280
+            .set_ctrl_meas(temp_sampling, press_sampling, mode)
+            .await;
+        embassy_time::Timer::after_millis(10).await;
+        defmt::debug!(
+            "status: {:b}",
+            bme280
+                .get_register(crate::bme280::reg::REG_BME280_STATUS)
+                .await
+        );
+        let readout = bme280.readout().await;
+        defmt::debug!("readout: {:?}", readout);
+        if let Ok(readout) = readout {
+            let compensated = bme280.compensation().compensate(&readout);
+            defmt::debug!("compensated: {:?}", compensated);
+            let temperature: f32 = compensated.temperature.as_f32();
+            info!("Sending temperature: {}", temperature);
+            sender.send(temperature);
+            info!("Notifying characteristic change");
+            control_sender.characteristic_changed(char_id).await; // send the notification.
+            info!("  notify done.");
         }
     }
 }
@@ -272,13 +273,14 @@ async fn temperature_task(
 // use bt_hci::cmd::le::LeReadLocalSupportedFeatures;
 // use bt_hci::cmd::le::LeSetDataLength;
 // use bt_hci::controller::ControllerCmdSync;
-const DEVICE_ADDRESS: [u8; 6] = [0xff, 0x8f, 0x1b, 0x33, 0xe4, 0xff];
+const DEVICE_ADDRESS: [u8; 6] = [0xff, 0x8f, 0x1b, 0x34, 0xe4, 0xff];
 /// Run the BLE stack.
 pub async fn run<'p, 'cyw, C>(
     controller: C,
     bulb_control: cyw43::Control<'_>,
-    temp_adc: embassy_rp::adc::Channel<'_>,
-    adc: embassy_rp::adc::Adc<'_, embassy_rp::adc::Async>,
+    // temp_adc: embassy_rp::adc::Channel<'_>,
+    // adc: embassy_rp::adc::Adc<'_, embassy_rp::adc::Async>,
+    bme280: BMEDevice,
 ) where
     C: Controller, // + ControllerCmdSync<LeReadLocalSupportedFeatures>
                    // + ControllerCmdSync<LeSetDataLength>,
@@ -529,11 +531,12 @@ pub async fn run<'p, 'cyw, C>(
         join(
             ble_task(runner),
             temperature_task(
-                adc,
-                temp_adc,
+                // adc,
+                // temp_adc,
                 temperature_sender,
                 temperature_char_id,
                 control_sender,
+                bme280,
             ),
         ),
         async {
@@ -595,6 +598,9 @@ async fn ble_task<C: Controller, P: PacketPool>(mut runner: Runner<'_, C, P>) {
 
 use trouble_host::prelude::ExternalController;
 
+use embassy_rp::i2c::I2c;
+use embassy_rp::i2c::InterruptHandler as I2cInterruptHandler;
+use embassy_rp::peripherals::I2C0;
 use embassy_rp::peripherals::PIO2;
 use embassy_rp::peripherals::TRNG;
 use embassy_rp::pio::InterruptHandler as PioInterruptHandler;
@@ -602,6 +608,7 @@ bind_interrupts!(struct Irqs {
     PIO2_IRQ_0 => PioInterruptHandler<PIO2>;
     TRNG_IRQ => embassy_rp::trng::InterruptHandler<TRNG>;
     ADC_IRQ_FIFO => embassy_rp::adc::InterruptHandler;
+     I2C0_IRQ => I2cInterruptHandler<I2C0>;
 });
 
 #[embassy_executor::task]
@@ -614,8 +621,6 @@ async fn cyw43_task(
 //#[embassy_executor::main]
 use embassy_rp::Peripherals;
 pub async fn main(spawner: Spawner, p: Peripherals) {
-    //let p = embassy_rp::init(Default::default());
-
     let (fw, clm, btfw) =
         if let Some(p) = crate::rp2350_util::rom_data::get_partition_by_name("static_files") {
             let (start, end) = p.get_first_last_bytes();
@@ -692,9 +697,10 @@ pub async fn main(spawner: Spawner, p: Peripherals) {
     // Much much spam of that last command, lets just switch to a cryptographically secure RNG.
 
     // DO NOT CHANGE ORDER: https://github.com/embassy-rs/embassy/issues/4558
-    let adcthing = p.ADC_TEMP_SENSOR;
-    let adc = embassy_rp::adc::Adc::new(p.ADC, Irqs, embassy_rp::adc::Config::default());
-    let temp_channel = embassy_rp::adc::Channel::new_temp_sensor(adcthing);
+    // let adcthing = p.ADC_TEMP_SENSOR;
+    // let adc = embassy_rp::adc::Adc::new(p.ADC, Irqs, embassy_rp::adc::Config::default());
+    // let temp_channel = embassy_rp::adc::Channel::new_temp_sensor(adcthing);
+    //  temp_channel, adc,
 
     // let mut bulb_pin = Output::new(p.PIN_26, Level::Low);
     // let mut bulb = move |state: bool| {
@@ -702,6 +708,13 @@ pub async fn main(spawner: Spawner, p: Peripherals) {
     //     info!("setting pin to: {}", state);
     //     bulb_pin.set_level(if state { Level::High } else { Level::Low });
     // };
-
-    run(controller, control, temp_channel, adc).await;
+    //
+    let mut config = embassy_rp::i2c::Config::default();
+    config.frequency = 1_000_000; // gotta go fast!
+    let i2c = I2c::new_async(p.I2C0, p.PIN_21, p.PIN_20, Irqs, config);
+    let bme280_dev = BME280::new(crate::bme280::ADDRESS_DEFAULT, i2c)
+        .await
+        .unwrap();
+    defmt::debug!("bme280 dev: {:?}", bme280_dev);
+    run(controller, control, bme280_dev).await;
 }

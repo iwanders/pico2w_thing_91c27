@@ -161,6 +161,11 @@ pub struct Readout {
 
 #[derive(Debug, Copy, Clone, PartialEq, Default, defmt::Format)]
 pub struct CentiCelsius(pub i32);
+impl CentiCelsius {
+    pub fn as_f32(&self) -> f32 {
+        self.0 as f32 / 100.0
+    }
+}
 
 #[derive(Debug, Copy, Clone, PartialEq, Default, defmt::Format)]
 pub struct Measurement {
@@ -168,6 +173,7 @@ pub struct Measurement {
     pub pressure: PressureQ248,
     pub humidity: HumidityQ2210,
 }
+
 #[derive(Debug, Copy, Clone, PartialEq, Default, defmt::Format)]
 pub struct TemperatureFine(pub i32);
 #[derive(Debug, Copy, Clone, PartialEq, Default, defmt::Format)]
