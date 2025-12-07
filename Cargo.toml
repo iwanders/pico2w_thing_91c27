@@ -6,6 +6,6 @@ members = ["firmware" ]
 
 [workspace.dependencies]
 
-micro_hap = { version = "0.1.0", path = "../micro_hap/micro_hap/", features=["defmt"]}
-#micro_hap = { version = "0.1.0", git = "https://github.com/iwanders/micro_hap.git", rev="baa8f3f93dc6a390b164e3d7b982b80eddccef78", features=["defmt"]}
+#micro_hap = { version = "0.1.0", path = "../micro_hap/micro_hap/", features=["defmt"]}
+micro_hap = { version = "0.1.0", git = "https://github.com/iwanders/micro_hap.git", rev="ccc97e64f097ad1189ec07d5213e7b77a938bdeb", features=["defmt"]}
 #https://github.com/iwanders/micro_hap

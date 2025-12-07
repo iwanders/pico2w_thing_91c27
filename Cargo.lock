@@ -1453,6 +1453,7 @@ checksum = "32a282da65faaf38286cf3be983213fcf1d2e2a58700e808f83f4ea9a4804bc0"
 [[package]]
 name = "micro_hap"
 version = "0.1.0"
+source = "git+https://github.com/iwanders/micro_hap.git?rev=ccc97e64f097ad1189ec07d5213e7b77a938bdeb#ccc97e64f097ad1189ec07d5213e7b77a938bdeb"
 dependencies = [
  "bitfield-struct",
  "chacha20poly1305",
