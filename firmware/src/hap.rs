@@ -23,18 +23,27 @@ use trouble_host::prelude::*;
 
 use micro_hap::{
     ble::broadcast::BleBroadcastParameters, ble::services::LightbulbServiceHandles,
-    ble::TimedWrite, AccessoryInterface, CharId, CharacteristicResponse, InterfaceError,
-    PlatformSupport,
+    ble::HumiditySensorServiceHandles, ble::TimedWrite, AccessoryInterface, CharId,
+    CharacteristicResponse, InterfaceError, PlatformSupport,
 };
+
+#[derive(Debug, Copy, Clone)]
+struct DataUpdate {
+    temperature_value: f32,
+    humidity_value: f32,
+}
+
 struct LightBulbAccessory<'a, 'b> {
     name: HeaplessString<32>,
     bulb_on_state: bool,
     bulb_control: cyw43::Control<'a>,
     temperature_value: f32,
+    humidity_value: f32,
     low_battery: bool,
-    latest_temperature: embassy_sync::watch::DynReceiver<'b, f32>,
+    latest_data: embassy_sync::watch::DynReceiver<'b, DataUpdate>,
     temperature_handles: temperature_sensor::TemperatureServiceHandles,
     bulb_handles: LightbulbServiceHandles,
+    humidity_handles: HumiditySensorServiceHandles,
 }
 impl<'a, 'b> AccessoryInterface for LightBulbAccessory<'a, 'b> {
     async fn read_characteristic<'z>(
@@ -42,18 +51,20 @@ impl<'a, 'b> AccessoryInterface for LightBulbAccessory<'a, 'b> {
         char_id: CharId,
         output: &'z mut [u8],
     ) -> Result<&'z [u8], InterfaceError> {
+        if self.latest_data.contains_value() {
+            let measurement = self.latest_data.get().await;
+            self.humidity_value = measurement.humidity_value;
+            self.temperature_value = measurement.temperature_value;
+        }
         if char_id == self.bulb_handles.name.hap {
             self.name.read_characteristic_into(char_id, output)
         } else if char_id == self.bulb_handles.on.hap {
             self.bulb_on_state.read_characteristic_into(char_id, output)
         } else if char_id == self.temperature_handles.value.hap {
-            let value = if self.latest_temperature.contains_value() {
-                self.latest_temperature.get().await
-            } else {
-                self.temperature_value
-            };
-            self.temperature_value = value;
             self.temperature_value
+                .read_characteristic_into(char_id, output)
+        } else if char_id == self.humidity_handles.value.hap {
+            self.humidity_value
                 .read_characteristic_into(char_id, output)
         } else if char_id == self.temperature_handles.low_battery.hap {
             self.low_battery.read_characteristic_into(char_id, output)
@@ -230,7 +241,7 @@ type BMEDevice = BME280<embassy_rp::i2c::I2c<'static, I2C0, embassy_rp::i2c::Asy
 async fn temperature_task(
     // mut adc: embassy_rp::adc::Adc<'_, embassy_rp::adc::Async>,
     // mut temp_adc: embassy_rp::adc::Channel<'_>,
-    sender: DynSender<'_, f32>,
+    sender: DynSender<'_, DataUpdate>,
     char_id: CharId,
     control_sender: micro_hap::HapInterfaceSender<'_>,
     mut bme280: BMEDevice,
@@ -262,7 +273,12 @@ async fn temperature_task(
             defmt::debug!("compensated: {:?}", compensated);
             let temperature: f32 = compensated.temperature.as_f32();
             info!("Sending temperature: {}", temperature);
-            sender.send(temperature);
+            let humidity = compensated.humidity.as_f32();
+            let update = DataUpdate {
+                temperature_value: temperature,
+                humidity_value: humidity,
+            };
+            sender.send(update);
             info!("Notifying characteristic change");
             control_sender.characteristic_changed(char_id).await; // send the notification.
             info!("  notify done.");
@@ -273,7 +289,7 @@ async fn temperature_task(
 // use bt_hci::cmd::le::LeReadLocalSupportedFeatures;
 // use bt_hci::cmd::le::LeSetDataLength;
 // use bt_hci::controller::ControllerCmdSync;
-const DEVICE_ADDRESS: [u8; 6] = [0xff, 0x8f, 0x1b, 0x34, 0xe4, 0xff];
+const DEVICE_ADDRESS: [u8; 6] = [0xff, 0x8f, 0x1b, 0x35, 0xe4, 0xff];
 /// Run the BLE stack.
 pub async fn run<'p, 'cyw, C>(
     controller: C,
@@ -344,6 +360,13 @@ pub async fn run<'p, 'cyw, C>(
             &mut attribute_table,
             remaining_buffer,
             0x40,
+        )
+        .unwrap();
+    let (remaining_buffer, humidity_handles) =
+        micro_hap::ble::services::humidity_sensor::HumiditySensorService::add_to_attribute_table(
+            &mut attribute_table,
+            remaining_buffer,
+            0x50,
         )
         .unwrap();
 
@@ -494,6 +517,9 @@ pub async fn run<'p, 'cyw, C>(
     hap_context
         .add_service(temperature_handles.to_service().unwrap())
         .unwrap();
+    hap_context
+        .add_service(humidity_handles.to_service().unwrap())
+        .unwrap();
     hap_context.assign_static_data(&static_information);
 
     //info!("hap_context: {:0>#2x?}", hap_context);
@@ -502,10 +528,13 @@ pub async fn run<'p, 'cyw, C>(
 
     hap_context.print_handles();
 
-    static WATCH: embassy_sync::watch::Watch<CriticalSectionRawMutex, f32, 2> =
-        embassy_sync::watch::Watch::new_with(3.3);
+    static WATCH: embassy_sync::watch::Watch<CriticalSectionRawMutex, DataUpdate, 2> =
+        embassy_sync::watch::Watch::new_with(DataUpdate {
+            humidity_value: 0.0,
+            temperature_value: 0.0,
+        });
     let mut rcv0 = WATCH.receiver().unwrap();
-    let mut latest_temperature = WATCH.dyn_receiver().unwrap();
+    let mut latest_data = WATCH.dyn_receiver().unwrap();
     let mut temperature_sender = WATCH.dyn_sender();
 
     let mut accessory = LightBulbAccessory {
@@ -514,9 +543,11 @@ pub async fn run<'p, 'cyw, C>(
         bulb_control,
         low_battery: false,
         temperature_value: 13.37,
-        latest_temperature,
+        humidity_value: 0.0,
+        latest_data,
         temperature_handles,
         bulb_handles,
+        humidity_handles,
     };
 
     // This isn't great, because we always initialise the same way at boot, but the trng spammed the autocorrect error.
