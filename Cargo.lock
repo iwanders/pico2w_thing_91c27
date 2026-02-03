@@ -1050,6 +1050,7 @@ checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 name = "firmware"
 version = "0.1.0"
 dependencies = [
+ "bitfield-struct",
  "chacha20",
  "cortex-m",
  "cortex-m-rt",
