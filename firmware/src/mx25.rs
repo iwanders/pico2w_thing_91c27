@@ -10,8 +10,14 @@ pub mod regs {
     pub const CONFIG: u8 = 0x15;
 }
 pub mod instructions {
-    pub const EN4B: u8 = 0xB7;
-    pub const EX4B: u8 = 0xE9;
+    /// Enable four byte addressing mode, sets four_byte_address in config register.
+    pub const FOUR_BYTE_ADDRESS_ENABLE_EN4B: u8 = 0xB7;
+    /// Disable four byte addressing mode, sets four_byte_address in config register.
+    pub const FOUR_BYTE_ADDRESS_DISABLE_EX4B: u8 = 0xE9;
+    /// Write enable instruction, sets Write Enable Latch in status register.
+    pub const WRITE_ENABLE_WREN: u8 = 0x06;
+    /// Write disable instruction, clears Write Enable Latch in status register.
+    pub const WRITE_DISABLE_WRDI: u8 = 0x04;
 }
 
 // Not really registers, but whatever.
@@ -163,9 +169,18 @@ where
 
     pub async fn set_four_byte_mode(&mut self, state: bool) -> Result<(), Error<Spi::Error>> {
         if state {
-            self.write(instructions::EN4B, &[]).await
+            self.write(instructions::FOUR_BYTE_ADDRESS_ENABLE_EN4B, &[])
+                .await
         } else {
-            self.write(instructions::EX4B, &[]).await
+            self.write(instructions::FOUR_BYTE_ADDRESS_DISABLE_EX4B, &[])
+                .await
+        }
+    }
+    pub async fn set_write_mode(&mut self, state: bool) -> Result<(), Error<Spi::Error>> {
+        if state {
+            self.write(instructions::WRITE_ENABLE_WREN, &[]).await
+        } else {
+            self.write(instructions::WRITE_DISABLE_WRDI, &[]).await
         }
     }
 }
@@ -180,6 +195,7 @@ where
         embassy_time::Timer::after_millis(1000).await;
         defmt::info!("Toggling to : {:?}", four_byte_toggle);
         flash.set_four_byte_mode(four_byte_toggle).await?;
+        flash.set_write_mode(four_byte_toggle).await?;
         defmt::info!("Status: {:?}", flash.status().await?);
         defmt::info!("Config: {:?}", flash.config().await?);
         four_byte_toggle = !four_byte_toggle;
