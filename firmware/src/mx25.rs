@@ -10,6 +10,8 @@ pub mod regs {
     pub const CONFIG: u8 = 0x15;
 }
 pub mod instructions {
+    // All instructions follow; ACTUAL_READABLE_NAME_<ABBREVIATION_IN_DATASHEET>
+
     /// Enable four byte addressing mode, sets four_byte_address in config register.
     pub const FOUR_BYTE_ADDRESS_ENABLE_EN4B: u8 = 0xB7;
     /// Disable four byte addressing mode, sets four_byte_address in config register.
@@ -18,6 +20,10 @@ pub mod instructions {
     pub const WRITE_ENABLE_WREN: u8 = 0x06;
     /// Write disable instruction, clears Write Enable Latch in status register.
     pub const WRITE_DISABLE_WRDI: u8 = 0x04;
+
+    /// Reset enable
+    pub const RESET_ENABLE_RSTEN: u8 = 0x66;
+    pub const RESET_MEMORY_RST: u8 = 0x99;
 }
 
 // Not really registers, but whatever.
@@ -105,6 +111,18 @@ pub struct ConfigRegister {
     preceded by the WREN instruction
 
     The WEL bit is reset in the following situations: <pretty much everything>
+
+ Program commands are executed on:
+    - byte basis
+    - page basis (256 bytes)
+    - or word basis.
+ Erase command is executed on:
+    - 4k byte sector
+    - 32k byte block
+    - 64k byte block
+    - whole chip.
+
+    The device allow the interruption of Sector-Erase, Block-Erase or Page-Program operations and conduct other operations.
 */
 
 impl<Spi: embedded_hal_async::spi::SpiDevice> Mx25<Spi>
@@ -149,25 +167,30 @@ where
         }
     }
 
-    /// Reset the device, wait at least 1ms after before read/writing registers.
+    /// Reset the device.
     pub async fn reset(&mut self) -> Result<(), Error<Spi::Error>> {
-        // const SOFT_RESET_CONFIG: u8 = 1;
-        // self.write(regs::DEVICE_CONFIG, &[SOFT_RESET_CONFIG]).await
-        todo!()
+        // Reset sequence is arm first, cs high and low, then trigger.
+        self.write(instructions::RESET_ENABLE_RSTEN, &[]).await?;
+        // Wait a bit.
+        self.write(instructions::RESET_MEMORY_RST, &[]).await
     }
+
+    /// Retrieves the status register.
     pub async fn status(&mut self) -> Result<StatusRegister, Error<Spi::Error>> {
         let mut read = [0u8; 1];
         self.read(regs::STATUS, &mut read).await?;
         Ok(StatusRegister::try_read_from_prefix(&read).unwrap().0)
     }
 
+    /// Retrieves the configuration register.
     pub async fn config(&mut self) -> Result<ConfigRegister, Error<Spi::Error>> {
         let mut read = [0u8; 1];
         self.read(regs::CONFIG, &mut read).await?;
         Ok(ConfigRegister::try_read_from_prefix(&read).unwrap().0)
     }
 
-    pub async fn set_four_byte_mode(&mut self, state: bool) -> Result<(), Error<Spi::Error>> {
+    /// Sets four byte mode.
+    async fn set_four_byte_mode(&mut self, state: bool) -> Result<(), Error<Spi::Error>> {
         if state {
             self.write(instructions::FOUR_BYTE_ADDRESS_ENABLE_EN4B, &[])
                 .await
@@ -176,7 +199,8 @@ where
                 .await
         }
     }
-    pub async fn set_write_mode(&mut self, state: bool) -> Result<(), Error<Spi::Error>> {
+    /// Sets write enabled mode.
+    async fn set_write_mode(&mut self, state: bool) -> Result<(), Error<Spi::Error>> {
         if state {
             self.write(instructions::WRITE_ENABLE_WREN, &[]).await
         } else {
@@ -190,14 +214,20 @@ where
     Spi: SpiDevice<u8>,
     Spi::Error: embedded_hal_async::spi::Error,
 {
-    let mut four_byte_toggle = false;
+    let mut four_byte_toggle = true;
+    flash.set_four_byte_mode(four_byte_toggle).await?;
+    flash.set_write_mode(four_byte_toggle).await?;
+    let mut counter = 0u32;
     loop {
         embassy_time::Timer::after_millis(1000).await;
         defmt::info!("Toggling to : {:?}", four_byte_toggle);
-        flash.set_four_byte_mode(four_byte_toggle).await?;
-        flash.set_write_mode(four_byte_toggle).await?;
         defmt::info!("Status: {:?}", flash.status().await?);
         defmt::info!("Config: {:?}", flash.config().await?);
         four_byte_toggle = !four_byte_toggle;
+        counter += 1;
+
+        if counter > 10 {
+            flash.reset().await?;
+        }
     }
 }
