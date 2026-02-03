@@ -14,6 +14,7 @@ See the [./board/](./board/) or the [./firmware/](./firmware/) readme's for more
 
 This project led to [micro_hap](https://github.com/iwanders/micro_hap), a no_alloc, no_std implementation of Apple's
 HomeKit accessory protocol. Currently the firmware makes a HomeKit temperature & humidity sensor.
+Note to self; wile working on the flash memory / persitance, disabled HAP main, see `<< HAP ENTRY` comment.
 
 
 ## What's with the name?
