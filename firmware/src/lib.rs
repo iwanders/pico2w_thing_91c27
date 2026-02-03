@@ -11,6 +11,7 @@ pub mod static_files;
 pub mod hap;
 pub mod icm42688;
 pub mod lsm6dsv320x;
+pub mod mx25;
 
 #[cfg(target_arch = "arm")]
 pub mod hw_test;
@@ -55,6 +56,7 @@ pub mod program {
         "usb_picotool_reset.rs",
         "hw_test.rs",
         "lsm6dsv320x.rs",
+        "mx25.rs",
     ];
 
     // Program metadata for `picotool info`.
@@ -214,12 +216,10 @@ pub mod program {
         */
 
         // Test section
-        //*
         info!("Going into test.");
         //hw_test::hw_test(unsafe { embassy_rp::Peripherals::steal() }).await;
         //hw_test::test_wifi(unsafe { embassy_rp::Peripherals::steal() }, spawner).await;
-        hap::main(spawner, unsafe { embassy_rp::Peripherals::steal() }).await;
-        // */
+        //hap::main(spawner, unsafe { embassy_rp::Peripherals::steal() }).await; // ---------------------- << HAP ENTRY
         let mut indicator = Output::new(p.PIN_26, Level::Low);
         let delay = Duration::from_millis(250);
 
@@ -275,6 +275,7 @@ pub mod program {
         }*/
 
         if false {
+            // LSM
             use embassy_rp::spi::{Config, Spi};
             let mut cs = Output::new(p.PIN_13, Level::High);
             let mut config = Config::default();
@@ -417,7 +418,8 @@ pub mod program {
             }
         }
 
-        if true {
+        if false {
+            // ICM
             // spi: Peri<'static, embassy_rp::peripherals::SPI0>,
             // cs: Peri<'static, embassy_rp::peripherals::PIN_5>,
             // clk: Peri<'static, embassy_rp::peripherals::PIN_2>,
@@ -524,6 +526,53 @@ pub mod program {
                 defmt::warn!("test r: {:?}", r);
             } else {
                 defmt::warn!("Failed to detect ICM");
+            }
+        }
+
+        if true {
+            // Flash memory
+            // spi: Peri<'static, embassy_rp::peripherals::SPI0>,
+            // cs: Peri<'static, embassy_rp::peripherals::PIN_17>,
+            // clk: Peri<'static, embassy_rp::peripherals::PIN_18>,
+            // mosi: Peri<'static, embassy_rp::peripherals::PIN_19>,
+            // miso: Peri<'static, embassy_rp::peripherals::PIN_16>,
+            use embassy_rp::spi::{Config, Spi};
+            let mut cs = Output::new(p.PIN_17, Level::High);
+            let mut config = Config::default();
+
+            // Max SPI rate is 24 O_o
+            config.frequency = 24_000_000;
+
+            let tx_dma = p.DMA_CH5;
+            let rx_dma = p.DMA_CH6;
+            let mut spi = Spi::new(
+                unsafe { embassy_rp::Peripherals::steal().SPI0 },
+                p.PIN_18,
+                p.PIN_19,
+                p.PIN_16,
+                tx_dma,
+                rx_dma,
+                config,
+            );
+            //let cspi = core::cell::RefCell::new(spi);
+            //let bus = embedded_hal_bus::spi::RefCellDevice::new_no_delay(&cspi, cs);
+
+            use embassy_embedded_hal::shared_bus::asynch::spi::SpiDevice;
+            use embassy_embedded_hal::shared_bus::SpiDeviceError;
+            use embassy_sync::blocking_mutex::raw::NoopRawMutex;
+            use embassy_sync::mutex::Mutex;
+            static SPI_BUS: StaticCell<
+                Mutex<NoopRawMutex, Spi<'_, embassy_rp::peripherals::SPI0, embassy_rp::spi::Async>>,
+            > = StaticCell::new();
+            let spi_bus = Mutex::new(spi);
+            let spi_bus = SPI_BUS.init(spi_bus);
+            let device = SpiDevice::new(spi_bus, cs);
+
+            let mut flash = mx25::Mx25::new(device).await;
+            if let Ok(mut flash) = flash {
+                mx25::test_mx25(flash).await;
+            } else {
+                defmt::warn!("Failed to detect flash");
             }
         }
 
