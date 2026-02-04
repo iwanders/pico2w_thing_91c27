@@ -21,6 +21,16 @@ pub mod instructions {
     /// Write disable instruction, clears Write Enable Latch in status register.
     pub const WRITE_DISABLE_WRDI: u8 = 0x04;
 
+    /// Enter secured OTP
+    pub const SECURED_OTP_ENTER_ENSO: u8 = 0xB1;
+    /// Exit secured OTP
+    pub const SECURED_OTP_EXIT_EXSO: u8 = 0xC1;
+
+    /// Four byte fast read.
+    pub const FAST_READ_4B_READ4B: u8 = 0x0c;
+    /// Normal 3 byte address read.
+    pub const READ_NORMAL_READ: u8 = 0x03;
+
     /// Reset enable
     pub const RESET_ENABLE_RSTEN: u8 = 0x66;
     pub const RESET_MEMORY_RST: u8 = 0x99;
@@ -130,20 +140,54 @@ where
     Spi: SpiDevice<u8>,
     Spi::Error: embedded_hal_async::spi::Error,
 {
-    async fn write(&mut self, register: u8, data: &[u8]) -> Result<(), Error<Spi::Error>> {
+    async fn command(&mut self, register: u8) -> Result<(), Error<Spi::Error>> {
         use embedded_hal_async::spi::Operation;
 
         self.spi
-            .transaction(&mut [Operation::Write(&[register]), Operation::Write(&data)])
+            .transaction(&mut [Operation::Write(&[register])])
             .await?;
         Ok(())
     }
-    async fn read(&mut self, register: u8, data: &mut [u8]) -> Result<(), Error<Spi::Error>> {
+    async fn write_read(&mut self, write: &[u8], data: &mut [u8]) -> Result<(), Error<Spi::Error>> {
         use embedded_hal_async::spi::Operation;
         self.spi
-            .transaction(&mut [Operation::Write(&[register]), Operation::Read(data)])
+            .transaction(&mut [Operation::Write(write), Operation::Read(data)])
             .await?;
 
+        Ok(())
+    }
+
+    pub async fn cmd_read_normal(
+        &mut self,
+        address: u32,
+        read_values: &mut [u8],
+    ) -> Result<(), Error<Spi::Error>> {
+        use embedded_hal_async::spi::Operation;
+        let address = address.as_bytes();
+        self.spi
+            .transaction(&mut [
+                Operation::Write(&[instructions::READ_NORMAL_READ]),
+                Operation::Write(&address[0..3]),
+                Operation::Read(read_values),
+            ])
+            .await?;
+        Ok(())
+    }
+    pub async fn cmd_read_fast_4b(
+        &mut self,
+        address: u32,
+        read_values: &mut [u8],
+    ) -> Result<(), Error<Spi::Error>> {
+        use embedded_hal_async::spi::Operation;
+
+        self.spi
+            .transaction(&mut [
+                Operation::Write(&[instructions::FAST_READ_4B_READ4B]),
+                Operation::Write(address.as_bytes()),
+                Operation::Write(&[0]), // dummy byte
+                Operation::Read(read_values),
+            ])
+            .await?;
         Ok(())
     }
 
@@ -151,7 +195,7 @@ where
         // Verify we can read the whoami register.
         let mut z = Self { spi };
         let mut read = [0u8; 4];
-        z.read(regs::JEDEC_ID, &mut read).await?;
+        z.write_read(&[regs::JEDEC_ID], &mut read).await?;
 
         defmt::info!("Flash jedec: {:?} {:x}", z, read);
         // Macronix has manufacturer ID c2.
@@ -170,42 +214,62 @@ where
     /// Reset the device.
     pub async fn reset(&mut self) -> Result<(), Error<Spi::Error>> {
         // Reset sequence is arm first, cs high and low, then trigger.
-        self.write(instructions::RESET_ENABLE_RSTEN, &[]).await?;
-        // Wait a bit.
-        self.write(instructions::RESET_MEMORY_RST, &[]).await
+        self.command(instructions::RESET_ENABLE_RSTEN).await?;
+        // let CS go high, then reset.
+        self.command(instructions::RESET_MEMORY_RST).await
     }
 
     /// Retrieves the status register.
     pub async fn status(&mut self) -> Result<StatusRegister, Error<Spi::Error>> {
         let mut read = [0u8; 1];
-        self.read(regs::STATUS, &mut read).await?;
+        self.write_read(&[regs::STATUS], &mut read).await?;
         Ok(StatusRegister::try_read_from_prefix(&read).unwrap().0)
     }
 
     /// Retrieves the configuration register.
     pub async fn config(&mut self) -> Result<ConfigRegister, Error<Spi::Error>> {
         let mut read = [0u8; 1];
-        self.read(regs::CONFIG, &mut read).await?;
+        self.write_read(&[regs::CONFIG], &mut read).await?;
         Ok(ConfigRegister::try_read_from_prefix(&read).unwrap().0)
     }
 
     /// Sets four byte mode.
     async fn set_four_byte_mode(&mut self, state: bool) -> Result<(), Error<Spi::Error>> {
         if state {
-            self.write(instructions::FOUR_BYTE_ADDRESS_ENABLE_EN4B, &[])
+            self.command(instructions::FOUR_BYTE_ADDRESS_ENABLE_EN4B)
                 .await
         } else {
-            self.write(instructions::FOUR_BYTE_ADDRESS_DISABLE_EX4B, &[])
+            self.command(instructions::FOUR_BYTE_ADDRESS_DISABLE_EX4B)
                 .await
         }
     }
     /// Sets write enabled mode.
     async fn set_write_mode(&mut self, state: bool) -> Result<(), Error<Spi::Error>> {
         if state {
-            self.write(instructions::WRITE_ENABLE_WREN, &[]).await
+            self.command(instructions::WRITE_ENABLE_WREN).await
         } else {
-            self.write(instructions::WRITE_DISABLE_WRDI, &[]).await
+            self.command(instructions::WRITE_DISABLE_WRDI).await
         }
+    }
+
+    /// Sets whether or not we're in the otp mode.
+    async fn set_secured_otp_mode(&mut self, state: bool) -> Result<(), Error<Spi::Error>> {
+        if state {
+            self.command(instructions::SECURED_OTP_ENTER_ENSO).await
+        } else {
+            self.command(instructions::SECURED_OTP_EXIT_EXSO).await
+        }
+    }
+
+    pub async fn read_secure(
+        &mut self,
+        address: u16,
+        data_read: &mut [u8],
+    ) -> Result<(), Error<Spi::Error>> {
+        self.set_secured_otp_mode(true).await?;
+        self.cmd_read_normal(address as u32, data_read).await?;
+        self.set_secured_otp_mode(false).await?;
+        Ok(())
     }
 }
 
@@ -226,8 +290,13 @@ where
         four_byte_toggle = !four_byte_toggle;
         counter += 1;
 
-        if counter > 10 {
+        if counter > 5 {
             flash.reset().await?;
+            break;
         }
+    }
+
+    loop {
+        embassy_time::Timer::after_millis(1000).await;
     }
 }
