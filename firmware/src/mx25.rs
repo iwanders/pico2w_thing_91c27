@@ -28,6 +28,8 @@ pub mod instructions {
 
     /// Four byte fast read.
     pub const FAST_READ_4B_READ4B: u8 = 0x0c;
+    /// Write to a page
+    pub const PAGE_PROGRAM_4B_PP4B: u8 = 0x12;
     /// Normal 3 byte address read.
     pub const READ_NORMAL_READ: u8 = 0x03;
 
@@ -47,6 +49,10 @@ pub enum Error<SpiError: embedded_hal_async::spi::Error> {
     Spi(SpiError),
     /// The response on the who am i register during initialisation was incorrect.
     UnexpectedWhoAmI,
+    /// Page program got too many bytes.
+    ProgramExceedsPage,
+    /// A write is still in progress and the device is occupied.
+    WriteInProgress,
 }
 
 impl<SpiError: embedded_hal_async::spi::Error> From<SpiError> for Error<SpiError> {
@@ -157,6 +163,15 @@ where
         Ok(())
     }
 
+    async fn verify_nothing_in_progress(&mut self) -> Result<(), Error<Spi::Error>> {
+        let status = self.status().await?;
+        if status.write_in_progress() {
+            Err(Error::WriteInProgress)
+        } else {
+            Ok(())
+        }
+    }
+
     pub async fn cmd_read_normal(
         &mut self,
         address: u32,
@@ -188,6 +203,39 @@ where
                 Operation::Read(read_values),
             ])
             .await?;
+        Ok(())
+    }
+    pub async fn cmd_page_program_4b(
+        &mut self,
+        address: u32,
+        write_values: &[u8],
+    ) -> Result<(), Error<Spi::Error>> {
+        use embedded_hal_async::spi::Operation;
+        if write_values.len() > 256 {
+            return Err(Error::ProgramExceedsPage);
+        }
+        if write_values.len() == 0 {
+            return Ok(()); // we must sent 1-n bytes.
+        }
+
+        // Wrapping is bad, lets not support that, lower address byte specifies starting address
+        // within selected page, so length is limited based on the lower byte;
+        let lower_u8 = (address & 0xFF) as u8;
+        let max_data_length = 256 - (lower_u8 as u16);
+        if write_values.len() > max_data_length as usize {
+            return Err(Error::ProgramExceedsPage);
+        }
+
+        // Now we should be set to go...?
+        self.set_write_mode(true).await?; // This is cleared automatically.
+        self.spi
+            .transaction(&mut [
+                Operation::Write(&[instructions::PAGE_PROGRAM_4B_PP4B]),
+                Operation::Write(address.as_bytes()),
+                Operation::Write(write_values),
+            ])
+            .await?;
+        //
         Ok(())
     }
 
@@ -278,16 +326,34 @@ where
     Spi: SpiDevice<u8>,
     Spi::Error: embedded_hal_async::spi::Error,
 {
-    let mut four_byte_toggle = true;
-    flash.set_four_byte_mode(four_byte_toggle).await?;
-    flash.set_write_mode(four_byte_toggle).await?;
+    if false {
+        let mut first_256 = [0u8; 256];
+        for (i, v) in first_256.iter_mut().enumerate() {
+            *v = i as u8;
+        }
+        flash.cmd_page_program_4b(0, &first_256).await?;
+    }
+    defmt::info!("Status: {:?}", flash.status().await?);
+    defmt::info!("Status: {:?}", flash.status().await?);
+    defmt::info!("Status: {:?}", flash.status().await?);
+    defmt::info!("Status: {:?}", flash.status().await?);
+    defmt::info!("Status: {:?}", flash.status().await?);
+    defmt::info!("Status: {:?}", flash.status().await?);
+    defmt::info!("Status: {:?}", flash.status().await?);
+    defmt::info!("Status: {:?}", flash.status().await?);
+    defmt::info!("Status: {:?}", flash.status().await?);
+    defmt::info!("Status: {:?}", flash.status().await?);
+    defmt::info!("Status: {:?}", flash.status().await?);
+    defmt::info!("Status: {:?}", flash.status().await?);
+    defmt::info!("Status: {:?}", flash.status().await?);
+
     let mut counter = 0u32;
     loop {
-        embassy_time::Timer::after_millis(1000).await;
-        defmt::info!("Toggling to : {:?}", four_byte_toggle);
         defmt::info!("Status: {:?}", flash.status().await?);
-        defmt::info!("Config: {:?}", flash.config().await?);
-        four_byte_toggle = !four_byte_toggle;
+        embassy_time::Timer::after_millis(1000).await;
+        let mut read_values = [0u8; 256];
+        flash.cmd_read_fast_4b(0, &mut read_values).await?;
+        defmt::info!("Toggling to : {:?}", read_values);
         counter += 1;
 
         if counter > 5 {

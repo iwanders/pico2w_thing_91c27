@@ -570,7 +570,8 @@ pub mod program {
 
             let mut flash = mx25::Mx25::new(device).await;
             if let Ok(mut flash) = flash {
-                mx25::test_mx25(flash).await;
+                let z = mx25::test_mx25(flash).await;
+                defmt::warn!("flash: {:?}", z);
             } else {
                 defmt::warn!("Failed to detect flash");
             }
