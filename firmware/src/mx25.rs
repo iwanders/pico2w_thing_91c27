@@ -33,6 +33,9 @@ pub mod instructions {
     /// Normal 3 byte address read.
     pub const READ_NORMAL_READ: u8 = 0x03;
 
+    /// Sector Erase
+    pub const ERASE_SECTOR_4KB_SE4B: u8 = 0x21;
+
     /// Reset enable
     pub const RESET_ENABLE_RSTEN: u8 = 0x66;
     pub const RESET_MEMORY_RST: u8 = 0x99;
@@ -53,6 +56,8 @@ pub enum Error<SpiError: embedded_hal_async::spi::Error> {
     ProgramExceedsPage,
     /// A write is still in progress and the device is occupied.
     WriteInProgress,
+    /// Erase instruction has incorrect start, not on boundary of part to erase.
+    EraseIncorrectStart,
 }
 
 impl<SpiError: embedded_hal_async::spi::Error> From<SpiError> for Error<SpiError> {
@@ -239,6 +244,23 @@ where
         Ok(())
     }
 
+    pub async fn cmd_erase_sector_4b(&mut self, address: u32) -> Result<(), Error<Spi::Error>> {
+        use embedded_hal_async::spi::Operation;
+        if address & 0xFFF != 0 {
+            // Address doesn't land on boundary.
+            return Err(Error::EraseIncorrectStart);
+        }
+        self.set_write_mode(true).await?; // This is cleared automatically.
+        self.spi
+            .transaction(&mut [
+                Operation::Write(&[instructions::ERASE_SECTOR_4KB_SE4B]),
+                Operation::Write(address.as_bytes()),
+            ])
+            .await?;
+
+        Ok(())
+    }
+
     pub async fn new(spi: Spi) -> Result<Self, Error<Spi::Error>> {
         // Verify we can read the whoami register.
         let mut z = Self { spi };
@@ -333,6 +355,11 @@ where
         }
         flash.cmd_page_program_4b(0, &first_256).await?;
     }
+
+    if false {
+        flash.cmd_erase_sector_4b(0).await?;
+    }
+
     defmt::info!("Status: {:?}", flash.status().await?);
     defmt::info!("Status: {:?}", flash.status().await?);
     defmt::info!("Status: {:?}", flash.status().await?);
