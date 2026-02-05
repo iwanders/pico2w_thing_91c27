@@ -343,6 +343,34 @@ where
     }
 }
 
+struct AlignedChunker<'a> {
+    address: u32,
+    data: &'a [u8],
+}
+impl<'a> Iterator for AlignedChunker<'a> {
+    type Item = AlignedChunker<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let alignment = 256;
+
+        // Remaining in this alignment block is;
+        if self.data.len() == 0 {
+            return None;
+        }
+
+        let remaining = (self.data.len() as u32).saturating_sub(self.address % 256);
+        let chunk_size = core::cmp::min(remaining, alignment);
+        let slice = &self.data[..remaining as usize];
+
+        self.address += chunk_size;
+
+        Some(AlignedChunker {
+            address: self.address - chunk_size,
+            data: slice,
+        })
+    }
+}
+
 pub async fn test_mx25<Spi>(mut flash: Mx25<Spi>) -> Result<(), Error<Spi::Error>>
 where
     Spi: SpiDevice<u8>,
@@ -391,5 +419,40 @@ where
 
     loop {
         embassy_time::Timer::after_millis(1000).await;
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test_chunker() -> Result<(), Box<dyn std::error::Error>> {
+        let z = [0, 2, 3, 4, 5];
+        let mut c = AlignedChunker {
+            address: 0,
+            data: &z,
+        };
+        let n = c.next().unwrap();
+        assert_eq!(n.address, 0);
+        assert_eq!(n.data, &z);
+
+        let mut c = AlignedChunker {
+            address: 0,
+            data: &[],
+        };
+        assert!(c.next().is_none());
+
+        let mut c = AlignedChunker {
+            address: 254,
+            data: &z,
+        };
+        let n = c.next().unwrap();
+        assert_eq!(n.address, 254); // Should fit across two chunks.
+        assert_eq!(n.data, &z[0..1]);
+        let n = c.next().unwrap();
+        assert_eq!(n.address, 256); // Should fit across two chunks.
+        assert_eq!(n.data, &z[1..]);
+
+        Ok(())
     }
 }

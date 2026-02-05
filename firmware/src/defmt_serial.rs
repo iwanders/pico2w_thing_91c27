@@ -173,10 +173,11 @@ mod defmt_test_fix {
     use super::*;
     use std::sync::atomic::AtomicUsize;
     static COUNT: AtomicUsize = AtomicUsize::new(0);
-    defmt::timestamp!(
-        "{=usize}",
-        COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-    );
+    // Had to comment this out.
+    // defmt::timestamp!(
+    //     "{=usize}",
+    //     COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    // );
     unsafe impl defmt::Logger for Logger {
         fn acquire() {}
         unsafe fn flush() {}
