@@ -358,25 +358,27 @@ where
 /// return two entries.
 ///  - The first segment falls in aligned 0..256, with data indices 0..3, and overlapping range: 253..256
 ///  - The second segment falls in aligned 256..512, with data indices 3..7, and overlapping range 256..261
-struct OverlappingSegmentsIter {
+struct AlignedSegmentIter {
     data_offset: usize,
     data_end: usize,
     segment_index: usize,
+    segment_size: usize,
 }
-impl OverlappingSegmentsIter {
-    fn new(start_offset: usize, data_length: usize) -> Self {
+impl AlignedSegmentIter {
+    fn new<const SEGMENT_SIZE: usize>(start_offset: usize, data_length: usize) -> Self {
         let data_end = start_offset + data_length;
-        let segment_index = start_offset / 256;
-        OverlappingSegmentsIter {
+        let segment_index = start_offset / SEGMENT_SIZE;
+        AlignedSegmentIter {
             data_offset: start_offset,
             data_end,
             segment_index,
+            segment_size: SEGMENT_SIZE,
         }
     }
 }
 
 /// Struct to hold the return of the overlapping segments iterator.
-struct AlignedSegment {
+pub struct AlignedSegment {
     /// The aligned segment, purely based on the segment start and end at the boundaries. Mostly for debugging.
     pub aligned: core::ops::Range<usize>,
     /// The range in the aligned block for which we have data.
@@ -385,16 +387,16 @@ struct AlignedSegment {
     pub data: core::ops::Range<usize>,
 }
 
-impl Iterator for OverlappingSegmentsIter {
+impl Iterator for AlignedSegmentIter {
     type Item = AlignedSegment;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let segment_start = self.segment_index * 256;
+        let segment_start = self.segment_index * self.segment_size;
         if segment_start > self.data_end {
             return None;
         }
 
-        let segment_end = segment_start + 256;
+        let segment_end = segment_start + self.segment_size;
         let overlap_start = self.data_offset.max(segment_start);
         let overlap_end = self.data_end.min(segment_end);
         if overlap_start == overlap_end {
@@ -411,37 +413,68 @@ impl Iterator for OverlappingSegmentsIter {
                 data,
             })
         } else {
-            self.segment_index += 1;
             None
         }
     }
 }
-pub struct AlignedChunker<'a> {
-    chunker: OverlappingSegmentsIter,
+
+/// A chunker specifically for a data slice at a position, in segments of 256, where the start need not align on a
+/// boundary.
+pub struct ProgramChunker<'a> {
+    chunker: AlignedSegmentIter,
     data: &'a [u8],
 }
-impl<'a> AlignedChunker<'a> {
+impl<'a> ProgramChunker<'a> {
     pub fn new(offset: usize, data: &'a [u8]) -> Self {
         Self {
-            chunker: OverlappingSegmentsIter::new(offset, data.len()),
+            chunker: AlignedSegmentIter::new::<256>(offset, data.len()),
             data,
         }
     }
 }
 
-pub struct Chunk<'a> {
+pub struct ProgramChunk<'a> {
     pub offset: usize,
     pub data: &'a [u8],
 }
 
-impl<'a> Iterator for AlignedChunker<'a> {
-    type Item = Chunk<'a>;
+impl<'a> Iterator for ProgramChunker<'a> {
+    type Item = ProgramChunk<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(AlignedSegment { overlap, data, .. }) = self.chunker.next() {
-            Some(Chunk {
+            Some(ProgramChunk {
                 offset: overlap.start,
                 data: &self.data[data],
+            })
+        } else {
+            None
+        }
+    }
+}
+
+/// A chunker for erase instructions, returns the 4k sector boundaries for all sectors overlapping the range. This will
+/// contain all the sectors that are touched by the erase range, and may thus delete more than erase_range.
+pub struct EraseChunker {
+    chunker: AlignedSegmentIter,
+}
+pub struct EraseChunk {
+    pub offset: usize,
+}
+impl EraseChunker {
+    pub fn new(erase_range: core::ops::Range<usize>) -> Self {
+        Self {
+            chunker: AlignedSegmentIter::new::<4096>(erase_range.start, erase_range.len()),
+        }
+    }
+}
+impl Iterator for EraseChunker {
+    type Item = EraseChunk;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(AlignedSegment { aligned, .. }) = self.chunker.next() {
+            Some(EraseChunk {
+                offset: aligned.start,
             })
         } else {
             None
@@ -504,15 +537,15 @@ where
 mod test {
     use super::*;
     #[test]
-    fn test_overlapper() -> Result<(), Box<dyn std::error::Error>> {
-        let mut o = OverlappingSegmentsIter::new(0, 512).collect::<Vec<_>>();
+    fn test_aligned_segment_iter() -> Result<(), Box<dyn std::error::Error>> {
+        let mut o = AlignedSegmentIter::new::<256>(0, 512).collect::<Vec<_>>();
         assert_eq!(o.len(), 2);
         assert_eq!(o[0].aligned, 0..256usize);
         assert_eq!(o[0].data, 0..256usize);
         assert_eq!(o[1].aligned, 256..512usize);
         assert_eq!(o[1].data, 256..512usize);
 
-        let mut o = OverlappingSegmentsIter::new(10, 512).collect::<Vec<_>>();
+        let mut o = AlignedSegmentIter::new::<256>(10, 512).collect::<Vec<_>>();
         assert_eq!(o.len(), 3);
         assert_eq!(o[0].overlap, 10..256); // first segment is 0 - 256
         assert_eq!(o[0].aligned, 0..256); // first segment is 0 - 256
@@ -535,7 +568,7 @@ mod test {
         //  - The second segment falls in aligned 256..512, with data indices 3..7, and overlapping range 256..261
         let data_length = 8;
         let data_offset = 253;
-        let mut o = OverlappingSegmentsIter::new(data_offset, data_length).collect::<Vec<_>>();
+        let mut o = AlignedSegmentIter::new::<256>(data_offset, data_length).collect::<Vec<_>>();
         assert_eq!(o.len(), 2);
         assert_eq!(o[0].aligned, 0..256);
         assert_eq!(o[0].overlap, 253..256);
@@ -547,23 +580,42 @@ mod test {
         Ok(())
     }
     #[test]
-    fn test_chunker() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_program_chunker() -> Result<(), Box<dyn std::error::Error>> {
         let z = [0, 2, 3, 4, 5];
-        let mut c = AlignedChunker::new(0, &z);
+        let mut c = ProgramChunker::new(1, &z);
         let n = c.next().unwrap();
-        assert_eq!(n.offset, 0);
+        assert_eq!(n.offset, 1);
         assert_eq!(n.data, &z);
 
-        let mut c = AlignedChunker::new(0, &[]);
+        // Empty data should result in empty chunker.
+        let mut c = ProgramChunker::new(0, &[]);
         assert!(c.next().is_none());
 
-        let mut c = AlignedChunker::new(254, &z);
+        let mut c = ProgramChunker::new(254, &z);
         let n = c.next().unwrap();
         assert_eq!(n.offset, 254); // Should fit across two chunks.
         assert_eq!(n.data, &z[0..2]);
         let n = c.next().unwrap();
         assert_eq!(n.offset, 256); // Should fit across two chunks.
         assert_eq!(n.data, &z[2..]);
+
+        Ok(())
+    }
+    #[test]
+    fn test_erase_chunker() -> Result<(), Box<dyn std::error::Error>> {
+        let mut c = EraseChunker::new(0..10);
+        let n = c.next().unwrap();
+        assert_eq!(n.offset, 0); // first sector.
+
+        // Empty data should result in empty chunker.
+        let mut c = EraseChunker::new(0..0);
+        assert!(c.next().is_none());
+
+        let mut c = EraseChunker::new(4000..4200);
+        let n = c.next().unwrap();
+        assert_eq!(n.offset, 0); // Should fit across two sectors.
+        let n = c.next().unwrap();
+        assert_eq!(n.offset, 4096); // Should fit across two sectors.
 
         Ok(())
     }
