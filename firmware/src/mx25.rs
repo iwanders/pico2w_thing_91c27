@@ -343,31 +343,80 @@ where
     }
 }
 
-struct AlignedChunker<'a> {
-    address: u32,
-    data: &'a [u8],
+struct OverlappingSegmentsIter {
+    data_offset: usize,
+    data_end: usize,
+    segment_index: usize,
 }
-impl<'a> Iterator for AlignedChunker<'a> {
-    type Item = AlignedChunker<'a>;
+impl OverlappingSegmentsIter {
+    fn new(start_offset: usize, data_length: usize) -> Self {
+        let data_end = start_offset + data_length;
+        let segment_index = start_offset / 256;
+        OverlappingSegmentsIter {
+            data_offset: start_offset,
+            data_end,
+            segment_index,
+        }
+    }
+}
+
+impl Iterator for OverlappingSegmentsIter {
+    type Item = (core::ops::Range<usize>, core::ops::Range<usize>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let alignment = 256;
-
-        // Remaining in this alignment block is;
-        if self.data.len() == 0 {
+        let segment_start = self.segment_index * 256;
+        if segment_start > self.data_end {
             return None;
         }
 
-        let remaining = (self.data.len() as u32).saturating_sub(self.address % 256);
-        let chunk_size = core::cmp::min(remaining, alignment);
-        let slice = &self.data[..remaining as usize];
+        let segment_end = segment_start + 256;
+        let overlap_start = self.data_offset.max(segment_start);
+        let overlap_end = self.data_end.min(segment_end);
+        if overlap_start == overlap_end {
+            return None;
+        }
 
-        self.address += chunk_size;
+        if overlap_start <= overlap_end {
+            let segment = overlap_start..segment_end;
+            let data = (overlap_start - self.data_offset)..(overlap_end - self.data_offset);
+            self.segment_index += 1;
+            Some((segment, data))
+        } else {
+            self.segment_index += 1;
+            None
+        }
+    }
+}
+pub struct AlignedChunker<'a> {
+    chunker: OverlappingSegmentsIter,
+    data: &'a [u8],
+}
+impl<'a> AlignedChunker<'a> {
+    pub fn new(offset: usize, data: &'a [u8]) -> Self {
+        Self {
+            chunker: OverlappingSegmentsIter::new(offset, data.len()),
+            data,
+        }
+    }
+}
 
-        Some(AlignedChunker {
-            address: self.address - chunk_size,
-            data: slice,
-        })
+pub struct Chunk<'a> {
+    pub offset: usize,
+    pub data: &'a [u8],
+}
+
+impl<'a> Iterator for AlignedChunker<'a> {
+    type Item = Chunk<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some((segment_range, data_range)) = self.chunker.next() {
+            Some(Chunk {
+                offset: segment_range.start,
+                data: &self.data[data_range.start..data_range.end],
+            })
+        } else {
+            None
+        }
     }
 }
 
@@ -426,32 +475,42 @@ where
 mod test {
     use super::*;
     #[test]
+    fn test_overlapper() -> Result<(), Box<dyn std::error::Error>> {
+        let mut o = OverlappingSegmentsIter::new(0, 512).collect::<Vec<_>>();
+        assert_eq!(o.len(), 2);
+        assert_eq!(o[0].1, 0..256usize);
+        assert_eq!(o[0].0, 0..256usize);
+        assert_eq!(o[1].1, 256..512usize);
+        assert_eq!(o[1].0, 256..512usize);
+
+        let mut o = OverlappingSegmentsIter::new(10, 512).collect::<Vec<_>>();
+        assert_eq!(o.len(), 3);
+        assert_eq!(o[0].0, (10)..(256)); // first segment is 0 - 256
+        assert_eq!(o[0].1, (0)..(256 - 10)); // And data is 0 to 256 - 10
+        assert_eq!(o[1].0, 256..512);
+        assert_eq!(o[1].1, 256 - 10..512 - 10);
+        assert_eq!(o[2].0, 512..768);
+        assert_eq!(o[2].1, (512 - 10usize)..512);
+        Ok(())
+    }
+    #[test]
     fn test_chunker() -> Result<(), Box<dyn std::error::Error>> {
         let z = [0, 2, 3, 4, 5];
-        let mut c = AlignedChunker {
-            address: 0,
-            data: &z,
-        };
+        let mut c = AlignedChunker::new(0, &z);
         let n = c.next().unwrap();
-        assert_eq!(n.address, 0);
+        assert_eq!(n.offset, 0);
         assert_eq!(n.data, &z);
 
-        let mut c = AlignedChunker {
-            address: 0,
-            data: &[],
-        };
+        let mut c = AlignedChunker::new(0, &[]);
         assert!(c.next().is_none());
 
-        let mut c = AlignedChunker {
-            address: 254,
-            data: &z,
-        };
+        let mut c = AlignedChunker::new(254, &z);
         let n = c.next().unwrap();
-        assert_eq!(n.address, 254); // Should fit across two chunks.
-        assert_eq!(n.data, &z[0..1]);
+        assert_eq!(n.offset, 254); // Should fit across two chunks.
+        assert_eq!(n.data, &z[0..2]);
         let n = c.next().unwrap();
-        assert_eq!(n.address, 256); // Should fit across two chunks.
-        assert_eq!(n.data, &z[1..]);
+        assert_eq!(n.offset, 256); // Should fit across two chunks.
+        assert_eq!(n.data, &z[2..]);
 
         Ok(())
     }
