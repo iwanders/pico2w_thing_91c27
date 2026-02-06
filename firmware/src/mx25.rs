@@ -343,6 +343,37 @@ where
     }
 }
 
+#[allow(async_fn_in_trait)]
+pub trait FlashMemory {
+    type Error;
+    /// Write data to flash, up to 256 bytes, may not cross page boundary.
+    async fn flash_write_page(&mut self, offset: u32, data: &[u8]) -> Result<(), Self::Error>;
+    /// Clear a sector, offset is at the sector start boundary.
+    async fn flash_erase_sector_4k(&mut self, offset: u32) -> Result<(), Self::Error>;
+    /// Read data from flash.
+    async fn flash_read(&mut self, offset: u32, data: &mut [u8]) -> Result<(), Self::Error>;
+}
+
+impl<Spi: embedded_hal_async::spi::SpiDevice> FlashMemory for Mx25<Spi>
+where
+    Spi: SpiDevice<u8>,
+    Spi::Error: embedded_hal_async::spi::Error,
+{
+    type Error = Error<Spi::Error>;
+
+    async fn flash_write_page(&mut self, offset: u32, data: &[u8]) -> Result<(), Self::Error> {
+        self.cmd_page_program_4b(offset, data).await
+    }
+
+    async fn flash_erase_sector_4k(&mut self, offset: u32) -> Result<(), Self::Error> {
+        self.cmd_erase_sector_4b(offset).await
+    }
+
+    async fn flash_read(&mut self, offset: u32, data: &mut [u8]) -> Result<(), Self::Error> {
+        self.cmd_read_fast_4b(offset, data).await
+    }
+}
+
 /// This iterator helps cut up data on segment boundaries.
 ///
 /// The flash memory often works on pages (256 bytes) or sectors (4k byte blocks). But our data may start at an arbitrary
