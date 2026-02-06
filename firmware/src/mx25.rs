@@ -343,6 +343,21 @@ where
     }
 }
 
+/// This iterator helps cut up data on segment boundaries.
+///
+/// The flash memory often works on pages (256 bytes) or sectors (4k byte blocks). But our data may start at an arbitrary
+/// offset into the memory.
+///
+/// Consider a situation for pages, which are aligned on 256 boundaries.
+///                v data offset 253
+/// data:          0 | 1 | 2 | 3 | 4 | 5 | 6 | 7
+/// segment0  0..253  54  56 |
+/// segment1                 257 258 259 260 261
+///
+/// Since the data is 8 bytes long and starts at 253, it crossess a page boundary. This means that this iterator will
+/// return two entries.
+///  - The first segment falls in aligned 0..256, with data indices 0..3, and overlapping range: 253..256
+///  - The second segment falls in aligned 256..512, with data indices 3..7, and overlapping range 256..261
 struct OverlappingSegmentsIter {
     data_offset: usize,
     data_end: usize,
@@ -360,8 +375,18 @@ impl OverlappingSegmentsIter {
     }
 }
 
+/// Struct to hold the return of the overlapping segments iterator.
+struct AlignedSegment {
+    /// The aligned segment, purely based on the segment start and end at the boundaries. Mostly for debugging.
+    pub aligned: core::ops::Range<usize>,
+    /// The range in the aligned block for which we have data.
+    pub overlap: core::ops::Range<usize>,
+    /// The interval in the data which maps to the section 'overlap' in the aligned segments.
+    pub data: core::ops::Range<usize>,
+}
+
 impl Iterator for OverlappingSegmentsIter {
-    type Item = (core::ops::Range<usize>, core::ops::Range<usize>);
+    type Item = AlignedSegment;
 
     fn next(&mut self) -> Option<Self::Item> {
         let segment_start = self.segment_index * 256;
@@ -377,10 +402,14 @@ impl Iterator for OverlappingSegmentsIter {
         }
 
         if overlap_start <= overlap_end {
-            let segment = overlap_start..segment_end;
+            let overlap = overlap_start..overlap_end;
             let data = (overlap_start - self.data_offset)..(overlap_end - self.data_offset);
             self.segment_index += 1;
-            Some((segment, data))
+            Some(AlignedSegment {
+                aligned: segment_start..segment_end,
+                overlap,
+                data,
+            })
         } else {
             self.segment_index += 1;
             None
@@ -409,10 +438,10 @@ impl<'a> Iterator for AlignedChunker<'a> {
     type Item = Chunk<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some((segment_range, data_range)) = self.chunker.next() {
+        if let Some(AlignedSegment { overlap, data, .. }) = self.chunker.next() {
             Some(Chunk {
-                offset: segment_range.start,
-                data: &self.data[data_range.start..data_range.end],
+                offset: overlap.start,
+                data: &self.data[data],
             })
         } else {
             None
@@ -478,19 +507,43 @@ mod test {
     fn test_overlapper() -> Result<(), Box<dyn std::error::Error>> {
         let mut o = OverlappingSegmentsIter::new(0, 512).collect::<Vec<_>>();
         assert_eq!(o.len(), 2);
-        assert_eq!(o[0].1, 0..256usize);
-        assert_eq!(o[0].0, 0..256usize);
-        assert_eq!(o[1].1, 256..512usize);
-        assert_eq!(o[1].0, 256..512usize);
+        assert_eq!(o[0].aligned, 0..256usize);
+        assert_eq!(o[0].data, 0..256usize);
+        assert_eq!(o[1].aligned, 256..512usize);
+        assert_eq!(o[1].data, 256..512usize);
 
         let mut o = OverlappingSegmentsIter::new(10, 512).collect::<Vec<_>>();
         assert_eq!(o.len(), 3);
-        assert_eq!(o[0].0, (10)..(256)); // first segment is 0 - 256
-        assert_eq!(o[0].1, (0)..(256 - 10)); // And data is 0 to 256 - 10
-        assert_eq!(o[1].0, 256..512);
-        assert_eq!(o[1].1, 256 - 10..512 - 10);
-        assert_eq!(o[2].0, 512..768);
-        assert_eq!(o[2].1, (512 - 10usize)..512);
+        assert_eq!(o[0].overlap, 10..256); // first segment is 0 - 256
+        assert_eq!(o[0].aligned, 0..256); // first segment is 0 - 256
+        assert_eq!(o[0].data, (0)..(256 - 10)); // And data is 0 to 256 - 10
+        assert_eq!(o[1].overlap, 256..512);
+        assert_eq!(o[1].data, 256 - 10..512 - 10);
+        assert_eq!(o[2].aligned, 512..768);
+        assert_eq!(o[2].overlap, 512..522);
+        assert_eq!(o[2].data, (512 - 10usize)..512);
+
+        // Consider a situation for pages, which are aligned on 256 boundaries.
+        //                v data offset 253
+        // data:          0 | 1 | 2 | 3 | 4 | 5 | 6 | 7
+        // segment0  0..253  54  56 |
+        // segment1                 257 258 259 260 261
+        //
+        // Since the data is 8 bytes long and starts at 253, it crossess a page boundary. This means that this iterator will
+        // return two entries.
+        //  - The first segment falls in aligned 0..256, with data indices 0..3, and overlapping range: 253..256
+        //  - The second segment falls in aligned 256..512, with data indices 3..7, and overlapping range 256..261
+        let data_length = 8;
+        let data_offset = 253;
+        let mut o = OverlappingSegmentsIter::new(data_offset, data_length).collect::<Vec<_>>();
+        assert_eq!(o.len(), 2);
+        assert_eq!(o[0].aligned, 0..256);
+        assert_eq!(o[0].overlap, 253..256);
+        assert_eq!(o[0].data, 0..3);
+        assert_eq!(o[1].aligned, 256..512);
+        assert_eq!(o[1].overlap, 256..261);
+        assert_eq!(o[1].data, 3..8);
+
         Ok(())
     }
     #[test]
