@@ -377,6 +377,7 @@ pub trait FlashMemory {
     async fn flash_write(&mut self, offset: u32, data: &[u8]) -> Result<(), Self::Error> {
         let z = ProgramChunker::new(Self::PAGE_SIZE, offset as usize, data);
         for c in z {
+            println!("Writing {c:?}");
             self.flash_write_page(c.offset as u32, c.data).await?;
             self.flash_flush().await?;
         }
@@ -414,6 +415,12 @@ where
 // Need to ensure that the metadata is at the end of the write, such that it is written only at the end.
 // Record can be any length.
 //
+// The first 4 byte and the last four bytes of the arena are special.
+//  The last 4 bytes if they are not 0xFF.. hold the address of the valid record when the front gets wiped and re-used.
+//  The first 4 bytes are not used to allow uniform handling of iterating to find the data.
+//
+// We do not wrap entries around when we reach the end of the arena.
+//
 // On flash:
 //  (Data Complete u32)
 //              <----- position
@@ -445,7 +452,7 @@ pub struct Record {
     pub counter: u32,
 }
 
-#[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format, Default)]
+#[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format, Default, Debug)]
 #[repr(C)]
 struct Metadata {
     data_complete: u32,
@@ -472,9 +479,10 @@ impl RecordManager {
     ) -> Result<(Record, Record), F::Error> {
         const ITERATION_LIMIT: usize = 1024; // IW: todo; this is a bit of a hack...
         let mut previous_metadata: Metadata = Default::default();
-        let mut current_position = self.valid_record.position - 4;
+        let mut current_position = self.valid_record.position;
+        println!("current_position: {:?}", current_position);
         flash
-            .flash_read_into(current_position, &mut previous_metadata)
+            .flash_read_into(current_position - 4, &mut previous_metadata)
             .await?;
         let mut valid_record = Record {
             position: self.valid_record.position,
@@ -487,6 +495,7 @@ impl RecordManager {
             counter: 0,
         };
         for _ in 0..ITERATION_LIMIT {
+            println!("previous_metadata: {:?}", previous_metadata);
             if previous_metadata.length == u32::MAX && previous_metadata.counter == u32::MAX {
                 // Previous slot was never used.
                 // This means that previous position is where the record is.
@@ -495,9 +504,13 @@ impl RecordManager {
             // Length and counter are real, so now we retrieve the next metadata block to see if the data was
             // actually finished.
             let mut current: Metadata = Default::default();
+            println!(
+                "current_position: {:?} length: {}",
+                current_position, previous_metadata.length
+            );
             flash
                 .flash_read_into(
-                    current_position + previous_metadata.length + 8,
+                    current_position - 4 + previous_metadata.length + 12,
                     &mut current,
                 )
                 .await?;
@@ -518,7 +531,7 @@ impl RecordManager {
             dirty_record.length = previous_metadata.length;
             dirty_record.counter = previous_metadata.counter;
 
-            current_position += previous_metadata.length + 8;
+            current_position += previous_metadata.length + 12;
             previous_metadata = current;
         }
 
@@ -570,7 +583,7 @@ impl RecordManager {
         };
         let with_data = next_free + data.len() as u32 + 12;
         let new_counter = self.dirty_record.counter + 1;
-        info!("with data: {}", with_data);
+        println!("with data: {}, new counter: {}", with_data, new_counter);
         if with_data < (self.arena_start + self.arena_length) {
             // It will fit. yay.
             // Write; length, counter, data
@@ -705,6 +718,7 @@ impl<'a> ProgramChunker<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct ProgramChunk<'a> {
     pub offset: usize,
     pub data: &'a [u8],
@@ -730,6 +744,7 @@ impl<'a> Iterator for ProgramChunker<'a> {
 pub struct EraseChunker {
     chunker: AlignedSegmentIter,
 }
+#[derive(Debug)]
 pub struct EraseChunk {
     pub offset: usize,
 }
@@ -841,7 +856,7 @@ mod test {
 
             // Write the data to the memory.
             for (i, &b) in data.iter().enumerate() {
-                let current = self.data[offset as usize + 1];
+                let current = self.data[offset as usize + i];
                 self.data[offset as usize + i] = !(!current | !b);
             }
             Ok(())
@@ -898,6 +913,33 @@ mod test {
             mgr.record_read_into(&mut flash, &record, &mut read_back)
                 .await?;
             assert_eq!(read_back, 5);
+
+            // Write another data entry.
+            let data: u32 = 7;
+            mgr.update_record(&mut flash, data.as_bytes()).await?;
+            let record = mgr.valid_record();
+            assert_eq!(record.is_some(), true);
+            let record = record.unwrap();
+            assert_eq!(record.counter, 2);
+            assert_eq!(record.length, 4);
+            assert_eq!(record.position, 4 + 12 + 4);
+            println!("flash start: {:?}", &flash.data[0..64]);
+
+            let mut read_back: u32 = 0;
+            mgr.record_read_into(&mut flash, &record, &mut read_back)
+                .await?;
+            assert_eq!(read_back, 7);
+
+            // If we recreate the manager, we should be able to retrieve the same record.
+            let mut mgr =
+                RecordManager::new(&mut flash, 0..((TestFlash::SECTOR_SIZE * 4) as u32)).await?;
+            let record = mgr.valid_record();
+            assert_eq!(record.is_some(), true);
+            let record = record.unwrap();
+            let mut read_back: u32 = 0;
+            mgr.record_read_into(&mut flash, &record, &mut read_back)
+                .await?;
+            assert_eq!(read_back, 7);
 
             Ok(())
         }())
