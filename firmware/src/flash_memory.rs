@@ -129,42 +129,8 @@ impl Marker {
         self.0.into()
     }
 }
-#[cfg(test)]
-mod marker_test {
-    use super::*;
-    #[test]
-    fn test_marker_test() {
-        let m = Marker::new();
-        assert_eq!(m.0, 0b1111_1111);
-        let z = m.with_state_set(WrappingState::EndErase);
-        assert_eq!(z.0, 0b1101_1111);
-        assert_eq!(WrappingState::from(z.0), WrappingState::EndErase);
-        let e = z.with_state_set(WrappingState::EndEraseDone);
-        assert_eq!(e.0, 0b1001_1111);
-        assert_eq!(WrappingState::from(e.0), WrappingState::EndEraseDone);
-        // Seems to work, we can burn individual bits to advance the state.
-        let v = m.with_state_set(WrappingState::ValidEntryInEnd);
-        assert_eq!(v.0, 0b1111_1101);
-        assert_eq!(WrappingState::from(v.0), WrappingState::ValidEntryInEnd);
-    }
-}
-
 const DATA_COMPLETED: u32 = 0xFFFF_FFF0;
-#[derive(
-    PartialEq,
-    Eq,
-    TryFromBytes,
-    IntoBytes,
-    Immutable,
-    defmt::Format,
-    Copy,
-    Clone,
-    PartialOrd,
-    Ord,
-    Hash,
-    Debug,
-    Default,
-)]
+#[derive(PartialEq, Eq, defmt::Format, Copy, Clone, PartialOrd, Ord, Hash, Debug, Default)]
 #[repr(C)]
 pub struct Record {
     pub position: u32,
@@ -185,7 +151,7 @@ struct Metadata {
     counter: u32,
 }
 
-#[derive(PartialEq, Eq, TryFromBytes, IntoBytes, Immutable, defmt::Format, Default)]
+#[derive(PartialEq, Eq, defmt::Format, Default)]
 #[repr(C)]
 pub struct RecordManager {
     arena_start: u32,
@@ -765,5 +731,20 @@ mod test {
         assert_eq!(n.offset, 4096); // Should fit across two sectors.
 
         Ok(())
+    }
+    #[test]
+    fn test_marker_test() {
+        let m = Marker::new();
+        assert_eq!(m.0, 0b1111_1111);
+        let z = m.with_state_set(WrappingState::EndErase);
+        assert_eq!(z.0, 0b1101_1111);
+        assert_eq!(WrappingState::from(z.0), WrappingState::EndErase);
+        let e = z.with_state_set(WrappingState::EndEraseDone);
+        assert_eq!(e.0, 0b1001_1111);
+        assert_eq!(WrappingState::from(e.0), WrappingState::EndEraseDone);
+        // Seems to work, we can burn individual bits to advance the state.
+        let v = m.with_state_set(WrappingState::ValidEntryInEnd);
+        assert_eq!(v.0, 0b1111_1101);
+        assert_eq!(WrappingState::from(v.0), WrappingState::ValidEntryInEnd);
     }
 }
