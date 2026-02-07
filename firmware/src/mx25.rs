@@ -348,8 +348,10 @@ pub trait FlashMemory {
     type Error;
     /// The size of a writable page, usually 256.
     const PAGE_SIZE: usize;
+
     /// The size of a sector, usually 4096.
     const SECTOR_SIZE: usize;
+
     /// Write data to flash, up to PAGE_SIZE bytes, may not cross page boundary.
     async fn flash_write_page(&mut self, offset: u32, data: &[u8]) -> Result<(), Self::Error>;
 
@@ -359,6 +361,9 @@ pub trait FlashMemory {
     /// Read data from flash, arbitrary position.
     async fn flash_read(&mut self, offset: u32, data: &mut [u8]) -> Result<(), Self::Error>;
 
+    /// Flush the pending writes. This blocks until writes or erases are completed.
+    async fn flush(&mut self) -> Result<(), Self::Error>;
+
     /// Read into a type that is convertible to a byte slice
     async fn flash_read_into<T: zerocopy::FromBytes + zerocopy::IntoBytes>(
         &mut self,
@@ -366,6 +371,12 @@ pub trait FlashMemory {
         data: &mut T,
     ) -> Result<(), Self::Error> {
         self.flash_read(offset, data.as_mut_bytes()).await
+    }
+
+    async fn flash_write(&mut self, offset: u32, data: &[u8]) -> Result<(), Self::Error> {
+        let z = ProgramChunker::new(Self::PAGE_SIZE, offset as usize, data);
+
+        Ok(())
     }
 }
 
@@ -389,6 +400,10 @@ where
     async fn flash_read(&mut self, offset: u32, data: &mut [u8]) -> Result<(), Self::Error> {
         self.cmd_read_fast_4b(offset, data).await
     }
+
+    async fn flush(&mut self) -> Result<(), Self::Error> {
+        todo!();
+    }
 }
 
 // Need to ensure that the metadata is at the end of the write, such that it is written only at the end.
@@ -403,14 +418,6 @@ where
 //   Data_complete: u32, // mostly an u32 for lazy packing reasons.
 //
 // If data complete is not actually written to be 0, it must not be used and the entry is considered 'burned'.
-
-#[derive(PartialEq, Eq, TryFromBytes, IntoBytes, Immutable, defmt::Format)]
-#[repr(C)]
-pub struct RecordManager {
-    arena_start: u32,
-    arena_length: u32,
-    record: Record,
-}
 
 #[derive(
     PartialEq,
@@ -429,6 +436,7 @@ pub struct RecordManager {
 pub struct Record {
     pub position: u32,
     pub length: u32,
+    pub counter: u32,
 }
 
 #[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format, Default)]
@@ -440,47 +448,74 @@ struct Metadata {
 }
 const DATA_COMPLETED: u32 = 0xFFFF_FFF0;
 
+#[derive(PartialEq, Eq, TryFromBytes, IntoBytes, Immutable, defmt::Format)]
+#[repr(C)]
+pub struct RecordManager {
+    arena_start: u32,
+    arena_length: u32,
+    /// The most advanced valid record that was written in full.
+    valid_record: Record,
+    /// The most advanced dirty record that may not have been written in full.
+    dirty_record: Record,
+}
+
 impl RecordManager {
-    async fn find_record<F: FlashMemory>(&mut self, flash: &mut F) -> Result<Record, F::Error> {
-        // Read length from data
+    async fn initialise<F: FlashMemory>(
+        &mut self,
+        flash: &mut F,
+    ) -> Result<(Record, Record), F::Error> {
         const ITERATION_LIMIT: usize = 1024; // IW: todo; this is a bit of a hack...
         let mut previous_metadata: Metadata = Default::default();
+        let mut current_position = self.valid_record.position - 4;
         flash
-            .flash_read_into(self.record.position - 4, &mut previous_metadata)
+            .flash_read_into(current_position, &mut previous_metadata)
             .await?;
-        let mut highest_record = Record {
-            position: self.record.position,
+        let mut valid_record = Record {
+            position: 0,
             length: 0,
+            counter: 0,
+        };
+        let mut dirty_record = Record {
+            position: 0,
+            length: 0,
+            counter: 0,
         };
         for _ in 0..ITERATION_LIMIT {
             if previous_metadata.length == u32::MAX && previous_metadata.counter == u32::MAX {
                 // Previous slot was never used.
                 // This means that previous position is where the record is.
-                return Ok(highest_record);
+                break;
             }
             // Length and counter are real, so now we retrieve the next metadata block to see if the data was
             // actually finished.
-
             let mut current: Metadata = Default::default();
             flash
                 .flash_read_into(
-                    self.record.position + previous_metadata.length + 8,
+                    current_position + previous_metadata.length + 8,
                     &mut current,
                 )
                 .await?;
             if current.data_complete == DATA_COMPLETED {
-                highest_record.position = self.record.position;
-                highest_record.length = previous_metadata.length;
-                // Amazing, we found a completed data record, next lets look at those counters to see if we are done
-                // we are done if the previous counter exceeds the current counter.
+                // Found a valid record, update the valid record data.
+                valid_record.position = current_position;
+                valid_record.counter = previous_metadata.counter;
+                valid_record.length = previous_metadata.length;
                 if previous_metadata.counter > current.counter || current.counter == u32::MAX {
-                    return Ok(highest_record);
+                    // Amazing, we found a completed data record, and the counter is higher, so we found the boundary.
+                    break;
                 }
             }
+            // Data may or may not be complete, but we did have stuff written here and as such need to advance the dirty
+            // record, since that's the last record at which data exists.
+            dirty_record.position = current_position;
+            dirty_record.length = previous_metadata.length;
+            dirty_record.counter = previous_metadata.counter;
+
+            current_position += previous_metadata.length + 8;
             previous_metadata = current;
         }
 
-        todo!();
+        Ok((valid_record, dirty_record))
     }
     pub async fn new<F: FlashMemory>(
         flash: &mut F,
@@ -489,13 +524,19 @@ impl RecordManager {
         let mut z = RecordManager {
             arena_start: arena.start,
             arena_length: arena.len() as u32,
-            record: Record {
+            valid_record: Record {
                 position: arena.start + 4, // one ahead of the dummy sentinel data_complete
                 length: 0,
+                counter: 0,
+            },
+            dirty_record: Record {
+                position: arena.start + 4, // one ahead of the dummy sentinel data_complete
+                length: 0,
+                counter: 0,
             },
         };
-        let recent = z.find_record(flash).await?;
-        z.record = recent;
+        let recent = z.initialise(flash).await?;
+        (z.valid_record, z.dirty_record) = recent;
         Ok(z)
     }
     pub async fn update_record<F: FlashMemory>(
@@ -504,15 +545,36 @@ impl RecordManager {
         data: &[u8],
     ) -> Result<(), F::Error> {
         // Figure out where this goes.
-        // Basically ~two~ three options:
-        // Need to keep track of the 'furthest' dirty record.
+        // Basically  two options:
+        //  It goes after the dirty record entry.
+        //  We need to wrap around, erase sectors etc.
+        //
+        //
         // Update the counter.
-        // Flash the new record.
+        // Write the new data to the flash.
+        //
+
+        let next_free = self.dirty_record.position + self.dirty_record.length + 12;
+        let with_data = next_free + data.len() as u32 + 12;
+        let new_counter = self.dirty_record.counter + 1;
+        if with_data < (self.arena_start + self.arena_length) {
+            // It will fit. yay.
+            // Write; length, counter, data
+            let length_counter: [u32; 2] = [data.len() as u32, new_counter];
+            flash
+                .flash_write_page(next_free, length_counter.as_bytes())
+                .await?;
+        } else {
+            todo!();
+        }
 
         todo!();
     }
-    pub fn record(&self) -> Record {
-        self.record
+    pub fn valid_record(&self) -> Record {
+        self.valid_record
+    }
+    pub fn dirty_record(&self) -> Record {
+        self.dirty_record
     }
 }
 
@@ -538,14 +600,14 @@ struct AlignedSegmentIter {
     segment_size: usize,
 }
 impl AlignedSegmentIter {
-    fn new<const SEGMENT_SIZE: usize>(start_offset: usize, data_length: usize) -> Self {
+    fn new(segment_size: usize, start_offset: usize, data_length: usize) -> Self {
         let data_end = start_offset + data_length;
-        let segment_index = start_offset / SEGMENT_SIZE;
+        let segment_index = start_offset / segment_size;
         AlignedSegmentIter {
             data_offset: start_offset,
             data_end,
             segment_index,
-            segment_size: SEGMENT_SIZE,
+            segment_size,
         }
     }
 }
@@ -598,9 +660,9 @@ pub struct ProgramChunker<'a> {
     data: &'a [u8],
 }
 impl<'a> ProgramChunker<'a> {
-    pub fn new(offset: usize, data: &'a [u8]) -> Self {
+    pub fn new(page_size: usize, offset: usize, data: &'a [u8]) -> Self {
         Self {
-            chunker: AlignedSegmentIter::new::<256>(offset, data.len()),
+            chunker: AlignedSegmentIter::new(page_size, offset, data.len()),
             data,
         }
     }
@@ -635,9 +697,9 @@ pub struct EraseChunk {
     pub offset: usize,
 }
 impl EraseChunker {
-    pub fn new(erase_range: core::ops::Range<usize>) -> Self {
+    pub fn new(sector_size: usize, erase_range: core::ops::Range<usize>) -> Self {
         Self {
-            chunker: AlignedSegmentIter::new::<4096>(erase_range.start, erase_range.len()),
+            chunker: AlignedSegmentIter::new(sector_size, erase_range.start, erase_range.len()),
         }
     }
 }
@@ -767,17 +829,26 @@ mod test {
             }
             Ok(())
         }
+        /// Flush the pending writes. This blocks until writes or erases are completed.
+        async fn flush(&mut self) -> Result<(), Self::Error> {
+            Ok(())
+        }
     }
 
     #[test]
     fn test_record_manager() -> Result<(), Box<dyn std::error::Error>> {
         smol::block_on(async || -> Result<(), Box<dyn std::error::Error>> {
             let mut flash = TestFlash::new(TestFlash::SECTOR_SIZE * 4);
+
             let mut mgr =
                 RecordManager::new(&mut flash, 0..((TestFlash::SECTOR_SIZE * 4) as u32)).await?;
-            let record = mgr.record();
-            assert_eq!(record.position, 4);
-            assert_eq!(record.length, 0);
+            assert_eq!(mgr.dirty_record().position, 0);
+            assert_eq!(mgr.dirty_record().length, 0);
+            assert_eq!(mgr.valid_record().position, 0);
+            assert_eq!(mgr.valid_record().length, 0);
+
+            let data: u32 = 5;
+            mgr.update_record(&mut flash, data.as_bytes()).await?;
 
             Ok(())
         }())
@@ -785,14 +856,14 @@ mod test {
 
     #[test]
     fn test_aligned_segment_iter() -> Result<(), Box<dyn std::error::Error>> {
-        let mut o = AlignedSegmentIter::new::<256>(0, 512).collect::<Vec<_>>();
+        let mut o = AlignedSegmentIter::new(256, 0, 512).collect::<Vec<_>>();
         assert_eq!(o.len(), 2);
         assert_eq!(o[0].aligned, 0..256usize);
         assert_eq!(o[0].data, 0..256usize);
         assert_eq!(o[1].aligned, 256..512usize);
         assert_eq!(o[1].data, 256..512usize);
 
-        let mut o = AlignedSegmentIter::new::<256>(10, 512).collect::<Vec<_>>();
+        let mut o = AlignedSegmentIter::new(256, 10, 512).collect::<Vec<_>>();
         assert_eq!(o.len(), 3);
         assert_eq!(o[0].overlap, 10..256); // first segment is 0 - 256
         assert_eq!(o[0].aligned, 0..256); // first segment is 0 - 256
@@ -815,7 +886,7 @@ mod test {
         //  - The second segment falls in aligned 256..512, with data indices 3..7, and overlapping range 256..261
         let data_length = 8;
         let data_offset = 253;
-        let mut o = AlignedSegmentIter::new::<256>(data_offset, data_length).collect::<Vec<_>>();
+        let mut o = AlignedSegmentIter::new(256, data_offset, data_length).collect::<Vec<_>>();
         assert_eq!(o.len(), 2);
         assert_eq!(o[0].aligned, 0..256);
         assert_eq!(o[0].overlap, 253..256);
@@ -829,16 +900,16 @@ mod test {
     #[test]
     fn test_program_chunker() -> Result<(), Box<dyn std::error::Error>> {
         let z = [0, 2, 3, 4, 5];
-        let mut c = ProgramChunker::new(1, &z);
+        let mut c = ProgramChunker::new(256, 1, &z);
         let n = c.next().unwrap();
         assert_eq!(n.offset, 1);
         assert_eq!(n.data, &z);
 
         // Empty data should result in empty chunker.
-        let mut c = ProgramChunker::new(0, &[]);
+        let mut c = ProgramChunker::new(256, 0, &[]);
         assert!(c.next().is_none());
 
-        let mut c = ProgramChunker::new(254, &z);
+        let mut c = ProgramChunker::new(256, 254, &z);
         let n = c.next().unwrap();
         assert_eq!(n.offset, 254); // Should fit across two chunks.
         assert_eq!(n.data, &z[0..2]);
@@ -850,15 +921,15 @@ mod test {
     }
     #[test]
     fn test_erase_chunker() -> Result<(), Box<dyn std::error::Error>> {
-        let mut c = EraseChunker::new(0..10);
+        let mut c = EraseChunker::new(4096, 0..10);
         let n = c.next().unwrap();
         assert_eq!(n.offset, 0); // first sector.
 
         // Empty data should result in empty chunker.
-        let mut c = EraseChunker::new(0..0);
+        let mut c = EraseChunker::new(4096, 0..0);
         assert!(c.next().is_none());
 
-        let mut c = EraseChunker::new(4000..4200);
+        let mut c = EraseChunker::new(4096, 4000..4200);
         let n = c.next().unwrap();
         assert_eq!(n.offset, 0); // Should fit across two sectors.
         let n = c.next().unwrap();
