@@ -1,5 +1,6 @@
 use zerocopy::{FromBytes, Immutable, IntoBytes, TryFromBytes};
 
+/// Trait to interact with flash memory.
 #[allow(async_fn_in_trait)]
 pub trait FlashMemory {
     type Error;
@@ -33,7 +34,6 @@ pub trait FlashMemory {
     async fn flash_write(&mut self, offset: u32, data: &[u8]) -> Result<(), Self::Error> {
         let z = ProgramChunker::new(Self::PAGE_SIZE, offset as usize, data);
         for c in z {
-            println!("Writing {c:?}");
             self.flash_write_page(c.offset as u32, c.data).await?;
             self.flash_flush().await?;
         }
@@ -52,15 +52,104 @@ pub trait FlashMemory {
 // We do not wrap entries around when we reach the end of the arena.
 //
 // On flash:
-//  (Data Complete u32)
+//   Begin Marker u32.
 //              <----- position
 //   Length: u32,
 //   Increment_counter: u32,
 //   Data: [u8]
 //   Data_complete: u32, // mostly an u32 for lazy packing reasons.
 //
-// If data complete is not actually written to be 0, it must not be used and the entry is considered 'burned'.
+//  ---
+//   End marker u32.
+//
+// If data complete is not actually written to be DATA_COMPLETED, it must not be used and the entry is considered 'burned'.
+//
+//
 
+/// State machine for the wrapping situation.
+///
+/// We need some special handling for the wrap-around. If there is data to be written that requires the wrap around
+/// The following events are done in sequence.
+///  - The position of the currently valid entry is burned into the end marker.
+///  - As many sectors as possible from the beginning are erased.
+///  - The end erase done bool is set in the end marker (just the top bit)
+///  - The new data is written to the beginning in the now erased area.
+///  - The 'end marker is burned' bit is set in the end marker.
+///  - The second half is erased and the begin marker is set to zero to indicate erasure has happened.
+#[derive(Eq, PartialEq, defmt::Format, Copy, Clone, PartialOrd, Ord, Hash, Debug)]
+#[repr(u8)]
+enum WrappingState {
+    /// Normal happy writing.
+    NormalWrite = 0,
+    /// Valid entry address has been written to marker. Time to erase the beginning.
+    ValidEntryInEnd = 1,
+    /// Erase of everything up to the valid entry at the start has been done.
+    BeginningEraseDone = 2,
+    /// Data has been written to the front again.
+    BeginningDataWrite = 3,
+    /// The end marker is burned, it should not be used to retrieve the valid entry, because the beginning has data.
+    EndMarkerDestroy = 4,
+    /// The end part should be erased next.
+    EndErase = 5,
+    /// The end erasure is done.
+    EndEraseDone = 6,
+}
+
+impl From<u8> for WrappingState {
+    fn from(value: u8) -> Self {
+        for z in [
+            WrappingState::EndEraseDone,
+            WrappingState::EndErase,
+            WrappingState::EndMarkerDestroy,
+            WrappingState::BeginningDataWrite,
+            WrappingState::BeginningEraseDone,
+            WrappingState::ValidEntryInEnd,
+            WrappingState::NormalWrite,
+        ] {
+            if value & (1 << z as u8) == 0 {
+                return z;
+            }
+        }
+        // Anything else... :<
+        WrappingState::NormalWrite
+    }
+}
+
+#[derive(PartialEq, Eq, defmt::Format, Copy, Clone, PartialOrd, Ord, Hash, Debug)]
+#[repr(transparent)]
+struct Marker(u8);
+impl Marker {
+    pub fn new() -> Self {
+        Self(0xFF)
+    }
+    pub fn with_state_set(&self, state: WrappingState) -> Self {
+        Self(self.0 & !(1 << state as u8))
+    }
+    pub fn to_state(&self) -> WrappingState {
+        self.0.into()
+    }
+}
+#[cfg(test)]
+mod marker_test {
+    use super::*;
+    #[test]
+    fn test_marker_test() {
+        let m = Marker::new();
+        assert_eq!(m.0, 0b1111_1111);
+        let z = m.with_state_set(WrappingState::EndErase);
+        assert_eq!(z.0, 0b1101_1111);
+        assert_eq!(WrappingState::from(z.0), WrappingState::EndErase);
+        let e = z.with_state_set(WrappingState::EndEraseDone);
+        assert_eq!(e.0, 0b1001_1111);
+        assert_eq!(WrappingState::from(e.0), WrappingState::EndEraseDone);
+        // Seems to work, we can burn individual bits to advance the state.
+        let v = m.with_state_set(WrappingState::ValidEntryInEnd);
+        assert_eq!(v.0, 0b1111_1101);
+        assert_eq!(WrappingState::from(v.0), WrappingState::ValidEntryInEnd);
+    }
+}
+
+const DATA_COMPLETED: u32 = 0xFFFF_FFF0;
 #[derive(
     PartialEq,
     Eq,
@@ -95,7 +184,6 @@ struct Metadata {
     length: u32,
     counter: u32,
 }
-const DATA_COMPLETED: u32 = 0xFFFF_FFF0;
 
 #[derive(PartialEq, Eq, TryFromBytes, IntoBytes, Immutable, defmt::Format, Default)]
 #[repr(C)]
