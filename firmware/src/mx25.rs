@@ -444,12 +444,18 @@ where
     Ord,
     Hash,
     Debug,
+    Default,
 )]
 #[repr(C)]
 pub struct Record {
     pub position: u32,
     pub length: u32,
     pub counter: u32,
+}
+impl Record {
+    pub fn to_range(&self) -> core::ops::Range<usize> {
+        (self.position as usize)..((self.position + self.length) as usize)
+    }
 }
 
 #[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format, Default, Debug)]
@@ -461,7 +467,7 @@ struct Metadata {
 }
 const DATA_COMPLETED: u32 = 0xFFFF_FFF0;
 
-#[derive(PartialEq, Eq, TryFromBytes, IntoBytes, Immutable, defmt::Format)]
+#[derive(PartialEq, Eq, TryFromBytes, IntoBytes, Immutable, defmt::Format, Default)]
 #[repr(C)]
 pub struct RecordManager {
     arena_start: u32,
@@ -539,6 +545,7 @@ impl RecordManager {
         println!("dirty_record : {:?}", dirty_record);
         Ok((valid_record, dirty_record))
     }
+
     pub async fn new<F: FlashMemory>(
         flash: &mut F,
         arena: core::ops::Range<u32>,
@@ -546,26 +553,53 @@ impl RecordManager {
         let mut z = RecordManager {
             arena_start: arena.start,
             arena_length: arena.len() as u32,
-            valid_record: Record {
-                position: arena.start + 4, // one ahead of the dummy sentinel data_complete
-                length: 0,
-                counter: 0,
-            },
-            dirty_record: Record {
-                position: arena.start + 4, // one ahead of the dummy sentinel data_complete
-                length: 0,
-                counter: 0,
-            },
+            ..Default::default()
         };
+        z.valid_record.position = z.writeable_start();
+        z.dirty_record.position = z.writeable_start();
         let recent = z.initialise(flash).await?;
         (z.valid_record, z.dirty_record) = recent;
         Ok(z)
     }
+
+    fn writable_end(&self) -> u32 {
+        self.arena_start + self.arena_length - 4
+    }
+    fn writeable_start(&self) -> u32 {
+        self.arena_start + 4
+    }
+
+    pub fn next_record(&self, data_length: usize) -> Record {
+        let length = data_length as u32;
+        let next_free = if self.dirty_record.counter != 0 {
+            self.dirty_record.position + self.dirty_record.length + 12
+        } else {
+            self.dirty_record.position
+        };
+        let with_data = next_free + length + 12;
+        let new_counter = self.dirty_record.counter + 1;
+
+        let will_fit = with_data < self.writable_end();
+        if will_fit {
+            Record {
+                position: next_free,
+                length,
+                counter: new_counter,
+            }
+        } else {
+            Record {
+                position: self.writeable_start(),
+                length,
+                counter: new_counter,
+            }
+        }
+    }
+
     pub async fn update_record<F: FlashMemory>(
         &mut self,
         flash: &mut F,
         data: &[u8],
-    ) -> Result<(), F::Error> {
+    ) -> Result<Record, F::Error> {
         // Figure out where this goes.
         // Basically  two options:
         //  It goes after the dirty record entry.
@@ -576,35 +610,49 @@ impl RecordManager {
         // Write the new data to the flash.
         //
 
-        let next_free = if self.dirty_record.counter != 0 {
-            self.dirty_record.position + self.dirty_record.length + 12
-        } else {
-            self.dirty_record.position
-        };
-        let with_data = next_free + data.len() as u32 + 12;
-        let new_counter = self.dirty_record.counter + 1;
-        println!("with data: {}, new counter: {}", with_data, new_counter);
-        if with_data < (self.arena_start + self.arena_length) {
-            // It will fit. yay.
-            // Write; length, counter, data
-            let length_counter: [u32; 2] = [data.len() as u32, new_counter];
+        let new_record = self.next_record(data.len());
+
+        if new_record.position < self.valid_record.position {
+            // We're wrapping, burn the end marker.
+            // Wipe from the start to ensure this data can fit.
             flash
-                .flash_write(next_free, length_counter.as_bytes())
+                .flash_write(self.writable_end(), self.valid_record.position.as_bytes())
                 .await?;
-            flash.flash_write(next_free + 8, data).await?;
-            let write_done: u32 = DATA_COMPLETED;
-            flash
-                .flash_write(next_free + 8 + data.len() as u32, write_done.as_bytes())
-                .await?;
-            self.valid_record.position = next_free;
-            self.valid_record.length = data.len() as u32;
-            self.valid_record.counter = new_counter;
-            self.dirty_record = self.valid_record;
-        } else {
-            todo!();
+
+            // This here leaves a bit of a problem... we don't actually check if the current valid record overlaps
+            // with the section we have to clear, if that happens... we can't handle this situation since we need to
+            // wipe the current record on disk... this should not happen as long as the values are < half arena
+            // which seems exceedingly rare..
+
+            // Clear the front sectors.
+            for c in EraseChunker::new(F::SECTOR_SIZE, new_record.to_range()) {
+                flash.flash_erase_sector(c.offset as u32).await?;
+                flash.flash_flush().await?;
+            }
+
+            // Now that the front sectors are empty, we can just continue with the write to the first sector.
         }
 
-        Ok(())
+        // It will fit. yay.
+        // Write; length, counter, data
+        let length_counter: [u32; 2] = [data.len() as u32, new_record.counter];
+        flash
+            .flash_write(new_record.position, length_counter.as_bytes())
+            .await?;
+        flash.flash_write(new_record.position + 8, data).await?;
+        let write_done: u32 = DATA_COMPLETED;
+        flash
+            .flash_write(
+                new_record.position + 8 + data.len() as u32,
+                write_done.as_bytes(),
+            )
+            .await?;
+        self.valid_record.position = new_record.position;
+        self.valid_record.length = data.len() as u32;
+        self.valid_record.counter = new_record.counter;
+        self.dirty_record = self.valid_record;
+
+        Ok(self.valid_record)
     }
     pub fn valid_record(&self) -> Option<Record> {
         if self.valid_record.counter != 0 {
@@ -930,7 +978,7 @@ mod test {
                 .await?;
             assert_eq!(read_back, 7);
 
-            // If we recreate the manager, we should be able to retrieve the same record.
+            // If we recreate the manager, we should be able to retrieve the record.
             let mut mgr =
                 RecordManager::new(&mut flash, 0..((TestFlash::SECTOR_SIZE * 4) as u32)).await?;
             let record = mgr.valid_record();
@@ -940,6 +988,30 @@ mod test {
             mgr.record_read_into(&mut flash, &record, &mut read_back)
                 .await?;
             assert_eq!(read_back, 7);
+
+            // Next... Lets fill the flash for a large amount..
+            let mut record = record;
+            let mut counter = 0u64;
+            while record.position
+                < (3 * TestFlash::SECTOR_SIZE as u32 + (3 * TestFlash::SECTOR_SIZE as u32 / 4))
+            {
+                counter += 1;
+                record = mgr.update_record(&mut flash, counter.as_bytes()).await?;
+            }
+
+            // There's now less than 1/4 * TestFlash::SECTOR_SIZE left... so adding a large record will wrap around.
+            let mut large_data = [1u8; TestFlash::SECTOR_SIZE / 2];
+            record = mgr.update_record(&mut flash, &large_data).await?;
+
+            let mut mgr =
+                RecordManager::new(&mut flash, 0..((TestFlash::SECTOR_SIZE * 4) as u32)).await?;
+            let record = mgr.valid_record();
+            assert_eq!(record.is_some(), true);
+            let record = record.unwrap();
+            large_data.fill(0);
+            mgr.record_read_into(&mut flash, &record, &mut large_data)
+                .await?;
+            assert_eq!(large_data, [1u8; TestFlash::SECTOR_SIZE / 2]);
 
             Ok(())
         }())
