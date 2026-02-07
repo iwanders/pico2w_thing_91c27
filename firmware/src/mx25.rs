@@ -348,10 +348,21 @@ pub trait FlashMemory {
     type Error;
     /// Write data to flash, up to 256 bytes, may not cross page boundary.
     async fn flash_write_page(&mut self, offset: u32, data: &[u8]) -> Result<(), Self::Error>;
+
     /// Clear a sector, offset is at the sector start boundary.
     async fn flash_erase_sector_4k(&mut self, offset: u32) -> Result<(), Self::Error>;
+
     /// Read data from flash.
     async fn flash_read(&mut self, offset: u32, data: &mut [u8]) -> Result<(), Self::Error>;
+
+    /// Read into a type that is convertible to a byte slice
+    async fn flash_read_into<T: zerocopy::FromBytes + zerocopy::IntoBytes>(
+        &mut self,
+        offset: u32,
+        data: &mut T,
+    ) -> Result<(), Self::Error> {
+        self.flash_read(offset, data.as_mut_bytes()).await
+    }
 }
 
 impl<Spi: embedded_hal_async::spi::SpiDevice> FlashMemory for Mx25<Spi>
@@ -371,6 +382,113 @@ where
 
     async fn flash_read(&mut self, offset: u32, data: &mut [u8]) -> Result<(), Self::Error> {
         self.cmd_read_fast_4b(offset, data).await
+    }
+}
+
+// Need to ensure that the metadata is at the end of the write, such that it is written only at the end.
+// Record can be any length.
+//
+// On flash:
+//  (Data Complete u32)
+//              <----- position
+//   Length: u32,
+//   Increment_counter: u32,
+//   Data: [u8]
+//   Data_complete: u32, // mostly an u32 for lazy packing reasons.
+//
+// If data complete is not actually written to be 0, it must not be used and the entry is considered 'burned'.
+
+#[derive(PartialEq, Eq, TryFromBytes, IntoBytes, Immutable, defmt::Format)]
+#[repr(C)]
+pub struct RecordManager {
+    arena_start: u32,
+    arena_length: u32,
+    record: Record,
+}
+
+#[derive(PartialEq, Eq, TryFromBytes, IntoBytes, Immutable, defmt::Format)]
+#[repr(C)]
+struct Record {
+    position: u32,
+    length: u32,
+}
+
+#[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format, Default)]
+#[repr(C)]
+struct Metadata {
+    data_complete: u32,
+    length: u32,
+    counter: u32,
+}
+const DATA_COMPLETED: u32 = 0xFFFF_FFF0;
+
+impl RecordManager {
+    async fn find_record<F: FlashMemory>(&mut self, flash: &mut F) -> Result<Record, F::Error> {
+        // Read length from data
+        const ITERATION_LIMIT: usize = 1024;
+        let mut previous_metadata: Metadata = Default::default();
+        flash
+            .flash_read_into(self.record.position - 4, &mut previous_metadata)
+            .await?;
+        let mut highest_record = Record {
+            position: self.record.position,
+            length: 0,
+        };
+        for _ in 0..ITERATION_LIMIT {
+            if previous_metadata.length == u32::MAX && previous_metadata.counter == u32::MAX {
+                // Previous slot was never used.
+                // This means that previous position is where the record is.
+                return Ok(highest_record);
+            }
+            // Length and counter are real, so now we retrieve the next metadata block to see if the data was
+            // actually finished.
+
+            let mut current: Metadata = Default::default();
+            flash
+                .flash_read_into(
+                    self.record.position + previous_metadata.length + 8,
+                    &mut current,
+                )
+                .await?;
+            if current.data_complete == DATA_COMPLETED {
+                highest_record.position = self.record.position;
+                highest_record.length = previous_metadata.length;
+                // Amazing, we found a completed data record, next lets look at those counters to see if we are done
+                // we are done if the previous counter exceeds the current counter.
+                if previous_metadata.counter > current.counter || current.counter == u32::MAX {
+                    return Ok(highest_record);
+                }
+            }
+            previous_metadata = current;
+        }
+
+        todo!();
+    }
+    pub async fn new<F: FlashMemory>(
+        flash: &mut F,
+        arena: core::ops::Range<u32>,
+    ) -> Result<Self, F::Error> {
+        let mut z = RecordManager {
+            arena_start: arena.start,
+            arena_length: arena.len() as u32,
+            record: Record {
+                position: arena.start + 4, // one ahead of the dummy sentinel data_complete
+                length: 0,
+            },
+        };
+        let recent = z.find_record(flash).await?;
+        z.record = recent;
+        Ok(z)
+    }
+    pub async fn update_record<F: FlashMemory>(
+        &mut self,
+        flash: &mut F,
+        data: &[u8],
+    ) -> Result<(), F::Error> {
+        // Figure out where this goes.
+        // Update the counter.
+        // Flash the new record.
+        todo!();
     }
 }
 
@@ -574,7 +692,7 @@ mod test {
     impl TestFlash {
         pub fn new(length: usize) -> Self {
             Self {
-                data: vec![0; length],
+                data: vec![0xff; length],
             }
         }
     }
@@ -584,12 +702,12 @@ mod test {
 
         async fn flash_write_page(&mut self, offset: u32, data: &[u8]) -> Result<(), Self::Error> {
             // Check out of bounds.
-            if offset + data.len() > self.data.len() {
+            if offset as usize + data.len() > self.data.len() {
                 return Err("Write out of bounds".into());
             }
 
             // Check if the write crosses a 256 byte page boundary.
-            if offset / 256 != (offset + data.len() - 1) / 256 {
+            if offset as usize / 256 != ((offset as usize + data.len() - 1) / 256) {
                 return Err("Write crosses page boundary".into());
             }
 
@@ -611,7 +729,7 @@ mod test {
         }
 
         async fn flash_read(&mut self, offset: u32, data: &mut [u8]) -> Result<(), Self::Error> {
-            if offset + data.len() > self.data.len() {
+            if offset as usize + data.len() > self.data.len() {
                 return Err("Read out of bounds".into());
             }
             for (i, b) in data.iter_mut().enumerate() {
@@ -622,17 +740,10 @@ mod test {
     }
 
     #[test]
-    fn test_flash_write_page() -> Result<(), Box<dyn std::error::Error>> {
-        let mut flash
-        }
-
-        async fn flash_erase_sector_4k(&mut self, offset: u32) -> Result<(), Self::Error> {
-            todo!()
-        }
-
-        async fn flash_read(&mut self, offset: u32, data: &mut [u8]) -> Result<(), Self::Error> {
-            todo!()
-        }
+    fn test_record_manager() -> Result<(), Box<dyn std::error::Error>> {
+        // let mut flash = TestFlash::new(32);
+        // let mut mgr = RecordManager::new(flash, 0..32).await?;
+        todo!();
     }
 
     #[test]
