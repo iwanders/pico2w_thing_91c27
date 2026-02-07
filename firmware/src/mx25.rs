@@ -1,6 +1,7 @@
 //! Driver for Macronix mx25xxx45 family flash memory
 
 use bitfield_struct::bitfield;
+use defmt::{info, warn};
 use embedded_hal_async::spi::SpiDevice;
 use zerocopy::{FromBytes, Immutable, IntoBytes, TryFromBytes};
 
@@ -362,7 +363,7 @@ pub trait FlashMemory {
     async fn flash_read(&mut self, offset: u32, data: &mut [u8]) -> Result<(), Self::Error>;
 
     /// Flush the pending writes. This blocks until writes or erases are completed.
-    async fn flush(&mut self) -> Result<(), Self::Error>;
+    async fn flash_flush(&mut self) -> Result<(), Self::Error>;
 
     /// Read into a type that is convertible to a byte slice
     async fn flash_read_into<T: zerocopy::FromBytes + zerocopy::IntoBytes>(
@@ -375,6 +376,10 @@ pub trait FlashMemory {
 
     async fn flash_write(&mut self, offset: u32, data: &[u8]) -> Result<(), Self::Error> {
         let z = ProgramChunker::new(Self::PAGE_SIZE, offset as usize, data);
+        for c in z {
+            self.flash_write_page(c.offset as u32, c.data).await?;
+            self.flash_flush().await?;
+        }
 
         Ok(())
     }
@@ -401,7 +406,7 @@ where
         self.cmd_read_fast_4b(offset, data).await
     }
 
-    async fn flush(&mut self) -> Result<(), Self::Error> {
+    async fn flash_flush(&mut self) -> Result<(), Self::Error> {
         todo!();
     }
 }
@@ -557,18 +562,28 @@ impl RecordManager {
         let next_free = self.dirty_record.position + self.dirty_record.length + 12;
         let with_data = next_free + data.len() as u32 + 12;
         let new_counter = self.dirty_record.counter + 1;
+        info!("with data: {}", with_data);
         if with_data < (self.arena_start + self.arena_length) {
             // It will fit. yay.
             // Write; length, counter, data
             let length_counter: [u32; 2] = [data.len() as u32, new_counter];
             flash
-                .flash_write_page(next_free, length_counter.as_bytes())
+                .flash_write(next_free, length_counter.as_bytes())
                 .await?;
+            flash.flash_write(next_free + 8, data).await?;
+            let write_done: u32 = DATA_COMPLETED;
+            flash
+                .flash_write(next_free + 8 + data.len() as u32, write_done.as_bytes())
+                .await?;
+            self.valid_record.position = next_free;
+            self.valid_record.length = data.len() as u32;
+            self.valid_record.counter = new_counter;
+            self.dirty_record = self.valid_record;
         } else {
             todo!();
         }
 
-        todo!();
+        Ok(())
     }
     pub fn valid_record(&self) -> Record {
         self.valid_record
@@ -830,7 +845,7 @@ mod test {
             Ok(())
         }
         /// Flush the pending writes. This blocks until writes or erases are completed.
-        async fn flush(&mut self) -> Result<(), Self::Error> {
+        async fn flash_flush(&mut self) -> Result<(), Self::Error> {
             Ok(())
         }
     }

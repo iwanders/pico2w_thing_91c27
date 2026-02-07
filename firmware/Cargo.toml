@@ -110,6 +110,11 @@ embassy-futures = "0.1.2"
 # I need an async executor to run the tests.
 smol = "2.0.2"
 
+embassy-time = { version = "0.5", features = [
+    "defmt",
+    "defmt-timestamp-uptime",
+    "std",
+] }
 [features]
 # We use this feature here, that's set to opt into the host binaries.
 std = []

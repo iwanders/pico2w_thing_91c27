@@ -178,6 +178,7 @@ mod defmt_test_fix {
     //     "{=usize}",
     //     COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
     // );
+
     unsafe impl defmt::Logger for Logger {
         fn acquire() {}
         unsafe fn flush() {}
