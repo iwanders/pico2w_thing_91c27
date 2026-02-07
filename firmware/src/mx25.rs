@@ -436,6 +436,7 @@ where
     PartialOrd,
     Ord,
     Hash,
+    Debug,
 )]
 #[repr(C)]
 pub struct Record {
@@ -476,12 +477,12 @@ impl RecordManager {
             .flash_read_into(current_position, &mut previous_metadata)
             .await?;
         let mut valid_record = Record {
-            position: 0,
+            position: self.valid_record.position,
             length: 0,
             counter: 0,
         };
         let mut dirty_record = Record {
-            position: 0,
+            position: self.dirty_record.position,
             length: 0,
             counter: 0,
         };
@@ -502,6 +503,7 @@ impl RecordManager {
                 .await?;
             if current.data_complete == DATA_COMPLETED {
                 // Found a valid record, update the valid record data.
+                println!("valid record: {:?}", valid_record);
                 valid_record.position = current_position;
                 valid_record.counter = previous_metadata.counter;
                 valid_record.length = previous_metadata.length;
@@ -520,6 +522,8 @@ impl RecordManager {
             previous_metadata = current;
         }
 
+        println!("valid_record : {:?}", valid_record);
+        println!("dirty_record : {:?}", dirty_record);
         Ok((valid_record, dirty_record))
     }
     pub async fn new<F: FlashMemory>(
@@ -559,7 +563,11 @@ impl RecordManager {
         // Write the new data to the flash.
         //
 
-        let next_free = self.dirty_record.position + self.dirty_record.length + 12;
+        let next_free = if self.dirty_record.counter != 0 {
+            self.dirty_record.position + self.dirty_record.length + 12
+        } else {
+            self.dirty_record.position
+        };
         let with_data = next_free + data.len() as u32 + 12;
         let new_counter = self.dirty_record.counter + 1;
         info!("with data: {}", with_data);
@@ -585,11 +593,25 @@ impl RecordManager {
 
         Ok(())
     }
-    pub fn valid_record(&self) -> Record {
-        self.valid_record
+    pub fn valid_record(&self) -> Option<Record> {
+        if self.valid_record.counter != 0 {
+            Some(self.valid_record)
+        } else {
+            None
+        }
     }
     pub fn dirty_record(&self) -> Record {
         self.dirty_record
+    }
+
+    pub async fn record_read_into<T: zerocopy::FromBytes + zerocopy::IntoBytes, F: FlashMemory>(
+        &mut self,
+        flash: &mut F,
+        record: &Record,
+        data: &mut T,
+    ) -> Result<(), F::Error> {
+        println!("Reading at {}", record.position + 8);
+        flash.flash_read_into(record.position + 8, data).await
     }
 }
 
@@ -820,7 +842,7 @@ mod test {
             // Write the data to the memory.
             for (i, &b) in data.iter().enumerate() {
                 let current = self.data[offset as usize + 1];
-                self.data[offset as usize + i] = !(current | b);
+                self.data[offset as usize + i] = !(!current | !b);
             }
             Ok(())
         }
@@ -853,17 +875,29 @@ mod test {
     #[test]
     fn test_record_manager() -> Result<(), Box<dyn std::error::Error>> {
         smol::block_on(async || -> Result<(), Box<dyn std::error::Error>> {
+            use super::FlashMemory;
             let mut flash = TestFlash::new(TestFlash::SECTOR_SIZE * 4);
 
             let mut mgr =
                 RecordManager::new(&mut flash, 0..((TestFlash::SECTOR_SIZE * 4) as u32)).await?;
-            assert_eq!(mgr.dirty_record().position, 0);
+            assert_eq!(mgr.dirty_record().position, 4);
             assert_eq!(mgr.dirty_record().length, 0);
-            assert_eq!(mgr.valid_record().position, 0);
-            assert_eq!(mgr.valid_record().length, 0);
+            assert_eq!(mgr.valid_record().is_none(), true);
 
             let data: u32 = 5;
             mgr.update_record(&mut flash, data.as_bytes()).await?;
+            let record = mgr.valid_record();
+            assert_eq!(record.is_some(), true);
+            let record = record.unwrap();
+            assert_eq!(record.counter, 1);
+            assert_eq!(record.length, 4);
+            assert_eq!(record.position, 4);
+            println!("flash start: {:?}", &flash.data[0..64]);
+
+            let mut read_back: u32 = 0;
+            mgr.record_read_into(&mut flash, &record, &mut read_back)
+                .await?;
+            assert_eq!(read_back, 5);
 
             Ok(())
         }())
