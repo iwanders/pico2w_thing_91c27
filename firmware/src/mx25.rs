@@ -346,13 +346,17 @@ where
 #[allow(async_fn_in_trait)]
 pub trait FlashMemory {
     type Error;
-    /// Write data to flash, up to 256 bytes, may not cross page boundary.
+    /// The size of a writable page, usually 256.
+    const PAGE_SIZE: usize;
+    /// The size of a sector, usually 4096.
+    const SECTOR_SIZE: usize;
+    /// Write data to flash, up to PAGE_SIZE bytes, may not cross page boundary.
     async fn flash_write_page(&mut self, offset: u32, data: &[u8]) -> Result<(), Self::Error>;
 
-    /// Clear a sector, offset is at the sector start boundary.
-    async fn flash_erase_sector_4k(&mut self, offset: u32) -> Result<(), Self::Error>;
+    /// Clear a sector of SECTOR_SIZE bytes, offset is at the sector start boundary.
+    async fn flash_erase_sector(&mut self, offset: u32) -> Result<(), Self::Error>;
 
-    /// Read data from flash.
+    /// Read data from flash, arbitrary position.
     async fn flash_read(&mut self, offset: u32, data: &mut [u8]) -> Result<(), Self::Error>;
 
     /// Read into a type that is convertible to a byte slice
@@ -371,12 +375,14 @@ where
     Spi::Error: embedded_hal_async::spi::Error,
 {
     type Error = Error<Spi::Error>;
+    const PAGE_SIZE: usize = 256;
+    const SECTOR_SIZE: usize = 4096;
 
     async fn flash_write_page(&mut self, offset: u32, data: &[u8]) -> Result<(), Self::Error> {
         self.cmd_page_program_4b(offset, data).await
     }
 
-    async fn flash_erase_sector_4k(&mut self, offset: u32) -> Result<(), Self::Error> {
+    async fn flash_erase_sector(&mut self, offset: u32) -> Result<(), Self::Error> {
         self.cmd_erase_sector_4b(offset).await
     }
 
@@ -406,11 +412,23 @@ pub struct RecordManager {
     record: Record,
 }
 
-#[derive(PartialEq, Eq, TryFromBytes, IntoBytes, Immutable, defmt::Format)]
+#[derive(
+    PartialEq,
+    Eq,
+    TryFromBytes,
+    IntoBytes,
+    Immutable,
+    defmt::Format,
+    Copy,
+    Clone,
+    PartialOrd,
+    Ord,
+    Hash,
+)]
 #[repr(C)]
-struct Record {
-    position: u32,
-    length: u32,
+pub struct Record {
+    pub position: u32,
+    pub length: u32,
 }
 
 #[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format, Default)]
@@ -425,7 +443,7 @@ const DATA_COMPLETED: u32 = 0xFFFF_FFF0;
 impl RecordManager {
     async fn find_record<F: FlashMemory>(&mut self, flash: &mut F) -> Result<Record, F::Error> {
         // Read length from data
-        const ITERATION_LIMIT: usize = 1024;
+        const ITERATION_LIMIT: usize = 1024; // IW: todo; this is a bit of a hack...
         let mut previous_metadata: Metadata = Default::default();
         flash
             .flash_read_into(self.record.position - 4, &mut previous_metadata)
@@ -486,9 +504,15 @@ impl RecordManager {
         data: &[u8],
     ) -> Result<(), F::Error> {
         // Figure out where this goes.
+        // Basically ~two~ three options:
+        // Need to keep track of the 'furthest' dirty record.
         // Update the counter.
         // Flash the new record.
+
         todo!();
+    }
+    pub fn record(&self) -> Record {
+        self.record
     }
 }
 
@@ -699,6 +723,9 @@ mod test {
 
     impl FlashMemory for TestFlash {
         type Error = Box<dyn std::error::Error>;
+        const PAGE_SIZE: usize = 256;
+
+        const SECTOR_SIZE: usize = 4096;
 
         async fn flash_write_page(&mut self, offset: u32, data: &[u8]) -> Result<(), Self::Error> {
             // Check out of bounds.
@@ -707,23 +734,26 @@ mod test {
             }
 
             // Check if the write crosses a 256 byte page boundary.
-            if offset as usize / 256 != ((offset as usize + data.len() - 1) / 256) {
+            if offset as usize / Self::PAGE_SIZE
+                != ((offset as usize + data.len() - 1) / Self::PAGE_SIZE)
+            {
                 return Err("Write crosses page boundary".into());
             }
 
             // Write the data to the memory.
             for (i, &b) in data.iter().enumerate() {
-                self.data[offset as usize + i] = b;
+                let current = self.data[offset as usize + 1];
+                self.data[offset as usize + i] = !(current | b);
             }
             Ok(())
         }
 
-        async fn flash_erase_sector_4k(&mut self, offset: u32) -> Result<(), Self::Error> {
-            if offset % 4096 != 0 {
+        async fn flash_erase_sector(&mut self, offset: u32) -> Result<(), Self::Error> {
+            if offset % Self::SECTOR_SIZE as u32 != 0 {
                 return Err("Sector not aligned".into());
             }
-            for i in 0..4096 {
-                self.data[offset as usize + i] = 0;
+            for i in 0..Self::SECTOR_SIZE {
+                self.data[offset as usize + i] = 0xFF;
             }
             Ok(())
         }
@@ -741,9 +771,16 @@ mod test {
 
     #[test]
     fn test_record_manager() -> Result<(), Box<dyn std::error::Error>> {
-        // let mut flash = TestFlash::new(32);
-        // let mut mgr = RecordManager::new(flash, 0..32).await?;
-        todo!();
+        smol::block_on(async || -> Result<(), Box<dyn std::error::Error>> {
+            let mut flash = TestFlash::new(TestFlash::SECTOR_SIZE * 4);
+            let mut mgr =
+                RecordManager::new(&mut flash, 0..((TestFlash::SECTOR_SIZE * 4) as u32)).await?;
+            let record = mgr.record();
+            assert_eq!(record.position, 4);
+            assert_eq!(record.length, 0);
+
+            Ok(())
+        }())
     }
 
     #[test]
