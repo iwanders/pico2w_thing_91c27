@@ -567,6 +567,74 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
+
+    struct TestFlash {
+        data: Vec<u8>,
+    }
+    impl TestFlash {
+        pub fn new(length: usize) -> Self {
+            Self {
+                data: vec![0; length],
+            }
+        }
+    }
+
+    impl FlashMemory for TestFlash {
+        type Error = Box<dyn std::error::Error>;
+
+        async fn flash_write_page(&mut self, offset: u32, data: &[u8]) -> Result<(), Self::Error> {
+            // Check out of bounds.
+            if offset + data.len() > self.data.len() {
+                return Err("Write out of bounds".into());
+            }
+
+            // Check if the write crosses a 256 byte page boundary.
+            if offset / 256 != (offset + data.len() - 1) / 256 {
+                return Err("Write crosses page boundary".into());
+            }
+
+            // Write the data to the memory.
+            for (i, &b) in data.iter().enumerate() {
+                self.data[offset as usize + i] = b;
+            }
+            Ok(())
+        }
+
+        async fn flash_erase_sector_4k(&mut self, offset: u32) -> Result<(), Self::Error> {
+            if offset % 4096 != 0 {
+                return Err("Sector not aligned".into());
+            }
+            for i in 0..4096 {
+                self.data[offset as usize + i] = 0;
+            }
+            Ok(())
+        }
+
+        async fn flash_read(&mut self, offset: u32, data: &mut [u8]) -> Result<(), Self::Error> {
+            if offset + data.len() > self.data.len() {
+                return Err("Read out of bounds".into());
+            }
+            for (i, b) in data.iter_mut().enumerate() {
+                *b = self.data[offset as usize + i];
+            }
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn test_flash_write_page() -> Result<(), Box<dyn std::error::Error>> {
+        let mut flash
+        }
+
+        async fn flash_erase_sector_4k(&mut self, offset: u32) -> Result<(), Self::Error> {
+            todo!()
+        }
+
+        async fn flash_read(&mut self, offset: u32, data: &mut [u8]) -> Result<(), Self::Error> {
+            todo!()
+        }
+    }
+
     #[test]
     fn test_aligned_segment_iter() -> Result<(), Box<dyn std::error::Error>> {
         let mut o = AlignedSegmentIter::new::<256>(0, 512).collect::<Vec<_>>();
