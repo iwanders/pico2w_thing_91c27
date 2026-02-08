@@ -70,6 +70,7 @@ zerocopy = { version = "0.8.26", features = ["derive"] }
 
 chacha20 = "0.9.1"
 
+thiserror = {version="2", default-features=false}
 bitfield-struct = "0.11.0"
 micro_hap = { workspace = true } #, features = ["defmt"]
 [target.'cfg(target_arch = "arm")'.dependencies]

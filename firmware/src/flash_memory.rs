@@ -693,17 +693,43 @@ mod test {
 
     struct TestFlash {
         data: Vec<u8>,
+
+        /// The fuel this flash has, each byte modification consumes one fuel. If zero, no modification happens.
+        /// if None, fuel functionality is disabled.
+        fuel: Option<usize>,
     }
     impl TestFlash {
         pub fn new(length: usize) -> Self {
             Self {
                 data: vec![0xff; length],
+                fuel: None,
             }
+        }
+        pub fn fuel(&self) -> Option<usize> {
+            self.fuel
+        }
+        pub fn set_fuel(&mut self, v: Option<usize>) {
+            self.fuel = v
+        }
+        pub fn get_arena_u32(&self) -> (u32, u32) {
+            (0, (self.data.len() as u32))
         }
     }
 
+    #[derive(Debug, Copy, Clone, thiserror::Error)]
+    enum TestFlashError {
+        #[error("write crossess page boundary")]
+        WriteExceedsPage,
+        #[error("no fuel left to write with")]
+        NoFuelLeft,
+        #[error("read out of bounds at {0:?}")]
+        OutOfBounds(usize),
+        #[error("erase is not at a sector boundary {0:?}")]
+        EraseOffsetIncorrect(usize),
+    }
+
     impl FlashMemory for TestFlash {
-        type Error = Box<dyn std::error::Error>;
+        type Error = TestFlashError;
         const PAGE_SIZE: usize = 256;
 
         const SECTOR_SIZE: usize = 4096;
@@ -711,19 +737,28 @@ mod test {
         async fn flash_write_page(&mut self, offset: u32, data: &[u8]) -> Result<(), Self::Error> {
             // Check out of bounds.
             if offset as usize + data.len() > self.data.len() {
-                return Err("Write out of bounds".into());
+                return Err(TestFlashError::OutOfBounds(offset as usize + data.len()));
             }
 
             // Check if the write crosses a 256 byte page boundary.
             if offset as usize / Self::PAGE_SIZE
                 != ((offset as usize + data.len() - 1) / Self::PAGE_SIZE)
             {
-                return Err("Write crosses page boundary".into());
+                return Err(TestFlashError::WriteExceedsPage);
             }
 
             // Write the data to the memory.
             for (i, &b) in data.iter().enumerate() {
                 let current = self.data[offset as usize + i];
+                if let Some(f) = self.fuel.as_mut() {
+                    if *f == 0 {
+                        return Err(TestFlashError::NoFuelLeft);
+                    } else {
+                        if current != b {
+                            *f -= 1;
+                        }
+                    }
+                }
                 self.data[offset as usize + i] = !(!current | !b);
             }
             Ok(())
@@ -731,9 +766,18 @@ mod test {
 
         async fn flash_erase_sector(&mut self, offset: u32) -> Result<(), Self::Error> {
             if offset % Self::SECTOR_SIZE as u32 != 0 {
-                return Err("Sector not aligned".into());
+                return Err(TestFlashError::EraseOffsetIncorrect(offset as usize));
             }
             for i in 0..Self::SECTOR_SIZE {
+                if let Some(f) = self.fuel.as_mut() {
+                    if *f == 0 {
+                        return Err(TestFlashError::NoFuelLeft);
+                    } else {
+                        if self.data[offset as usize + i] != 0xFF {
+                            *f -= 1;
+                        }
+                    }
+                }
                 self.data[offset as usize + i] = 0xFF;
             }
             Ok(())
@@ -741,7 +785,7 @@ mod test {
 
         async fn flash_read(&mut self, offset: u32, data: &mut [u8]) -> Result<(), Self::Error> {
             if offset as usize + data.len() > self.data.len() {
-                return Err("Read out of bounds".into());
+                return Err(TestFlashError::OutOfBounds(offset as usize + data.len()));
             }
             for (i, b) in data.iter_mut().enumerate() {
                 *b = self.data[offset as usize + i];
@@ -755,7 +799,7 @@ mod test {
     }
 
     #[test]
-    fn test_record_manager() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_record_manager_stepwise() -> Result<(), Box<dyn std::error::Error>> {
         smol::block_on(async || -> Result<(), Box<dyn std::error::Error>> {
             use super::FlashMemory;
             let mut flash = TestFlash::new(TestFlash::SECTOR_SIZE * 4);
@@ -851,6 +895,73 @@ mod test {
                 true,
                 "Flash should be filled with 1s at the end"
             );
+
+            Ok(())
+        }())
+    }
+
+    #[test]
+    fn test_record_manager_loss_restore() -> Result<(), Box<dyn std::error::Error>> {
+        smol::block_on(async || -> Result<(), Box<dyn std::error::Error>> {
+            use super::FlashMemory;
+            let flash_size = TestFlash::SECTOR_SIZE * 3;
+            let mut flash = TestFlash::new(flash_size);
+            let (start, end) = flash.get_arena_u32();
+
+            let mut highest_seen = 0;
+
+            // Lets test four times over...?
+            for f in 0..flash_size * 4 {
+                // We get this much fuel only.
+                flash.set_fuel(Some(f));
+
+                let mut current_value: Option<u64> = None;
+
+                // Create a new manager.
+                let mut mgr = RecordManager::new(&mut flash, start..end).await?;
+
+                // Check if there is an existing value.
+                if let Some(existing_record) = mgr.valid_record() {
+                    // THere is an existing record, lets read it!
+                    let mut v: u64 = 0;
+                    mgr.record_read_into(&mut flash, &existing_record, &mut v)
+                        .await?;
+                    current_value = Some(v);
+                }
+
+                // Verify the existing value is equal to the current highest seen.
+                let current_on_flash = current_value.unwrap_or(1);
+                if highest_seen != current_on_flash
+                    && (current_on_flash.saturating_sub(1) != highest_seen)
+                {
+                    assert!(false, "the highest seen and current on flash differ by more than expected {highest_seen} and {current_on_flash}");
+                }
+                highest_seen = current_on_flash;
+
+                // Try to write a new record with value + 1
+                let new_value = highest_seen + 1;
+                let res = mgr.update_record(&mut flash, new_value.as_bytes()).await;
+                match res {
+                    Ok(new_rec) => {
+                        // Write succeeded, verify the new record is equal to the new value.
+                        let mut v: u64 = 0;
+                        mgr.record_read_into(&mut flash, &new_rec, &mut v).await?;
+                        assert_eq!(new_value, v);
+                    }
+                    Err(_) => {
+                        // Write failed, in this case the old value should still be present.
+                        let mut v: u64 = 0;
+                        if let Some(old_record) = mgr.valid_record() {
+                            mgr.record_read_into(&mut flash, &old_record, &mut v)
+                                .await?;
+                            assert_eq!(current_on_flash, v);
+                        } else {
+                            // This should only happen on the first cycle.
+                            assert_eq!(highest_seen, 1);
+                        }
+                    }
+                }
+            }
 
             Ok(())
         }())
