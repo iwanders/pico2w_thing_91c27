@@ -169,7 +169,7 @@ impl Marker {
         self.0.into()
     }
 }
-const DATA_COMPLETED: u32 = 0xFFFF_FFF0;
+const DATA_COMPLETED: u32 = 0xFFFF_FF80; // mostly to easily be able to recognise it as 128
 #[derive(PartialEq, Eq, defmt::Format, Copy, Clone, PartialOrd, Ord, Hash, Debug, Default)]
 #[repr(C)]
 pub struct Record {
@@ -334,17 +334,20 @@ impl RecordManager {
 
         const ITERATION_LIMIT: usize = 1024; // IW: todo; this is a bit of a hack...
         let mut previous_flash_metadata: FlashMetadata = Default::default();
+        let prefix_len = previous_flash_metadata.record_prefix().len() as u32;
+        println!("prefix_len: {prefix_len:?}");
+        let suffix_len = previous_flash_metadata.record_suffix().len() as u32;
         let mut current_position = self.valid_record.position;
         println!("current_position: {:?}", current_position);
         flash
-            .flash_read_into(
-                current_position - previous_flash_metadata.record_suffix().len() as u32,
-                &mut previous_flash_metadata,
-            )
+            .flash_read_into(current_position - suffix_len, &mut previous_flash_metadata)
             .await?;
         let mut previous_metadata: Metadata = previous_flash_metadata.into_metadata();
         for _ in 0..ITERATION_LIMIT {
             println!("previous_metadata: {:?}", previous_metadata);
+            if previous_metadata.length == 244 {
+                panic!("length is 244... why!?");
+            }
             if previous_metadata.length == 0 && previous_metadata.counter == 0 {
                 // Previous slot was never used.
                 // This means that previous position is where the record is.
@@ -359,7 +362,7 @@ impl RecordManager {
             );
             flash
                 .flash_read_into(
-                    current_position - 4 + previous_metadata.length + 12,
+                    current_position - suffix_len + previous_metadata.length + FlashMetadata::SIZE,
                     &mut current_flash,
                 )
                 .await?;
@@ -373,10 +376,10 @@ impl RecordManager {
 
             if current.data_complete {
                 // Found a valid record, update the valid record data.
-                println!("valid record: {:?}", self.valid_record);
                 self.valid_record.position = current_position;
                 self.valid_record.counter = previous_metadata.counter;
                 self.valid_record.length = previous_metadata.length;
+                println!("valid record: {:?}", self.valid_record);
                 if previous_metadata.counter > current.counter || current.counter == 0 {
                     // Amazing, we found a completed data record, and the counter is higher, so we found the boundary.
                     break;
@@ -798,8 +801,10 @@ mod test {
         const SECTOR_SIZE: usize = 4096;
 
         async fn flash_write_page(&mut self, offset: u32, data: &[u8]) -> Result<(), Self::Error> {
+            print!("Attempting to write {data:?} at {offset:?}");
             // Check out of bounds.
             if offset as usize + data.len() > self.data.len() {
+                println!(" exceeds bounds");
                 return Err(TestFlashError::OutOfBounds(offset as usize + data.len()));
             }
 
@@ -807,14 +812,18 @@ mod test {
             if offset as usize / Self::PAGE_SIZE
                 != ((offset as usize + data.len() - 1) / Self::PAGE_SIZE)
             {
+                println!(" exceeds page");
                 return Err(TestFlashError::WriteExceedsPage);
             }
+            let c = &self.data[offset as usize..(offset as usize) + data.len()];
+            print!(" current; {:?}  ", c);
 
             // Write the data to the memory.
             for (i, &b) in data.iter().enumerate() {
                 let current = self.data[offset as usize + i];
                 if let Some(f) = self.fuel.as_mut() {
                     if *f == 0 {
+                        println!(" aborting at {i} global pos {}", offset as usize + i);
                         return Err(TestFlashError::NoFuelLeft);
                     } else {
                         if current != b {
@@ -822,8 +831,24 @@ mod test {
                         }
                     }
                 }
-                self.data[offset as usize + i] = !(!current | !b);
+
+                // Ugly guard against overwrites, only the end marker may see overwrites.
+                if current != 0xFF && current != b && (offset as usize + i < (self.data.len() - 8))
+                {
+                    panic!(
+                        "current is not 0xFF at {}, it was {:x}  with new value {:x}",
+                        offset as usize + i,
+                        current,
+                        b
+                    );
+                }
+                //self.data[offset as usize + i] = !(!current | !b);
+                self.data[offset as usize + i] = current & b;
             }
+            let c = &self.data[offset as usize..(offset as usize) + data.len()];
+            print!(" new; {:?}  ", c);
+            println!(" write concluded");
+
             Ok(())
         }
 
@@ -850,6 +875,10 @@ mod test {
             if offset as usize + data.len() > self.data.len() {
                 return Err(TestFlashError::OutOfBounds(offset as usize + data.len()));
             }
+            println!(
+                "Reading at {offset}: {:?}",
+                &self.data[offset as usize..(offset as usize + data.len())]
+            );
             for (i, b) in data.iter_mut().enumerate() {
                 *b = self.data[offset as usize + i];
             }
@@ -982,7 +1011,8 @@ mod test {
                 let mut current_value: Option<u64> = None;
 
                 // Create a new manager.
-                let mut mgr = RecordManager::new(&mut flash, start..end).await?;
+                let mut mgr = RecordManager::new(&mut flash, start..end).await.unwrap();
+                println!("flash section: {:?}", &flash.data[0..256]);
 
                 // Check if there is an existing value.
                 if let Some(existing_record) = mgr.valid_record() {
@@ -1010,10 +1040,10 @@ mod test {
                     Ok(new_rec) => {
                         // Write succeeded, verify the new record is equal to the new value.
                         let mut v: u64 = 0;
-                        mgr.record_read_into(&mut flash, &new_rec, &mut v).await?;
+                        mgr.record_read_into(&mut flash, &new_rec, &mut v)
+                            .await
+                            .unwrap();
                         let p = new_rec.position as usize;
-                        flash.data[p] = 11;
-                        println!("flash section: {:?}", &flash.data[(p - 40)..(p + 40)]);
                         assert_eq!(new_value, v);
                     }
                     Err(_) => {
@@ -1021,7 +1051,8 @@ mod test {
                         let mut v: u64 = 0;
                         if let Some(old_record) = mgr.valid_record() {
                             mgr.record_read_into(&mut flash, &old_record, &mut v)
-                                .await?;
+                                .await
+                                .unwrap();
                             assert_eq!(current_on_flash, v);
                         } else {
                             // This should only happen on the first cycle.
