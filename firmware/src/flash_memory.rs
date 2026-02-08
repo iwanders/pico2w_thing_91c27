@@ -411,14 +411,17 @@ impl RecordManager {
         }
 
         // No end marker... just do the normal thing.
-        println!("No end marker");
+        // println!("No end marker");
 
-        let mut current_position = self.valid_record.position;
+        let mut current_position = self.writeable_start();
 
         let mut prefix = FlashPrefix::default();
         let mut suffix = FlashSuffix::default();
 
-        for _ in 0..ITERATION_LIMIT {
+        let mut finished_init: bool = false;
+
+        while current_position < self.writable_end() {
+            // println!("In init parser at {}", current_position);
             let mut previous_flash_metadata: FlashMetadata = Default::default();
             flash
                 .flash_read_into(
@@ -432,6 +435,8 @@ impl RecordManager {
 
             if prefix.is_unused() {
                 // Previous slot was never used. This means that previous position is where the record is.
+                finished_init = true;
+                // println!("prefix is unused, so slot was unused");
                 break;
             }
 
@@ -439,6 +444,7 @@ impl RecordManager {
                 // Prefix is not complete, lets advance by the prefix and try again, this can happen with partial
                 // prefix writes.
                 current_position += FlashPrefix::SIZE;
+                // println!("cont on  !prefix.is_complete()");
                 continue;
             }
 
@@ -468,6 +474,7 @@ impl RecordManager {
 
             // If the suffix state everything is complete, this is a valid record.
             if current_flash.suffix.is_complete() {
+                // println!("New valid entry at {}", current_position);
                 // Found a valid record, update the valid record data.
                 self.valid_record.position = current_position;
                 self.valid_record.counter = metadata.counter;
@@ -478,23 +485,31 @@ impl RecordManager {
             current_position += metadata.length + FlashPrefix::SIZE + FlashSuffix::SIZE;
 
             // Data may or may not be complete, but we did have stuff written here and as such need to advance the dirty
-            // record, since that's the last record at which data exists that we cna't overwrite.
+            // record, since there may be data up to the suffix, which we can't use.
             self.next_free = current_position;
 
             // If the next prefix is unused, we know we are done.
             if current_flash.prefix.is_unused() {
-                println!("current flash prefix is unused");
+                // println!("current flash prefix is unused");
+                finished_init = true;
                 break;
             }
 
             // Alternatively, if the prefix is NOT complete, we can advance by its size and continue
             if !current_flash.prefix.is_complete() {
-                println!("Prefix incomplete, advancing ");
                 current_position += FlashPrefix::SIZE;
+                // println!(
+                // "Prefix incomplete, advancing by prefix to {:?}",
+                // current_position
+                // );
                 self.next_free = current_position;
             }
         }
 
+        println!("self.next_free: {}", self.next_free);
+        if !finished_init {
+            //panic!("never finished init");
+        }
         // Dirty is at least the valid record.
 
         // println!("init valid_record : {:?}", self.valid_record);
