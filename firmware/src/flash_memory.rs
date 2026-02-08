@@ -227,6 +227,10 @@ mod module_to_make_private {
         pub fn is_complete(&self) -> bool {
             self.prefix_complete == PREFIX_COMPLETE
         }
+        pub fn is_unused(&self) -> bool {
+            self.length == u32::MAX && self.counter == u32::MAX && self.prefix_complete == u32::MAX
+        }
+
         pub fn to_metadata(&self) -> Option<Metadata> {
             Metadata::from_prefix(self)
         }
@@ -402,59 +406,86 @@ impl RecordManager {
         // No end marker... just do the normal thing.
         println!("No end marker");
 
-        let mut previous_flash_metadata: FlashMetadata = Default::default();
-        let prefix_len = FlashPrefix::SIZE;
-        let suffix_len = FlashSuffix::SIZE;
         let mut current_position = self.valid_record.position;
-        // println!("current_position: {:?}", current_position);
-        flash
-            .flash_read_into(current_position - suffix_len, &mut previous_flash_metadata)
-            .await?;
 
-        let mut previous_metadata: Metadata = previous_flash_metadata
-            .prefix
-            .to_metadata()
-            .unwrap_or_default();
+        let mut prefix = FlashPrefix::default();
+        let mut suffix = FlashSuffix::default();
+
         for _ in 0..ITERATION_LIMIT {
-            if previous_metadata.length == 0 && previous_metadata.counter == 0 {
-                // Previous slot was never used.
-                // This means that previous position is where the record is.
+            let mut previous_flash_metadata: FlashMetadata = Default::default();
+            flash
+                .flash_read_into(
+                    current_position - FlashSuffix::SIZE,
+                    &mut previous_flash_metadata,
+                )
+                .await?;
+
+            prefix = previous_flash_metadata.prefix;
+            suffix = previous_flash_metadata.suffix;
+
+            if prefix.is_unused() {
+                // Previous slot was never used. This means that previous position is where the record is.
                 break;
             }
+
+            if !prefix.is_complete() {
+                // Prefix is not complete, lets advance by the prefix and try again, this can happen with partial
+                // prefix writes.
+                current_position += FlashPrefix::SIZE;
+                continue;
+            }
+
+            // If we get here, prefix MUST be complete.
+            let metadata = prefix.to_metadata();
+            if metadata.is_none() {
+                // Dunno what happened, invariant seems violated.
+                break;
+            }
+
+            let metadata = metadata.unwrap(); // safe because check above.
+
+            if metadata.length == 0 && metadata.counter == 0 {
+                // Shield once more, if this is the case, this metadata is not actually used yet and we can just return.
+                break;
+            }
+
+            // Prefix is fully complete, we can now retrieve the suffix (and next prefix).
+            let next_suffix_prefix = current_position + FlashPrefix::SIZE + metadata.length;
+
             // Length and counter are real, so now we retrieve the next metadata block to see if the data was
             // actually finished.
             let mut current_flash: FlashMetadata = Default::default();
-            // println!(
-            //     "current_position: {:?} length: {}",
-            //     current_position, previous_metadata.length
-            // );
             flash
-                .flash_read_into(
-                    current_position - suffix_len + previous_metadata.length + FlashMetadata::SIZE,
-                    &mut current_flash,
-                )
+                .flash_read_into(next_suffix_prefix, &mut current_flash)
                 .await?;
-            let mut current: Metadata = current_flash.prefix.to_metadata().unwrap_or_default();
+
+            // If the suffix state everything is complete, this is a valid record.
+            if current_flash.suffix.is_complete() {
+                // Found a valid record, update the valid record data.
+                self.valid_record.position = current_position;
+                self.valid_record.counter = metadata.counter;
+                self.valid_record.length = metadata.length;
+            }
 
             // Data may or may not be complete, but we did have stuff written here and as such need to advance the dirty
             // record, since that's the last record at which data exists that we cna't overwrite.
             self.dirty_record.position = current_position;
-            self.dirty_record.length = previous_metadata.length;
-            self.dirty_record.counter = previous_metadata.counter;
+            self.dirty_record.length = metadata.length;
+            self.dirty_record.counter = metadata.counter;
 
-            if current_flash.suffix.is_complete() {
-                // Found a valid record, update the valid record data.
-                self.valid_record.position = current_position;
-                self.valid_record.counter = previous_metadata.counter;
-                self.valid_record.length = previous_metadata.length;
-                if previous_metadata.counter > current.counter || current.counter == 0 {
-                    // Amazing, we found a completed data record, and the counter is higher, so we found the boundary.
-                    break;
-                }
+            // Advance the current position to beyond the previous record, even it was not completed in full.
+            current_position += metadata.length + FlashMetadata::SIZE;
+            // If the next prefix is unused, we know we are done.
+            if current_flash.prefix.is_unused() {
+                println!("current flash prefix is unused");
+                break;
             }
 
-            current_position += previous_metadata.length + FlashMetadata::SIZE;
-            previous_metadata = current;
+            // Alternatively, if the prefix is NOT complete, we can advance by its size and continue
+            if !current_flash.prefix.is_complete() {
+                println!("Prefix incomplete, advancing ");
+                current_position += FlashPrefix::SIZE;
+            }
         }
 
         // Dirty is at least the valid record.
