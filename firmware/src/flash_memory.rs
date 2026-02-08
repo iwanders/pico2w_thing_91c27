@@ -291,6 +291,17 @@ struct EndMarker {
     marker: Marker,
     _pad: [u8; 3],
 }
+/* self.wrapping_state: EndMarkerDestroy
+ In EndMarkerDestroy data write: EndMarkerDestroy, with EndMarker { position: 8140, marker: Marker(236), _pad: [0, 0, 0] }
+   Starting sector erase at: 4096  aborted at: 8187
+ Reset!
+ No end marker
+ >>> 4096 * 2
+ 8192
+
+ looks like the position gets wrecked, but not yet the marker completely.
+*/
+
 impl EndMarker {
     pub const SIZE: usize = core::mem::size_of::<EndMarker>();
     fn holds_valid_entry(&self) -> Option<u32> {
@@ -1034,10 +1045,10 @@ mod test {
                 panic!();
                 return Err(TestFlashError::OutOfBounds(offset as usize + data.len()));
             }
-            traceln!(
-                "  Reading at {offset}: {:?}",
-                &self.data[offset as usize..(offset as usize + data.len())]
-            );
+            // traceln!(
+            //     "  Reading at {offset}: {:?}",
+            //     &self.data[offset as usize..(offset as usize + data.len())]
+            // );
             for (i, b) in data.iter_mut().enumerate() {
                 *b = self.data[offset as usize + i];
             }
@@ -1259,6 +1270,7 @@ mod test {
                 flash.set_fuel(Some(rng.random_range(1..=200)));
                 for f in 0..inner_iterations {
                     if mgr_persistence.is_none() {
+                        traceln!("Reset!");
                         mgr_persistence =
                             Some(RecordManager::new(&mut flash, start..end).await.unwrap());
                     }
