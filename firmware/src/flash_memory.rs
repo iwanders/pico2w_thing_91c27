@@ -474,20 +474,20 @@ impl RecordManager {
         &mut self,
         flash: &mut F,
     ) -> Result<(), F::Error> {
-        let mut end_marker: EndMarker;
-
-        if let Some(valid_entry) = self.valid_record() {
-            end_marker = EndMarker::valid_entry(valid_entry.position as u32);
-        } else {
-            // Can't be wrapping if we don't have data yet, somehow this function got called while the arena is still
-            // emtpy, so it should be good to return.
-            return Ok(());
-        }
-        end_marker.marker = end_marker.marker.with_state_set(self.wrapping_state);
         println!("self.wrapping_state: {:?}", self.wrapping_state);
         loop {
             match self.wrapping_state {
                 WrappingState::NormalWrite => {
+                    let mut end_marker: EndMarker;
+
+                    if let Some(valid_entry) = self.valid_record() {
+                        end_marker = EndMarker::valid_entry(valid_entry.position as u32);
+                    } else {
+                        // Can't be wrapping if we don't have data yet, somehow this function got called while the arena is still
+                        // emtpy, so it should be good to return.
+                        return Ok(());
+                    }
+                    end_marker.marker = end_marker.marker.with_state_set(self.wrapping_state);
                     // We're beginning the wrapping process.
                     // First order of business is encoding the valid entry into the end marker.
                     flash
@@ -496,6 +496,16 @@ impl RecordManager {
                     self.wrapping_state = end_marker.marker.to_state();
                 }
                 WrappingState::ValidEntryInEnd => {
+                    let mut end_marker: EndMarker;
+
+                    if let Some(valid_entry) = self.valid_record() {
+                        end_marker = EndMarker::valid_entry(valid_entry.position as u32);
+                    } else {
+                        // Can't be wrapping if we don't have data yet, somehow this function got called while the arena is still
+                        // emtpy, so it should be good to return.
+                        return Ok(());
+                    }
+                    end_marker.marker = end_marker.marker.with_state_set(self.wrapping_state);
                     // Next, we clear as many sectors as possible.
                     let start = self.arena_start as usize;
                     let valid_entry_pos = end_marker.position as usize;
@@ -525,6 +535,10 @@ impl RecordManager {
                 WrappingState::BeginningDataWrite => {
                     // Data has been written,, so we can destroy the end marker now since there's valid data at the start.
                     //let marker = Marker::new().with_state_set(WrappingState::EndMarkerDestroy);
+                    let mut end_marker: EndMarker = Default::default();
+                    flash
+                        .flash_read_into(self.writable_end(), &mut end_marker)
+                        .await?;
                     end_marker.marker = end_marker
                         .marker
                         .with_state_set(WrappingState::EndMarkerDestroy);
@@ -547,8 +561,9 @@ impl RecordManager {
                         .flash_read_into(self.writable_end(), &mut end_marker)
                         .await?;
                     println!(
-                        "In EndMarkerDestroy data write: {:?}",
-                        end_marker.marker.to_state()
+                        "In EndMarkerDestroy data write: {:?}, with {:?}",
+                        end_marker.marker.to_state(),
+                        end_marker
                     );
                     if let Some(entry) = end_marker.destroyed_entry() {
                         let start = entry as usize;
@@ -603,7 +618,7 @@ impl RecordManager {
             self.service_wrapping(flash).await?;
         }
 
-        // println!("New record: {:?}", new_record);
+        println!("New record: {:?}", new_record);
         // We write the data to the next record.
         let new_metadata = new_record.into_completed_metadata();
         let new_flash_metadata = new_metadata.into_flash();
@@ -618,19 +633,17 @@ impl RecordManager {
         position += data.len() as u32;
         flash.flash_write(position, suffix).await?;
 
-        // If we did a write to the start, we must also burn the end token.
-        // if new_record.position == self.writeable_start() {
-        // IW: This is not robust against half a write happening to the beginning.
-        if self.wrapping_state == WrappingState::BeginningEraseDone {
-            self.wrapping_state = WrappingState::BeginningDataWrite;
-            self.service_wrapping(flash).await?;
-        }
-        // }
-
+        // Write succeeded, so update its records.
         self.valid_record.position = new_record.position;
         self.valid_record.length = data.len() as u32;
         self.valid_record.counter = new_record.counter;
         self.dirty_record = self.valid_record;
+
+        // If we were in beginning erase done, we have now done beginning data write, and can wipe the remainder.
+        if self.wrapping_state == WrappingState::BeginningEraseDone {
+            self.wrapping_state = WrappingState::BeginningDataWrite;
+            self.service_wrapping(flash).await?;
+        }
 
         Ok(self.valid_record)
     }
@@ -887,7 +900,11 @@ mod test {
                 let current = self.data[offset as usize + i];
                 if let Some(f) = self.fuel.as_mut() {
                     if *f == 0 {
-                        traceln!(" aborting at {i} global pos {}", offset as usize + i);
+                        let c = &self.data[offset as usize..(offset as usize) + data.len()];
+                        traceln!(
+                            " aborting at {i} global pos {}, new data is {c:?}",
+                            offset as usize + i
+                        );
                         return Err(TestFlashError::NoFuelLeft);
                     } else {
                         if current != b {
@@ -1118,10 +1135,15 @@ mod test {
                         // Write failed, in this case the old value should still be present.
                         let mut v: u64 = 0;
                         if let Some(old_record) = mgr.valid_record() {
+                            traceln!(
+                                "Reading old record, which ought to be valid: {:?}",
+                                old_record
+                            );
                             mgr.record_read_into(&mut flash, &old_record, &mut v)
                                 .await
                                 .unwrap();
-                            assert_eq!(current_on_flash, v);
+                            // THe write may have gone through, despite it returning error.
+                            assert!(current_on_flash == v || current_on_flash == v - 1);
                         } else {
                             // This should only happen on the first cycle.
                             assert_eq!(highest_seen, 1);
@@ -1204,7 +1226,7 @@ mod test {
                         Ok(new_rec) => {
                             assert!(
                                 highest_counter < new_rec.counter,
-                                "new counter must always be higher than old counter"
+                                "new counter must always be higher than old counter highest: {highest_counter} new {:?}", new_rec
                             );
                             highest_counter = new_rec.counter;
 
@@ -1224,7 +1246,8 @@ mod test {
                                 mgr.record_read_into(&mut flash, &old_record, &mut v)
                                     .await
                                     .unwrap();
-                                assert_eq!(current_on_flash, v);
+                                // THe write may have gone through, despite it returning error.
+                                assert!(current_on_flash == v || current_on_flash == v - 1);
                             } else {
                                 // This should only happen on the first cycle.
                                 assert_eq!(highest_seen, 1);
