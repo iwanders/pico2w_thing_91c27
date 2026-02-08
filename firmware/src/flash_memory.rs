@@ -181,21 +181,67 @@ impl Record {
     pub fn to_range(&self) -> core::ops::Range<usize> {
         (self.position as usize)..((self.position + self.length) as usize)
     }
+    pub fn into_completed_metadata(&self) -> Metadata {
+        Metadata {
+            data_complete: true,
+            length: self.length,
+            counter: self.counter,
+        }
+    }
 }
 
-/// This is what is on the flash, the 'anchor' is after the data_complete byte, such that individual entries
-/// write their length first, followed by counter. That way, if power loss happens the length is already (partially)
-/// written and we just jump over a (possibly partially) used section.
-///
-/// todo; should we negate length? To ensure that u32, if only first byte is written doesn't result in 0x0FF_FFFF which
-/// is very large and effectively ruins all data in the arena size.
-#[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format, Default, Debug)]
-#[repr(C)]
-struct Metadata {
-    data_complete: u32,
-    length: u32,
-    counter: u32,
+mod module_to_make_private {
+    use super::*;
+    /// This is what is on the flash, the 'anchor' is after the data_complete byte, such that individual entries
+    /// write their length first, followed by counter. That way, if power loss happens the length is already (partially)
+    /// written and we just jump over a (possibly partially) used section.
+    ///
+    /// todo; should we negate length? To ensure that u32, if only first byte is written doesn't result in 0x0FF_FFFF which
+    /// is very large and effectively ruins all data in the arena size.
+    #[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format, Default, Debug)]
+    #[repr(C)]
+    pub struct FlashMetadata {
+        data_complete: u32,
+        length: u32,
+        counter: u32,
+    }
+    impl FlashMetadata {
+        pub const SIZE: u32 = core::mem::size_of::<FlashMetadata>() as u32;
+        pub fn into_metadata(&self) -> Metadata {
+            Metadata {
+                data_complete: self.is_complete(),
+                length: !self.length,
+                counter: !self.counter,
+            }
+        }
+        pub fn is_complete(&self) -> bool {
+            self.data_complete == DATA_COMPLETED
+        }
+        pub fn record_prefix(&self) -> &[u8] {
+            &self.as_bytes()[4..]
+        }
+        pub fn record_suffix(&self) -> &[u8] {
+            &self.as_bytes()[..4]
+        }
+    }
+
+    #[derive(PartialEq, Eq, defmt::Format, Default, Debug)]
+    pub struct Metadata {
+        pub data_complete: bool,
+        pub length: u32,
+        pub counter: u32,
+    }
+    impl Metadata {
+        pub fn into_flash(&self) -> FlashMetadata {
+            FlashMetadata {
+                data_complete: DATA_COMPLETED,
+                length: !self.length,
+                counter: !self.counter,
+            }
+        }
+    }
 }
+use module_to_make_private::{FlashMetadata, Metadata};
 
 #[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format, Default, Debug)]
 #[repr(C)]
@@ -260,14 +306,18 @@ impl RecordManager {
         // Handle pinned valid entry.
         if let Some(valid_end_entry) = end_marker.holds_valid_entry() {
             println!("Valid entry in end marker: {:?}", valid_end_entry);
-            let mut entry_metadata: Metadata = Default::default();
+            let mut entry_flash_metadata: FlashMetadata = Default::default();
             flash
-                .flash_read_into(valid_end_entry - 4, &mut entry_metadata)
+                .flash_read_into(
+                    valid_end_entry - entry_flash_metadata.record_suffix().len() as u32,
+                    &mut entry_flash_metadata,
+                )
                 .await?;
+            let metadata = entry_flash_metadata.into_metadata();
             self.valid_record = Record {
                 position: valid_end_entry,
-                length: entry_metadata.length,
-                counter: entry_metadata.counter,
+                length: metadata.length,
+                counter: metadata.counter,
             };
             self.dirty_record = Record {
                 position: self.writeable_start(),
@@ -280,22 +330,26 @@ impl RecordManager {
         // No end marker... just do the normal thing.
 
         const ITERATION_LIMIT: usize = 1024; // IW: todo; this is a bit of a hack...
-        let mut previous_metadata: Metadata = Default::default();
+        let mut previous_flash_metadata: FlashMetadata = Default::default();
         let mut current_position = self.valid_record.position;
         println!("current_position: {:?}", current_position);
         flash
-            .flash_read_into(current_position - 4, &mut previous_metadata)
+            .flash_read_into(
+                current_position - previous_flash_metadata.record_suffix().len() as u32,
+                &mut previous_flash_metadata,
+            )
             .await?;
+        let mut previous_metadata: Metadata = previous_flash_metadata.into_metadata();
         for _ in 0..ITERATION_LIMIT {
             println!("previous_metadata: {:?}", previous_metadata);
-            if previous_metadata.length == u32::MAX && previous_metadata.counter == u32::MAX {
+            if previous_metadata.length == 0 && previous_metadata.counter == 0 {
                 // Previous slot was never used.
                 // This means that previous position is where the record is.
                 break;
             }
             // Length and counter are real, so now we retrieve the next metadata block to see if the data was
             // actually finished.
-            let mut current: Metadata = Default::default();
+            let mut current_flash: FlashMetadata = Default::default();
             println!(
                 "current_position: {:?} length: {}",
                 current_position, previous_metadata.length
@@ -303,10 +357,11 @@ impl RecordManager {
             flash
                 .flash_read_into(
                     current_position - 4 + previous_metadata.length + 12,
-                    &mut current,
+                    &mut current_flash,
                 )
                 .await?;
-            if current.data_complete == DATA_COMPLETED {
+            let mut current: Metadata = current_flash.into_metadata();
+            if current.data_complete {
                 // Found a valid record, update the valid record data.
                 println!("valid record: {:?}", self.valid_record);
                 self.valid_record.position = current_position;
@@ -357,11 +412,11 @@ impl RecordManager {
     pub fn next_record(&self, data_length: usize) -> Record {
         let length = data_length as u32;
         let next_free = if self.dirty_record.counter != 0 {
-            self.dirty_record.position + self.dirty_record.length + 12
+            self.dirty_record.position + self.dirty_record.length + FlashMetadata::SIZE
         } else {
             self.dirty_record.position
         };
-        let with_data = next_free + length + 12;
+        let with_data = next_free + length + FlashMetadata::SIZE;
         let new_counter = self.dirty_record.counter + 1;
 
         let will_fit = with_data < self.writable_end();
@@ -492,16 +547,17 @@ impl RecordManager {
 
         println!("New record: {:?}", new_record);
         // We write the data to the next record.
-        let length_counter: [u32; 2] = [data.len() as u32, new_record.counter];
+        let new_metadata = new_record.into_completed_metadata();
+        let new_flash_metadata = new_metadata.into_flash();
+        let prefix = new_flash_metadata.record_prefix();
+        flash.flash_write(new_record.position, prefix).await?;
         flash
-            .flash_write(new_record.position, length_counter.as_bytes())
+            .flash_write(new_record.position + prefix.len() as u32, data)
             .await?;
-        flash.flash_write(new_record.position + 8, data).await?;
-        let write_done: u32 = DATA_COMPLETED;
         flash
             .flash_write(
-                new_record.position + 8 + data.len() as u32,
-                write_done.as_bytes(),
+                new_record.position + prefix.len() as u32 + data.len() as u32,
+                new_flash_metadata.record_suffix(),
             )
             .await?;
 
