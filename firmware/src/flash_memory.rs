@@ -102,9 +102,9 @@ impl WrappingState {
             WrappingState::NormalWrite => WrappingState::ValidEntryInEnd,
             WrappingState::ValidEntryInEnd => WrappingState::BeginningEraseDone,
             WrappingState::BeginningEraseDone => WrappingState::BeginningDataWrite,
-            WrappingState::BeginningDataWrite => WrappingState::BeginningDataWrite,
-            WrappingState::EndMarkerDestroy => WrappingState::EndMarkerDestroy,
-            WrappingState::EndErase => WrappingState::EndErase,
+            WrappingState::BeginningDataWrite => WrappingState::EndMarkerDestroy,
+            WrappingState::EndMarkerDestroy => WrappingState::EndErase,
+            WrappingState::EndErase => WrappingState::EndEraseDone,
             WrappingState::EndEraseDone => WrappingState::NormalWrite,
         }
     }
@@ -247,9 +247,10 @@ use module_to_make_private::{FlashMetadata, Metadata};
 #[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format, Default, Debug)]
 #[repr(C)]
 struct EndMarker {
+    position: u32,
+    // Do not change order, we must ensure that position is written BEFORE the marker.
     marker: Marker,
     _pad: [u8; 3],
-    position: u32,
 }
 impl EndMarker {
     pub const SIZE: usize = core::mem::size_of::<EndMarker>();
@@ -266,7 +267,10 @@ impl EndMarker {
     }
     pub fn destroyed_entry(&self) -> Option<u32> {
         let marker = self.marker.to_state();
-        if marker == WrappingState::EndMarkerDestroy {
+        if marker == WrappingState::EndMarkerDestroy
+            || marker == WrappingState::BeginningEraseDone
+            || marker == WrappingState::BeginningDataWrite
+        {
             Some(self.position)
         } else {
             None
@@ -308,7 +312,7 @@ impl RecordManager {
 
         // Handle pinned valid entry.
         if let Some(valid_end_entry) = end_marker.holds_valid_entry() {
-            // println!("Valid entry in end marker: {:?}", valid_end_entry);
+            println!("Valid entry in end marker: {:?}", valid_end_entry);
             let mut entry_flash_metadata: FlashMetadata = Default::default();
             flash
                 .flash_read_into(
@@ -330,6 +334,7 @@ impl RecordManager {
             // println!("metadata counter: {:?}", metadata.counter);
 
             if end_marker.marker.to_state() == WrappingState::BeginningEraseDone {
+                println!("Beginning erase done, trying to find relevant area");
                 // Advance from the start, until we've found an empty record.
                 let mut current_position = self.writeable_start();
 
@@ -357,7 +362,7 @@ impl RecordManager {
         }
 
         // No end marker... just do the normal thing.
-        // println!("No end marker");
+        println!("No end marker");
 
         let mut previous_flash_metadata: FlashMetadata = Default::default();
         let prefix_len = previous_flash_metadata.record_prefix().len() as u32;
@@ -479,7 +484,7 @@ impl RecordManager {
             return Ok(());
         }
         end_marker.marker = end_marker.marker.with_state_set(self.wrapping_state);
-
+        println!("self.wrapping_state: {:?}", self.wrapping_state);
         loop {
             match self.wrapping_state {
                 WrappingState::NormalWrite => {
@@ -504,17 +509,34 @@ impl RecordManager {
                     end_marker.marker = end_marker
                         .marker
                         .with_state_set(WrappingState::BeginningEraseDone);
+                    if false {
+                        flash
+                            .flash_write(self.writable_end(), end_marker.as_bytes())
+                            .await?;
+                    }
+                    self.wrapping_state = end_marker.marker.to_state();
+                }
+                WrappingState::BeginningEraseDone => {
+                    // Okay, so the start should be good to start writing data, we advance the state, but don't actually
+                    // write to the flash to ensure we just clear it again if we don't finish the write & burn of
+                    // the end marker.
+                    break;
+                }
+                WrappingState::BeginningDataWrite => {
+                    // Data has been written,, so we can destroy the end marker now since there's valid data at the start.
+                    //let marker = Marker::new().with_state_set(WrappingState::EndMarkerDestroy);
+                    end_marker.marker = end_marker
+                        .marker
+                        .with_state_set(WrappingState::EndMarkerDestroy);
+                    println!(
+                        "In beginning data write: {:?}",
+                        end_marker.marker.to_state()
+                    );
                     flash
                         .flash_write(self.writable_end(), end_marker.as_bytes())
                         .await?;
                     self.wrapping_state = end_marker.marker.to_state();
                 }
-                WrappingState::BeginningEraseDone => {
-                    // Okay, so the start should be good to start writing data to, that is not something that
-                    // this function will do, so we break out of this function.
-                    break;
-                }
-                WrappingState::BeginningDataWrite => todo!(),
                 WrappingState::EndMarkerDestroy => {
                     // The end marker is burnt, and we have real data at the beginning.
                     // Use the end marker one more time to retrieve where its value started, and then clear until
@@ -524,6 +546,10 @@ impl RecordManager {
                     flash
                         .flash_read_into(self.writable_end(), &mut end_marker)
                         .await?;
+                    println!(
+                        "In EndMarkerDestroy data write: {:?}",
+                        end_marker.marker.to_state()
+                    );
                     if let Some(entry) = end_marker.destroyed_entry() {
                         let start = entry as usize;
                         let end = (self.arena_start + self.arena_length) as usize;
@@ -538,6 +564,8 @@ impl RecordManager {
                         // Hmm, the state is that the marker is burnt, but reading it doesn't actually have a valid entry?
                         // self.wrapping_state = WrappingState::NormalWrite; // Just assume we're done?
                         // break;
+                        println!("end_marker: {:?}", end_marker);
+                        println!("end_marker: {:?}", end_marker.marker.to_state());
                         todo!(); // This should never happen. We need to handle this case properly.
                     }
                 }
@@ -594,12 +622,8 @@ impl RecordManager {
         // if new_record.position == self.writeable_start() {
         // IW: This is not robust against half a write happening to the beginning.
         if self.wrapping_state == WrappingState::BeginningEraseDone {
-            // Skip over BeginningDataWrite?
-            let marker = Marker::new().with_state_set(WrappingState::EndMarkerDestroy);
-            flash
-                .flash_write(self.writable_end(), marker.as_bytes())
-                .await?;
-            self.wrapping_state = WrappingState::EndMarkerDestroy;
+            self.wrapping_state = WrappingState::BeginningDataWrite;
+            self.service_wrapping(flash).await?;
         }
         // }
 
@@ -776,7 +800,7 @@ impl Iterator for EraseChunker {
 #[cfg(test)]
 mod test {
     use super::*;
-    const DO_PRINTS: bool = false;
+    const DO_PRINTS: bool = true;
 
     #[allow(unused_macros)]
     /// Helper print macro that can be enabled or disabled.
@@ -841,7 +865,7 @@ mod test {
         const SECTOR_SIZE: usize = 4096;
 
         async fn flash_write_page(&mut self, offset: u32, data: &[u8]) -> Result<(), Self::Error> {
-            trace!("Attempting to write {data:?} at {offset:?}");
+            trace!("  Attempting to write {data:?} at {offset:?}");
             // Check out of bounds.
             if offset as usize + data.len() > self.data.len() {
                 traceln!(" exceeds bounds");
@@ -852,7 +876,7 @@ mod test {
             if offset as usize / Self::PAGE_SIZE
                 != ((offset as usize + data.len() - 1) / Self::PAGE_SIZE)
             {
-                trace!(" exceeds page");
+                traceln!(" exceeds page");
                 return Err(TestFlashError::WriteExceedsPage);
             }
             let c = &self.data[offset as usize..(offset as usize) + data.len()];
@@ -863,7 +887,7 @@ mod test {
                 let current = self.data[offset as usize + i];
                 if let Some(f) = self.fuel.as_mut() {
                     if *f == 0 {
-                        trace!(" aborting at {i} global pos {}", offset as usize + i);
+                        traceln!(" aborting at {i} global pos {}", offset as usize + i);
                         return Err(TestFlashError::NoFuelLeft);
                     } else {
                         if current != b {
@@ -896,9 +920,11 @@ mod test {
             if offset % Self::SECTOR_SIZE as u32 != 0 {
                 return Err(TestFlashError::EraseOffsetIncorrect(offset as usize));
             }
+            trace!("  Starting sector erase at: {:?}", offset);
             for i in 0..Self::SECTOR_SIZE {
                 if let Some(f) = self.fuel.as_mut() {
                     if *f == 0 {
+                        traceln!("  aborted at: {:?}", offset as usize + i);
                         return Err(TestFlashError::NoFuelLeft);
                     } else {
                         if self.data[offset as usize + i] != 0xFF {
@@ -908,17 +934,19 @@ mod test {
                 }
                 self.data[offset as usize + i] = 0xFF;
             }
+            traceln!("  concluded.");
             Ok(())
         }
 
         async fn flash_read(&mut self, offset: u32, data: &mut [u8]) -> Result<(), Self::Error> {
             if offset as usize + data.len() > self.data.len() {
+                panic!();
                 return Err(TestFlashError::OutOfBounds(offset as usize + data.len()));
             }
-            // println!(
-            //     "Reading at {offset}: {:?}",
-            //     &self.data[offset as usize..(offset as usize + data.len())]
-            // );
+            traceln!(
+                "  Reading at {offset}: {:?}",
+                &self.data[offset as usize..(offset as usize + data.len())]
+            );
             for (i, b) in data.iter_mut().enumerate() {
                 *b = self.data[offset as usize + i];
             }
@@ -1052,7 +1080,7 @@ mod test {
 
                 // Create a new manager.
                 let mut mgr = RecordManager::new(&mut flash, start..end).await.unwrap();
-                traceln!("flash section: {:?}", &flash.data[0..256]);
+                //traceln!("flash section: {:?}", &flash.data[0..256]);
 
                 // Check if there is an existing value.
                 if let Some(existing_record) = mgr.valid_record() {
@@ -1147,7 +1175,7 @@ mod test {
 
                     // Create a new manager.
                     let mut mgr = mgr_persistence.as_mut().unwrap();
-                    traceln!("flash section: {:?}", &flash.data);
+                    //traceln!("flash section: {:?}", &flash.data);
 
                     // Check if there is an existing value.
                     if let Some(existing_record) = mgr.valid_record() {
