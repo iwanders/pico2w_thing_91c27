@@ -1,3 +1,4 @@
+use crate::static_assert_size;
 use zerocopy::{FromBytes, Immutable, IntoBytes, TryFromBytes};
 
 /// Trait to interact with flash memory.
@@ -52,7 +53,7 @@ pub trait FlashMemory {
 // We do not wrap entries around when we reach the end of the arena.
 //
 // On flash:
-//   Begin Marker u32.
+//   Begin Marker u32, this is a throwaway entry to allow uniform handling.
 //              <----- position
 //   Length: u32,
 //   Increment_counter: u32,
@@ -60,7 +61,7 @@ pub trait FlashMemory {
 //   Data_complete: u32, // mostly an u32 for lazy packing reasons.
 //
 //  ---
-//   End marker u32.
+//   End marker object (2xu32).
 //
 // If data complete is not actually written to be DATA_COMPLETED, it must not be used and the entry is considered 'burned'.
 //
@@ -76,16 +77,17 @@ pub trait FlashMemory {
 ///  - The new data is written to the beginning in the now erased area.
 ///  - The 'end marker is burned' bit is set in the end marker.
 ///  - The second half is erased and the begin marker is set to zero to indicate erasure has happened.
-#[derive(Eq, PartialEq, defmt::Format, Copy, Clone, PartialOrd, Ord, Hash, Debug)]
+#[derive(Eq, PartialEq, defmt::Format, Copy, Clone, PartialOrd, Ord, Hash, Debug, Default)]
 #[repr(u8)]
 enum WrappingState {
     /// Normal happy writing.
+    #[default]
     NormalWrite = 0,
     /// Valid entry address has been written to marker. Time to erase the beginning.
     ValidEntryInEnd = 1,
     /// Erase of everything up to the valid entry at the start has been done.
     BeginningEraseDone = 2,
-    /// Data has been written to the front again.
+    /// Data has been written to the front again, but it may be incomplete!
     BeginningDataWrite = 3,
     /// The end marker is burned, it should not be used to retrieve the valid entry, because the beginning has data.
     EndMarkerDestroy = 4,
@@ -93,6 +95,30 @@ enum WrappingState {
     EndErase = 5,
     /// The end erasure is done.
     EndEraseDone = 6,
+}
+impl WrappingState {
+    pub fn advanced(&mut self) -> WrappingState {
+        match self {
+            WrappingState::NormalWrite => WrappingState::ValidEntryInEnd,
+            WrappingState::ValidEntryInEnd => WrappingState::BeginningEraseDone,
+            WrappingState::BeginningEraseDone => WrappingState::BeginningDataWrite,
+            WrappingState::BeginningDataWrite => WrappingState::BeginningDataWrite,
+            WrappingState::EndMarkerDestroy => WrappingState::EndMarkerDestroy,
+            WrappingState::EndErase => WrappingState::EndErase,
+            WrappingState::EndEraseDone => WrappingState::NormalWrite,
+        }
+    }
+    pub fn is_servicable(&mut self) -> bool {
+        match self {
+            WrappingState::NormalWrite => false, // nothing to service, we're happily writing.
+            WrappingState::ValidEntryInEnd => true,
+            WrappingState::BeginningEraseDone => false, // we cleared the begining, it is ready for a write.
+            WrappingState::BeginningDataWrite => true,
+            WrappingState::EndMarkerDestroy => true,
+            WrappingState::EndErase => true,
+            WrappingState::EndEraseDone => true,
+        }
+    }
 }
 
 impl From<u8> for WrappingState {
@@ -115,7 +141,21 @@ impl From<u8> for WrappingState {
     }
 }
 
-#[derive(PartialEq, Eq, defmt::Format, Copy, Clone, PartialOrd, Ord, Hash, Debug)]
+#[derive(
+    PartialEq,
+    Eq,
+    defmt::Format,
+    Copy,
+    Clone,
+    PartialOrd,
+    Ord,
+    Hash,
+    Debug,
+    FromBytes,
+    IntoBytes,
+    Immutable,
+    Default,
+)]
 #[repr(transparent)]
 struct Marker(u8);
 impl Marker {
@@ -143,6 +183,12 @@ impl Record {
     }
 }
 
+/// This is what is on the flash, the 'anchor' is after the data_complete byte, such that individual entries
+/// write their length first, followed by counter. That way, if power loss happens the length is already (partially)
+/// written and we just jump over a (possibly partially) used section.
+///
+/// todo; should we negate length? To ensure that u32, if only first byte is written doesn't result in 0x0FF_FFFF which
+/// is very large and effectively ruins all data in the arena size.
 #[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format, Default, Debug)]
 #[repr(C)]
 struct Metadata {
@@ -150,6 +196,44 @@ struct Metadata {
     length: u32,
     counter: u32,
 }
+
+#[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format, Default, Debug)]
+#[repr(C)]
+struct EndMarker {
+    marker: Marker,
+    _pad: [u8; 3],
+    position: u32,
+}
+impl EndMarker {
+    pub const SIZE: usize = core::mem::size_of::<EndMarker>();
+    fn holds_valid_entry(&self) -> Option<u32> {
+        let marker = self.marker.to_state();
+        if marker == WrappingState::ValidEntryInEnd
+            || marker == WrappingState::BeginningEraseDone
+            || marker == WrappingState::BeginningDataWrite
+        {
+            Some(self.position)
+        } else {
+            None
+        }
+    }
+    pub fn destroyed_entry(&self) -> Option<u32> {
+        let marker = self.marker.to_state();
+        if marker == WrappingState::EndMarkerDestroy {
+            Some(self.position)
+        } else {
+            None
+        }
+    }
+    pub fn valid_entry(position: u32) -> Self {
+        Self {
+            marker: Marker::new().with_state_set(WrappingState::ValidEntryInEnd),
+            position,
+            ..Default::default()
+        }
+    }
+}
+static_assert_size!(EndMarker, 8);
 
 #[derive(PartialEq, Eq, defmt::Format, Default)]
 #[repr(C)]
@@ -160,13 +244,41 @@ pub struct RecordManager {
     valid_record: Record,
     /// The most advanced dirty record that may not have been written in full.
     dirty_record: Record,
+
+    wrapping_state: WrappingState,
 }
 
 impl RecordManager {
-    async fn initialise<F: FlashMemory>(
-        &mut self,
-        flash: &mut F,
-    ) -> Result<(Record, Record), F::Error> {
+    async fn initialise<F: FlashMemory>(&mut self, flash: &mut F) -> Result<(), F::Error> {
+        // Special case, check the end token.
+        let mut end_marker: EndMarker = Default::default();
+        flash
+            .flash_read_into(self.writable_end(), &mut end_marker)
+            .await?;
+        self.wrapping_state = end_marker.marker.to_state();
+
+        // Handle pinned valid entry.
+        if let Some(valid_end_entry) = end_marker.holds_valid_entry() {
+            println!("Valid entry in end marker: {:?}", valid_end_entry);
+            let mut entry_metadata: Metadata = Default::default();
+            flash
+                .flash_read_into(valid_end_entry - 4, &mut entry_metadata)
+                .await?;
+            self.valid_record = Record {
+                position: valid_end_entry,
+                length: entry_metadata.length,
+                counter: entry_metadata.counter,
+            };
+            self.dirty_record = Record {
+                position: self.writeable_start(),
+                length: 0,
+                counter: 0,
+            };
+            return Ok(());
+        }
+
+        // No end marker... just do the normal thing.
+
         const ITERATION_LIMIT: usize = 1024; // IW: todo; this is a bit of a hack...
         let mut previous_metadata: Metadata = Default::default();
         let mut current_position = self.valid_record.position;
@@ -174,16 +286,6 @@ impl RecordManager {
         flash
             .flash_read_into(current_position - 4, &mut previous_metadata)
             .await?;
-        let mut valid_record = Record {
-            position: self.valid_record.position,
-            length: 0,
-            counter: 0,
-        };
-        let mut dirty_record = Record {
-            position: self.dirty_record.position,
-            length: 0,
-            counter: 0,
-        };
         for _ in 0..ITERATION_LIMIT {
             println!("previous_metadata: {:?}", previous_metadata);
             if previous_metadata.length == u32::MAX && previous_metadata.counter == u32::MAX {
@@ -206,10 +308,10 @@ impl RecordManager {
                 .await?;
             if current.data_complete == DATA_COMPLETED {
                 // Found a valid record, update the valid record data.
-                println!("valid record: {:?}", valid_record);
-                valid_record.position = current_position;
-                valid_record.counter = previous_metadata.counter;
-                valid_record.length = previous_metadata.length;
+                println!("valid record: {:?}", self.valid_record);
+                self.valid_record.position = current_position;
+                self.valid_record.counter = previous_metadata.counter;
+                self.valid_record.length = previous_metadata.length;
                 if previous_metadata.counter > current.counter || current.counter == u32::MAX {
                     // Amazing, we found a completed data record, and the counter is higher, so we found the boundary.
                     break;
@@ -217,17 +319,17 @@ impl RecordManager {
             }
             // Data may or may not be complete, but we did have stuff written here and as such need to advance the dirty
             // record, since that's the last record at which data exists.
-            dirty_record.position = current_position;
-            dirty_record.length = previous_metadata.length;
-            dirty_record.counter = previous_metadata.counter;
+            self.dirty_record.position = current_position;
+            self.dirty_record.length = previous_metadata.length;
+            self.dirty_record.counter = previous_metadata.counter;
 
             current_position += previous_metadata.length + 12;
             previous_metadata = current;
         }
 
-        println!("valid_record : {:?}", valid_record);
-        println!("dirty_record : {:?}", dirty_record);
-        Ok((valid_record, dirty_record))
+        println!("valid_record : {:?}", self.valid_record);
+        println!("dirty_record : {:?}", self.dirty_record);
+        Ok(())
     }
 
     pub async fn new<F: FlashMemory>(
@@ -241,13 +343,12 @@ impl RecordManager {
         };
         z.valid_record.position = z.writeable_start();
         z.dirty_record.position = z.writeable_start();
-        let recent = z.initialise(flash).await?;
-        (z.valid_record, z.dirty_record) = recent;
+        z.initialise(flash).await?;
         Ok(z)
     }
 
     fn writable_end(&self) -> u32 {
-        self.arena_start + self.arena_length - 4
+        self.arena_start + self.arena_length - EndMarker::SIZE as u32
     }
     fn writeable_start(&self) -> u32 {
         self.arena_start + 4
@@ -279,6 +380,91 @@ impl RecordManager {
         }
     }
 
+    pub async fn service_wrapping<F: FlashMemory>(
+        &mut self,
+        flash: &mut F,
+    ) -> Result<(), F::Error> {
+        let mut end_marker: EndMarker;
+
+        if let Some(valid_entry) = self.valid_record() {
+            end_marker = EndMarker::valid_entry(valid_entry.position as u32);
+        } else {
+            // Can't be wrapping if we don't have data yet, somehow this function got called while the arena is still
+            // emtpy, so it should be good to return.
+            return Ok(());
+        }
+        end_marker.marker = end_marker.marker.with_state_set(self.wrapping_state);
+
+        loop {
+            match self.wrapping_state {
+                WrappingState::NormalWrite => {
+                    // We're beginning the wrapping process.
+                    // First order of business is encoding the valid entry into the end marker.
+                    flash
+                        .flash_write(self.writable_end(), end_marker.as_bytes())
+                        .await?;
+                    self.wrapping_state = end_marker.marker.to_state();
+                }
+                WrappingState::ValidEntryInEnd => {
+                    // Next, we clear as many sectors as possible.
+                    let start = self.arena_start as usize;
+                    let valid_entry_pos = end_marker.position as usize;
+                    // We do NOT want to clear the sector that has the valid entry pos.
+                    let before_valid_sector = valid_entry_pos - (valid_entry_pos % F::SECTOR_SIZE);
+                    for e in EraseChunker::new(F::SECTOR_SIZE, start..before_valid_sector) {
+                        flash.flash_erase_sector(e.offset as u32).await?;
+                        flash.flash_flush().await?;
+                    }
+                    // Now that the clear is complete, we need to advance wrapping state and the end marker.
+                    end_marker.marker = end_marker
+                        .marker
+                        .with_state_set(WrappingState::BeginningEraseDone);
+                    flash
+                        .flash_write(self.writable_end(), end_marker.as_bytes())
+                        .await?;
+                    self.wrapping_state = end_marker.marker.to_state();
+                }
+                WrappingState::BeginningEraseDone => {
+                    // Okay, so the start should be good to start writing data to, that is not something that
+                    // this function will do, so we break out of this function.
+                    break;
+                }
+                WrappingState::BeginningDataWrite => todo!(),
+                WrappingState::EndMarkerDestroy => {
+                    // The end marker is burnt, and we have real data at the beginning.
+                    // Use the end marker one more time to retrieve where its value started, and then clear until
+                    // the end of the block.
+                    // Special case, check the end token.
+                    let mut end_marker: EndMarker = Default::default();
+                    flash
+                        .flash_read_into(self.writable_end(), &mut end_marker)
+                        .await?;
+                    if let Some(entry) = end_marker.destroyed_entry() {
+                        let start = entry as usize;
+                        let end = (self.arena_start + self.arena_length) as usize;
+                        for e in EraseChunker::new(F::SECTOR_SIZE, start..end) {
+                            flash.flash_erase_sector(e.offset as u32).await?;
+                            flash.flash_flush().await?;
+                        }
+                        // This cleared the end marker, so we're done?
+                        self.wrapping_state = WrappingState::NormalWrite;
+                        break;
+                    } else {
+                        // Hmm, the state is that the marker is burnt, but reading it doesn't actually have a valid entry?
+                        // self.wrapping_state = WrappingState::NormalWrite; // Just assume we're done?
+                        // break;
+                        todo!(); // This should never happen. We need to handle this case properly.
+                    }
+                }
+                WrappingState::EndErase => todo!(),
+                WrappingState::EndEraseDone => {
+                    break;
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub async fn update_record<F: FlashMemory>(
         &mut self,
         flash: &mut F,
@@ -295,29 +481,17 @@ impl RecordManager {
 
         let new_record = self.next_record(data.len());
 
+        // If the data is wrapping... service wrapping until the front section is available for writing.
         if new_record.position < self.valid_record.position {
-            // We're wrapping, burn the end marker.
-            // Wipe from the start to ensure this data can fit.
-            flash
-                .flash_write(self.writable_end(), self.valid_record.position.as_bytes())
-                .await?;
-
-            // This here leaves a bit of a problem... we don't actually check if the current valid record overlaps
-            // with the section we have to clear, if that happens... we can't handle this situation since we need to
-            // wipe the current record on disk... this should not happen as long as the values are < half arena
-            // which seems exceedingly rare..
-
-            // Clear the front sectors.
-            for c in EraseChunker::new(F::SECTOR_SIZE, new_record.to_range()) {
-                flash.flash_erase_sector(c.offset as u32).await?;
-                flash.flash_flush().await?;
-            }
-
-            // Now that the front sectors are empty, we can just continue with the write to the first sector.
+            self.service_wrapping(flash).await?;
+        }
+        println!(" self.wrapping_state: {:?}", self.wrapping_state);
+        if self.wrapping_state.is_servicable() {
+            self.service_wrapping(flash).await?;
         }
 
-        // It will fit. yay.
-        // Write; length, counter, data
+        println!("New record: {:?}", new_record);
+        // We write the data to the next record.
         let length_counter: [u32; 2] = [data.len() as u32, new_record.counter];
         flash
             .flash_write(new_record.position, length_counter.as_bytes())
@@ -330,6 +504,19 @@ impl RecordManager {
                 write_done.as_bytes(),
             )
             .await?;
+
+        // If we did a write to the start, we must also burn the end token.
+        if new_record.position == self.writeable_start() {
+            if self.wrapping_state == WrappingState::BeginningEraseDone {
+                // Skip over BeginningDataWrite?
+                let marker = Marker::new().with_state_set(WrappingState::EndMarkerDestroy);
+                flash
+                    .flash_write(self.writable_end(), marker.as_bytes())
+                    .await?;
+                self.wrapping_state = WrappingState::EndMarkerDestroy;
+            }
+        }
+
         self.valid_record.position = new_record.position;
         self.valid_record.length = data.len() as u32;
         self.valid_record.counter = new_record.counter;
@@ -634,16 +821,36 @@ mod test {
             // There's now less than 1/4 * TestFlash::SECTOR_SIZE left... so adding a large record will wrap around.
             let mut large_data = [1u8; TestFlash::SECTOR_SIZE / 2];
             record = mgr.update_record(&mut flash, &large_data).await?;
+            println!("Z Reading record: {:?}", record);
 
-            let mut mgr =
-                RecordManager::new(&mut flash, 0..((TestFlash::SECTOR_SIZE * 4) as u32)).await?;
+            let mut mgr = RecordManager::new(&mut flash, 0..((TestFlash::SECTOR_SIZE * 4) as u32))
+                .await
+                .unwrap();
             let record = mgr.valid_record();
             assert_eq!(record.is_some(), true);
             let record = record.unwrap();
+            println!("BIG read record: {:?}", record);
             large_data.fill(0);
             mgr.record_read_into(&mut flash, &record, &mut large_data)
                 .await?;
             assert_eq!(large_data, [1u8; TestFlash::SECTOR_SIZE / 2]);
+
+            // On the next write, we should do the remainder of the flash servicing... lets also make yet another mgr
+            let mut mgr = RecordManager::new(&mut flash, 0..((TestFlash::SECTOR_SIZE * 4) as u32))
+                .await
+                .unwrap();
+            let data: u32 = 55;
+            let record = mgr.update_record(&mut flash, data.as_bytes()).await?;
+            assert_eq!(record.position, 4);
+
+            // Verify the end of the flash is filled with 1s, becuase that means we correctly cleared it.
+            assert_eq!(
+                flash.data[(TestFlash::SECTOR_SIZE * 3)..]
+                    .iter()
+                    .all(|&x| x == 0xFF),
+                true,
+                "Flash should be filled with 1s at the end"
+            );
 
             Ok(())
         }())

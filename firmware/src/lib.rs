@@ -617,3 +617,11 @@ pub mod program {
         /**/
     }
 }
+
+// https://github.com/rust-lang/rust/blob/1bd4fdc943513e1004f498bbf289279c9784fc6f/compiler/rustc_data_structures/src/macros.rs#L3
+#[macro_export]
+macro_rules! static_assert_size {
+    ($ty:ty, $size:expr) => {
+        const _: [(); $size] = [(); ::core::mem::size_of::<$ty>()];
+    };
+}
