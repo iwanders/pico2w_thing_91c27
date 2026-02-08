@@ -111,6 +111,10 @@ embassy-futures = "0.1.2"
 # I need an async executor to run the tests.
 smol = "2.0.2"
 
+# Some stuff to fuzz deterministically
+rand_chacha = "0.10.0"
+rand = "0.10.0"
+
 embassy-time = { version = "0.5", features = [
     "defmt",
     "defmt-timestamp-uptime",
