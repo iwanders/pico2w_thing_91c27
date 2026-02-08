@@ -1,5 +1,50 @@
+//! Most of this file is handling of the [`RecordManager`].
+//!
+//! This manages a range of sectors on the flash, it allows writing a single record there. The most recent update is
+//! always used. It gracefully (well, hopefully) handles any write interruptions that may occur due to power down.
+//!
+//! Need to ensure that the metadata is at the end of the write, such that it is written only after the data.
+//! Record can be any length, but is always consecutive.
+//!
+//! The first 4 bytes of the arena are not used.
+//! At the end of the arena is the EndMarker. The endmarker is used when we need to wrap the data and perform clearing.
+//!
+//! The length and counter are stored inverted, such that partial writes result in small numbers instead of big numbers.
+//!
+//! On flash:
+//! ```nocode
+//!   Begin Marker u32, this is a throwaway entry to allow uniform handling.
+//!              <----- position
+//!   Length: u32,            \
+//!   Increment_counter: u32, | FlashPrefix
+//!   Prefix complete: u32    / prefix complete necesarry to detect power downs while the prefix is written.
+//!   Data: [u8]
+//!   Data_complete: u32, // FlashSuffix <- denotes the data was written in full and creates a valid record.
+//!
+//!  ---
+//!   End marker object (2xu32).
+//! ```
+//!
+//! When wrapping needs to happen, the following is performed:
+//!  - The position of the currently valid entry is burned into the end marker.
+//!    - Reinitialisation will now take the valid entry from the end marker.
+//!    - The next free value is always at the start.
+//!  - The sectors before the sector with valid entry is erased.
+//!    - When it is necessary to write only.
+//!    - If interruption happens here, the sectors before the valid entry will be erased again.
+//!  - The next record is written to the front.
+//!  - The end marker is written to to denote there's new data at at the front now.
+//!    - Power interruption will no longer cause the front data to be erased again.
+//!    - The entry stored in the end marker is no longer used.
+//!  - The sectors from the entry in the end marker but not the last are erased.
+//!    - We do this in two steps such that if we end up erasing the location of the entry in the end marker
+//!      but not the endmarker in full, we don't get an empty interval of sectors to clear.
+//!  - The end marker gets another update to denote its sector is now to be done.
+//!  - The last sector gets removed, clearing the end marker.
+//!
+//!
 use crate::static_assert_size;
-use zerocopy::{FromBytes, Immutable, IntoBytes, TryFromBytes};
+use zerocopy::{FromBytes, Immutable, IntoBytes};
 
 /// Trait to interact with flash memory.
 #[allow(async_fn_in_trait)]
@@ -43,30 +88,6 @@ pub trait FlashMemory {
     }
 }
 
-// Need to ensure that the metadata is at the end of the write, such that it is written only at the end.
-// Record can be any length.
-//
-// The first 4 byte and the last four bytes of the arena are special.
-//  The last 4 bytes if they are not 0xFF.. hold the address of the valid record when the front gets wiped and re-used.
-//  The first 4 bytes are not used to allow uniform handling of iterating to find the data.
-//
-// We do not wrap entries around when we reach the end of the arena.
-//
-// On flash:
-//   Begin Marker u32, this is a throwaway entry to allow uniform handling.
-//              <----- position
-//   Length: u32,
-//   Increment_counter: u32,
-//   Data: [u8]
-//   Data_complete: u32, // mostly an u32 for lazy packing reasons.
-//
-//  ---
-//   End marker object (2xu32).
-//
-// If data complete is not actually written to be DATA_COMPLETED, it must not be used and the entry is considered 'burned'.
-//
-//
-
 /// State machine for the wrapping situation.
 ///
 /// We need some special handling for the wrap-around. If there is data to be written that requires the wrap around
@@ -85,9 +106,9 @@ enum WrappingState {
     NormalWrite = 0,
     /// Valid entry address has been written to marker. Time to erase the beginning.
     ValidEntryInEnd = 1,
-    /// Erase of everything up to the valid entry at the start has been done.
+    /// This is a transient state internally, never ends up in the flash.
     BeginningEraseDone = 2,
-    /// Data has been written to the front again, but it may be incomplete!
+    /// Data has been written to the front again completely, never ends up in the flash.
     BeginningDataWrite = 3,
     /// The end marker is burned, it should not be used to retrieve the valid entry, because the beginning has data.
     EndMarkerDestroy = 4,
@@ -189,6 +210,8 @@ impl Record {
     }
 }
 
+// We use this module to ensure without a doubt that the private member attributes of these on-flash structs aren't
+// accidentally accessed
 mod module_to_make_private {
     use super::*;
 
@@ -291,16 +314,6 @@ struct EndMarker {
     marker: Marker,
     _pad: [u8; 3],
 }
-/* self.wrapping_state: EndMarkerDestroy
- In EndMarkerDestroy data write: EndMarkerDestroy, with EndMarker { position: 8140, marker: Marker(236), _pad: [0, 0, 0] }
-   Starting sector erase at: 4096  aborted at: 8187
- Reset!
- No end marker
- >>> 4096 * 2
- 8192
-
- looks like the position gets wrecked, but not yet the marker completely.
-*/
 
 impl EndMarker {
     pub const SIZE: usize = core::mem::size_of::<EndMarker>();
@@ -336,6 +349,7 @@ impl EndMarker {
 }
 static_assert_size!(EndMarker, 8);
 
+/// A manager to store a record in flash, handling power interruptions and wear levelling.
 #[derive(PartialEq, Eq, defmt::Format, Default)]
 #[repr(C)]
 pub struct RecordManager {
