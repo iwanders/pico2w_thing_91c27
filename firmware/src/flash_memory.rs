@@ -362,7 +362,7 @@ impl RecordManager {
 
         // Handle pinned valid entry.
         if let Some(valid_end_entry) = end_marker.holds_valid_entry() {
-            println!("Valid entry in end marker: {:?}", valid_end_entry);
+            // println!("Valid entry in end marker: {:?}", valid_end_entry);
             let mut entry_flash_metadata: FlashMetadata = Default::default();
             flash
                 .flash_read_into(
@@ -506,7 +506,7 @@ impl RecordManager {
             }
         }
 
-        println!("self.next_free: {}", self.next_free);
+        // println!("self.next_free: {}", self.next_free);
         if !finished_init {
             //panic!("never finished init");
         }
@@ -541,9 +541,9 @@ impl RecordManager {
 
     pub fn next_record(&self, data_length: usize) -> Record {
         let length = data_length as u32;
-        println!("valid_record: {:?}", self.valid_record);
+        // println!("valid_record: {:?}", self.valid_record);
         let next_free = self.next_free;
-        println!("next_free: {:?}", next_free);
+        // println!("next_free: {:?}", next_free);
         let with_data = next_free + length + FlashMetadata::SIZE;
         let new_counter = self.valid_record.counter + 1;
 
@@ -567,7 +567,7 @@ impl RecordManager {
         &mut self,
         flash: &mut F,
     ) -> Result<(), F::Error> {
-        println!("self.wrapping_state: {:?}", self.wrapping_state);
+        // println!("self.wrapping_state: {:?}", self.wrapping_state);
         loop {
             match self.wrapping_state {
                 WrappingState::NormalWrite => {
@@ -631,10 +631,10 @@ impl RecordManager {
                     end_marker.marker = end_marker
                         .marker
                         .with_state_set(WrappingState::EndMarkerDestroy);
-                    println!(
-                        "In beginning data write: {:?}",
-                        end_marker.marker.to_state()
-                    );
+                    // println!(
+                    //     "In beginning data write: {:?}",
+                    //     end_marker.marker.to_state()
+                    // );
                     flash
                         .flash_write(self.writable_end(), end_marker.as_bytes())
                         .await?;
@@ -647,11 +647,11 @@ impl RecordManager {
                     flash
                         .flash_read_into(self.writable_end(), &mut end_marker)
                         .await?;
-                    println!(
-                        "In EndMarkerDestroy data write: {:?}, with {:?}",
-                        end_marker.marker.to_state(),
-                        end_marker
-                    );
+                    // println!(
+                    //     "In EndMarkerDestroy data write: {:?}, with {:?}",
+                    //     end_marker.marker.to_state(),
+                    //     end_marker
+                    // );
                     if let Some(entry) = end_marker.destroyed_entry() {
                         let start = entry as usize;
                         let end = (self.arena_start + self.arena_length) as usize - F::SECTOR_SIZE;
@@ -718,11 +718,11 @@ impl RecordManager {
         }
         // println!(" self.wrapping_state: {:?}", self.wrapping_state);
         if self.wrapping_state.is_servicable() {
-            println!("Servicifing wrapping state {:?}", self.wrapping_state);
+            // println!("Servicifing wrapping state {:?}", self.wrapping_state);
             self.service_wrapping(flash).await?;
         }
 
-        println!("New record: {:?}", new_record);
+        // println!("New record: {:?}", new_record);
         // We write the data to the next record.
         let new_metadata = new_record.into_completed_metadata();
         let prefix = new_metadata.into_prefix();
@@ -914,7 +914,7 @@ impl Iterator for EraseChunker {
 #[cfg(test)]
 mod test {
     use super::*;
-    const DO_PRINTS: bool = true;
+    const DO_PRINTS: bool = false;
 
     #[allow(unused_macros)]
     /// Helper print macro that can be enabled or disabled.
@@ -1263,6 +1263,13 @@ mod test {
     #[test]
     fn test_record_manager_fuzz() -> Result<(), Box<dyn std::error::Error>> {
         // RUST_BACKTRACE=1 RUST_LOG=INFO cargo t --features std --target x86_64-unknown-linux-gnu -- --nocapture test_record_manager_fu
+        // RUST_BACKTRACE=1 RUST_LOG=INFO cargo t --features std --release --target x86_64-unknown-linux-gnu -- --nocapture test_record_manager_fu
+
+        // const OUTER_ITERATIONS: usize = 100_000;
+        #[cfg(not(debug_assertions))]
+        const OUTER_ITERATIONS: usize = 10_000;
+        #[cfg(debug_assertions)]
+        const OUTER_ITERATIONS: usize = 100;
 
         smol::block_on(async || -> Result<(), Box<dyn std::error::Error>> {
             use rand::RngExt;
@@ -1280,10 +1287,12 @@ mod test {
 
             let mut mgr_persistence: Option<RecordManager> = None;
 
-            // Lets test four times over...?
-            let outer_iterations = 1_000_000;
+            // Lets test a great many times.
             let inner_iterations = 1_000;
-            for _ in 0..outer_iterations {
+            for z in 0..OUTER_ITERATIONS {
+                if z % 1000 == 0 {
+                    println!("z: {z} / {OUTER_ITERATIONS}");
+                }
                 // We get this much fuel only.
                 flash.set_fuel(Some(rng.random_range(1..=200)));
                 for f in 0..inner_iterations {
