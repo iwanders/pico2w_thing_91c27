@@ -183,7 +183,6 @@ impl Record {
     }
     pub fn into_completed_metadata(&self) -> Metadata {
         Metadata {
-            data_complete: true,
             length: self.length,
             counter: self.counter,
         }
@@ -192,6 +191,47 @@ impl Record {
 
 mod module_to_make_private {
     use super::*;
+
+    const PREFIX_COMPLETE: u32 = 1337;
+    #[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format, Default, Debug)]
+    #[repr(C)]
+    pub struct FlashSuffix {
+        data_complete: u32,
+    }
+    crate::static_assert_size!(FlashSuffix, 4);
+    impl FlashSuffix {
+        pub const SIZE: u32 = core::mem::size_of::<FlashSuffix>() as u32;
+        pub fn is_complete(&self) -> bool {
+            self.data_complete == DATA_COMPLETED
+        }
+
+        pub fn completed(prefix: &FlashPrefix) -> Self {
+            Self {
+                data_complete: DATA_COMPLETED,
+            }
+        }
+    }
+
+    #[derive(
+        PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format, Default, Debug, Copy, Clone,
+    )]
+    #[repr(C)]
+    pub struct FlashPrefix {
+        length: u32,
+        counter: u32,
+        prefix_complete: u32,
+    }
+    crate::static_assert_size!(FlashPrefix, 12);
+    impl FlashPrefix {
+        pub const SIZE: u32 = core::mem::size_of::<FlashPrefix>() as u32;
+        pub fn is_complete(&self) -> bool {
+            self.prefix_complete == PREFIX_COMPLETE
+        }
+        pub fn to_metadata(&self) -> Option<Metadata> {
+            Metadata::from_prefix(self)
+        }
+    }
+
     /// This is what is on the flash, the 'anchor' is after the data_complete byte, such that individual entries
     /// write their length first, followed by counter. That way, if power loss happens the length is already (partially)
     /// written and we just jump over a (possibly partially) used section.
@@ -201,48 +241,43 @@ mod module_to_make_private {
     #[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format, Default, Debug)]
     #[repr(C)]
     pub struct FlashMetadata {
-        data_complete: u32,
-        length: u32,
-        counter: u32,
+        pub suffix: FlashSuffix,
+        pub prefix: FlashPrefix,
     }
-    crate::static_assert_size!(FlashMetadata, 12);
+    crate::static_assert_size!(
+        FlashMetadata,
+        FlashSuffix::SIZE as usize + FlashPrefix::SIZE as usize
+    );
     impl FlashMetadata {
         pub const SIZE: u32 = core::mem::size_of::<FlashMetadata>() as u32;
-        pub fn into_metadata(&self) -> Metadata {
-            Metadata {
-                data_complete: self.is_complete(),
-                length: !self.length,
-                counter: !self.counter,
-            }
-        }
-        pub fn is_complete(&self) -> bool {
-            self.data_complete == DATA_COMPLETED
-        }
-        pub fn record_prefix(&self) -> &[u8] {
-            &self.as_bytes()[4..]
-        }
-        pub fn record_suffix(&self) -> &[u8] {
-            &self.as_bytes()[..4]
-        }
     }
 
     #[derive(PartialEq, Eq, defmt::Format, Default, Debug)]
     pub struct Metadata {
-        pub data_complete: bool,
         pub length: u32,
         pub counter: u32,
     }
     impl Metadata {
-        pub fn into_flash(&self) -> FlashMetadata {
-            FlashMetadata {
-                data_complete: DATA_COMPLETED,
+        pub fn from_prefix(prefix: &FlashPrefix) -> Option<Metadata> {
+            if prefix.is_complete() {
+                Some(Metadata {
+                    length: !prefix.length,
+                    counter: !prefix.counter,
+                })
+            } else {
+                None
+            }
+        }
+        pub fn into_prefix(&self) -> FlashPrefix {
+            FlashPrefix {
                 length: !self.length,
                 counter: !self.counter,
+                prefix_complete: PREFIX_COMPLETE,
             }
         }
     }
 }
-use module_to_make_private::{FlashMetadata, Metadata};
+use module_to_make_private::{FlashMetadata, FlashPrefix, FlashSuffix, Metadata};
 
 #[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format, Default, Debug)]
 #[repr(C)]
@@ -316,21 +351,24 @@ impl RecordManager {
             let mut entry_flash_metadata: FlashMetadata = Default::default();
             flash
                 .flash_read_into(
-                    valid_end_entry - entry_flash_metadata.record_suffix().len() as u32,
+                    valid_end_entry - FlashSuffix::SIZE,
                     &mut entry_flash_metadata,
                 )
                 .await?;
-            let metadata = entry_flash_metadata.into_metadata();
-            self.valid_record = Record {
-                position: valid_end_entry,
-                length: metadata.length,
-                counter: metadata.counter,
-            };
-            self.dirty_record = Record {
-                position: self.writeable_start(),
-                length: 0,
-                counter: metadata.counter,
-            };
+            let prefix = entry_flash_metadata.prefix;
+            // Next, retrieve the suffix.
+            if let Some(metadata) = prefix.to_metadata() {
+                self.valid_record = Record {
+                    position: valid_end_entry,
+                    length: metadata.length,
+                    counter: metadata.counter,
+                };
+                self.dirty_record = Record {
+                    position: self.writeable_start(),
+                    length: 0,
+                    counter: metadata.counter,
+                };
+            }
             // println!("metadata counter: {:?}", metadata.counter);
 
             if end_marker.marker.to_state() == WrappingState::BeginningEraseDone {
@@ -340,18 +378,18 @@ impl RecordManager {
 
                 for _ in 0..ITERATION_LIMIT {
                     let mut current_flash: FlashMetadata = Default::default();
-                    let prefix_len = current_flash.record_prefix().len() as u32;
-                    let suffix_len = current_flash.record_suffix().len() as u32;
+                    let prefix_len = FlashPrefix::SIZE;
+                    let suffix_len = FlashSuffix::SIZE;
                     flash
                         .flash_read_into(current_position - suffix_len, &mut current_flash)
                         .await?;
-                    let mut current: Metadata = current_flash.into_metadata();
+                    let mut current: Metadata = current_flash.prefix.to_metadata().unwrap();
                     if current.length == 0 && current.counter == 0 {
                         // Empty slot located!
                         self.dirty_record = Record {
                             position: current_position,
                             length: 0,
-                            counter: metadata.counter,
+                            counter: current.counter,
                         };
                         return Ok(());
                     }
@@ -365,14 +403,18 @@ impl RecordManager {
         println!("No end marker");
 
         let mut previous_flash_metadata: FlashMetadata = Default::default();
-        let prefix_len = previous_flash_metadata.record_prefix().len() as u32;
-        let suffix_len = previous_flash_metadata.record_suffix().len() as u32;
+        let prefix_len = FlashPrefix::SIZE;
+        let suffix_len = FlashSuffix::SIZE;
         let mut current_position = self.valid_record.position;
         // println!("current_position: {:?}", current_position);
         flash
             .flash_read_into(current_position - suffix_len, &mut previous_flash_metadata)
             .await?;
-        let mut previous_metadata: Metadata = previous_flash_metadata.into_metadata();
+
+        let mut previous_metadata: Metadata = previous_flash_metadata
+            .prefix
+            .to_metadata()
+            .unwrap_or_default();
         for _ in 0..ITERATION_LIMIT {
             if previous_metadata.length == 0 && previous_metadata.counter == 0 {
                 // Previous slot was never used.
@@ -392,7 +434,7 @@ impl RecordManager {
                     &mut current_flash,
                 )
                 .await?;
-            let mut current: Metadata = current_flash.into_metadata();
+            let mut current: Metadata = current_flash.prefix.to_metadata().unwrap_or_default();
 
             // Data may or may not be complete, but we did have stuff written here and as such need to advance the dirty
             // record, since that's the last record at which data exists that we cna't overwrite.
@@ -400,7 +442,7 @@ impl RecordManager {
             self.dirty_record.length = previous_metadata.length;
             self.dirty_record.counter = previous_metadata.counter;
 
-            if current.data_complete {
+            if current_flash.suffix.is_complete() {
                 // Found a valid record, update the valid record data.
                 self.valid_record.position = current_position;
                 self.valid_record.counter = previous_metadata.counter;
@@ -441,7 +483,7 @@ impl RecordManager {
         self.arena_start + self.arena_length - EndMarker::SIZE as u32
     }
     fn writeable_start(&self) -> u32 {
-        self.arena_start + 4
+        self.arena_start + FlashSuffix::SIZE
     }
 
     pub fn next_record(&self, data_length: usize) -> Record {
@@ -621,17 +663,16 @@ impl RecordManager {
         println!("New record: {:?}", new_record);
         // We write the data to the next record.
         let new_metadata = new_record.into_completed_metadata();
-        let new_flash_metadata = new_metadata.into_flash();
-        let prefix = new_flash_metadata.record_prefix();
-        let suffix = new_flash_metadata.record_suffix();
+        let prefix = new_metadata.into_prefix();
+        let suffix = FlashSuffix::completed(&prefix);
 
         let mut position = new_record.position;
-        flash.flash_write(position, prefix).await?;
-        position += prefix.len() as u32;
+        flash.flash_write(position, prefix.as_bytes()).await?;
+        position += FlashPrefix::SIZE;
         // println!("Writing data: {:?}", data);
         flash.flash_write(position, data).await?;
         position += data.len() as u32;
-        flash.flash_write(position, suffix).await?;
+        flash.flash_write(position, suffix.as_bytes()).await?;
 
         // Write succeeded, so update its records.
         self.valid_record.position = new_record.position;
@@ -665,7 +706,9 @@ impl RecordManager {
         data: &mut T,
     ) -> Result<(), F::Error> {
         //println!("Reading at {}", record.position + 8);
-        flash.flash_read_into(record.position + 8, data).await
+        flash
+            .flash_read_into(record.position + FlashPrefix::SIZE, data)
+            .await
     }
 }
 
@@ -1010,7 +1053,7 @@ mod test {
             let record = record.unwrap();
             assert_eq!(record.counter, 2);
             assert_eq!(record.length, 4);
-            assert_eq!(record.position, 4 + 12 + 4);
+            assert_eq!(record.position, 4 + FlashMetadata::SIZE + 4);
             println!("flash start: {:?}", &flash.data[0..64]);
 
             let mut read_back: u32 = 0;
@@ -1063,7 +1106,7 @@ mod test {
                 .unwrap();
             let data: u32 = 55;
             let record = mgr.update_record(&mut flash, data.as_bytes()).await?;
-            assert_eq!(record.position, 2064);
+            assert_eq!(record.position, 2068);
 
             // Verify the end of the flash is filled with 1s, becuase that means we correctly cleared it.
             assert_eq!(
