@@ -205,6 +205,7 @@ mod module_to_make_private {
         length: u32,
         counter: u32,
     }
+    crate::static_assert_size!(FlashMetadata, 12);
     impl FlashMetadata {
         pub const SIZE: u32 = core::mem::size_of::<FlashMetadata>() as u32;
         pub fn into_metadata(&self) -> Metadata {
@@ -322,12 +323,14 @@ impl RecordManager {
             self.dirty_record = Record {
                 position: self.writeable_start(),
                 length: 0,
-                counter: 0,
+                counter: metadata.counter,
             };
+
             return Ok(());
         }
 
         // No end marker... just do the normal thing.
+        println!("No end marker");
 
         const ITERATION_LIMIT: usize = 1024; // IW: todo; this is a bit of a hack...
         let mut previous_flash_metadata: FlashMetadata = Default::default();
@@ -361,29 +364,33 @@ impl RecordManager {
                 )
                 .await?;
             let mut current: Metadata = current_flash.into_metadata();
+
+            // Data may or may not be complete, but we did have stuff written here and as such need to advance the dirty
+            // record, since that's the last record at which data exists that we cna't overwrite.
+            self.dirty_record.position = current_position;
+            self.dirty_record.length = previous_metadata.length;
+            self.dirty_record.counter = previous_metadata.counter;
+
             if current.data_complete {
                 // Found a valid record, update the valid record data.
                 println!("valid record: {:?}", self.valid_record);
                 self.valid_record.position = current_position;
                 self.valid_record.counter = previous_metadata.counter;
                 self.valid_record.length = previous_metadata.length;
-                if previous_metadata.counter > current.counter || current.counter == u32::MAX {
+                if previous_metadata.counter > current.counter || current.counter == 0 {
                     // Amazing, we found a completed data record, and the counter is higher, so we found the boundary.
                     break;
                 }
             }
-            // Data may or may not be complete, but we did have stuff written here and as such need to advance the dirty
-            // record, since that's the last record at which data exists.
-            self.dirty_record.position = current_position;
-            self.dirty_record.length = previous_metadata.length;
-            self.dirty_record.counter = previous_metadata.counter;
 
-            current_position += previous_metadata.length + 12;
+            current_position += previous_metadata.length + FlashMetadata::SIZE;
             previous_metadata = current;
         }
 
-        println!("valid_record : {:?}", self.valid_record);
-        println!("dirty_record : {:?}", self.dirty_record);
+        // Dirty is at least the valid record.
+
+        println!("init valid_record : {:?}", self.valid_record);
+        println!("init dirty_record : {:?}", self.dirty_record);
         Ok(())
     }
 
@@ -550,19 +557,19 @@ impl RecordManager {
         let new_metadata = new_record.into_completed_metadata();
         let new_flash_metadata = new_metadata.into_flash();
         let prefix = new_flash_metadata.record_prefix();
-        flash.flash_write(new_record.position, prefix).await?;
-        flash
-            .flash_write(new_record.position + prefix.len() as u32, data)
-            .await?;
-        flash
-            .flash_write(
-                new_record.position + prefix.len() as u32 + data.len() as u32,
-                new_flash_metadata.record_suffix(),
-            )
-            .await?;
+        let suffix = new_flash_metadata.record_suffix();
+
+        let mut position = new_record.position;
+        flash.flash_write(position, prefix).await?;
+        position += prefix.len() as u32;
+        println!("Writing data: {:?}", data);
+        flash.flash_write(position, data).await?;
+        position += data.len() as u32;
+        flash.flash_write(position, suffix).await?;
 
         // If we did a write to the start, we must also burn the end token.
         if new_record.position == self.writeable_start() {
+            // IW: This is not robust against half a write happening to the beginning.
             if self.wrapping_state == WrappingState::BeginningEraseDone {
                 // Skip over BeginningDataWrite?
                 let marker = Marker::new().with_state_set(WrappingState::EndMarkerDestroy);
@@ -930,6 +937,7 @@ mod test {
             assert_eq!(record.is_some(), true);
             let record = record.unwrap();
             println!("BIG read record: {:?}", record);
+            assert_eq!(record.position, 4);
             large_data.fill(0);
             mgr.record_read_into(&mut flash, &record, &mut large_data)
                 .await?;
@@ -941,7 +949,7 @@ mod test {
                 .unwrap();
             let data: u32 = 55;
             let record = mgr.update_record(&mut flash, data.as_bytes()).await?;
-            assert_eq!(record.position, 4);
+            assert_eq!(record.position, 2064);
 
             // Verify the end of the flash is filled with 1s, becuase that means we correctly cleared it.
             assert_eq!(
@@ -996,12 +1004,16 @@ mod test {
 
                 // Try to write a new record with value + 1
                 let new_value = highest_seen + 1;
+                println!("Writing: {:?}", new_value);
                 let res = mgr.update_record(&mut flash, new_value.as_bytes()).await;
                 match res {
                     Ok(new_rec) => {
                         // Write succeeded, verify the new record is equal to the new value.
                         let mut v: u64 = 0;
                         mgr.record_read_into(&mut flash, &new_rec, &mut v).await?;
+                        let p = new_rec.position as usize;
+                        flash.data[p] = 11;
+                        println!("flash section: {:?}", &flash.data[(p - 40)..(p + 40)]);
                         assert_eq!(new_value, v);
                     }
                     Err(_) => {
