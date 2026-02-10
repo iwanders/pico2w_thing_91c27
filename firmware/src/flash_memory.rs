@@ -910,12 +910,16 @@ mod test {
         /// The fuel this flash has, each byte modification consumes one fuel. If zero, no modification happens.
         /// if None, fuel functionality is disabled.
         fuel: Option<usize>,
+
+        /// An offset applied to all indices to map from a virtual address to the address in the data vector.
+        start_address: usize,
     }
     impl TestFlash {
         pub fn new(length: usize) -> Self {
             Self {
                 data: vec![0xff; length],
                 fuel: None,
+                start_address: 0,
             }
         }
         pub fn fuel(&self) -> Option<usize> {
@@ -926,6 +930,10 @@ mod test {
         }
         pub fn get_arena_u32(&self) -> (u32, u32) {
             (0, (self.data.len() as u32))
+        }
+
+        pub fn set_start_address(&mut self, address: usize) {
+            self.start_address = address;
         }
     }
 
@@ -949,6 +957,7 @@ mod test {
 
         async fn flash_write_page(&mut self, offset: u32, data: &[u8]) -> Result<(), Self::Error> {
             trace!("  Attempting to write {data:?} at {offset:?}");
+            let offset = offset - self.start_address as u32;
             // Check out of bounds.
             if offset as usize + data.len() > self.data.len() {
                 traceln!(" exceeds bounds");
@@ -1008,6 +1017,7 @@ mod test {
                 return Err(TestFlashError::EraseOffsetIncorrect(offset as usize));
             }
             trace!("  Starting sector erase at: {:?}", offset);
+            let offset = offset - self.start_address as u32;
             for i in 0..Self::SECTOR_SIZE {
                 if let Some(f) = self.fuel.as_mut() {
                     if *f == 0 {
@@ -1026,6 +1036,7 @@ mod test {
         }
 
         async fn flash_read(&mut self, offset: u32, data: &mut [u8]) -> Result<(), Self::Error> {
+            let offset = offset - self.start_address as u32;
             if offset as usize + data.len() > self.data.len() {
                 panic!();
                 return Err(TestFlashError::OutOfBounds(offset as usize + data.len()));
@@ -1050,9 +1061,12 @@ mod test {
         smol::block_on(async || -> Result<(), Box<dyn std::error::Error>> {
             use super::FlashMemory;
             let mut flash = TestFlash::new(TestFlash::SECTOR_SIZE * 4);
+            let start = TestFlash::SECTOR_SIZE * 7;
+            // let start = 0;
+            let end = start + TestFlash::SECTOR_SIZE * 4;
+            flash.set_start_address(start);
 
-            let mut mgr =
-                RecordManager::new(&mut flash, 0..((TestFlash::SECTOR_SIZE * 4) as u32)).await?;
+            let mut mgr = RecordManager::new(&mut flash, (start as u32)..(end as u32)).await?;
             // assert_eq!(mgr.dirty_record().position, 4);
             // assert_eq!(mgr.dirty_record().length, 0);
             assert_eq!(mgr.valid_record().is_none(), true);
@@ -1064,7 +1078,7 @@ mod test {
             let record = record.unwrap();
             assert_eq!(record.counter, 1);
             assert_eq!(record.length, 4);
-            assert_eq!(record.position, 0);
+            assert_eq!(record.position, 0 + start as u32);
             println!("flash start: {:?}", &flash.data[0..64]);
 
             let mut read_back: u32 = 0;
@@ -1080,7 +1094,7 @@ mod test {
             let record = record.unwrap();
             assert_eq!(record.counter, 2);
             assert_eq!(record.length, 4);
-            assert_eq!(record.position, FlashMetadata::SIZE + 4);
+            assert_eq!(record.position, FlashMetadata::SIZE + 4 + start as u32);
             println!("flash start: {:?}", &flash.data[0..64]);
 
             let mut read_back: u32 = 0;
@@ -1089,8 +1103,7 @@ mod test {
             assert_eq!(read_back, 7);
 
             // If we recreate the manager, we should be able to retrieve the record.
-            let mut mgr =
-                RecordManager::new(&mut flash, 0..((TestFlash::SECTOR_SIZE * 4) as u32)).await?;
+            let mut mgr = RecordManager::new(&mut flash, (start as u32)..(end as u32)).await?;
             let record = mgr.valid_record();
             assert_eq!(record.is_some(), true);
             let record = record.unwrap();
@@ -1102,7 +1115,7 @@ mod test {
             // Next... Lets fill the flash for a large amount..
             let mut record = record;
             let mut counter = 0u64;
-            while record.position
+            while (record.position - start as u32)
                 < (3 * TestFlash::SECTOR_SIZE as u32 + (3 * TestFlash::SECTOR_SIZE as u32 / 4))
             {
                 counter += 1;
@@ -1114,26 +1127,26 @@ mod test {
             record = mgr.update_record(&mut flash, &large_data).await?;
             println!("Z Reading record: {:?}", record);
 
-            let mut mgr = RecordManager::new(&mut flash, 0..((TestFlash::SECTOR_SIZE * 4) as u32))
+            let mut mgr = RecordManager::new(&mut flash, (start as u32)..(end as u32))
                 .await
                 .unwrap();
             let record = mgr.valid_record();
             assert_eq!(record.is_some(), true);
             let record = record.unwrap();
             println!("BIG read record: {:?}", record);
-            assert_eq!(record.position, 0);
+            assert_eq!(record.position, 0 + start as u32);
             large_data.fill(0);
             mgr.record_read_into(&mut flash, &record, &mut large_data)
                 .await?;
             assert_eq!(large_data, [1u8; TestFlash::SECTOR_SIZE / 2]);
 
             // On the next write, we should do the remainder of the flash servicing... lets also make yet another mgr
-            let mut mgr = RecordManager::new(&mut flash, 0..((TestFlash::SECTOR_SIZE * 4) as u32))
+            let mut mgr = RecordManager::new(&mut flash, (start as u32)..(end as u32))
                 .await
                 .unwrap();
             let data: u32 = 55;
             let record = mgr.update_record(&mut flash, data.as_bytes()).await?;
-            assert_eq!(record.position, 2064);
+            assert_eq!(record.position, 2064 + start as u32);
 
             // Verify the end of the flash is filled with 1s, becuase that means we correctly cleared it.
             assert_eq!(
