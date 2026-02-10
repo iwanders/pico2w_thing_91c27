@@ -112,7 +112,7 @@ enum WrappingState {
     BeginningDataWrite = 3,
     /// The end marker is burned, it should not be used to retrieve the valid entry, because the beginning has data.
     EndMarkerDestroy = 4,
-    /// The end part should be erased next.
+    /// The end part should be erased next, this is never written to the flash.
     EndErase = 5,
 }
 impl WrappingState {
@@ -147,21 +147,7 @@ impl From<u8> for WrappingState {
     }
 }
 
-#[derive(
-    PartialEq,
-    Eq,
-    defmt::Format,
-    Copy,
-    Clone,
-    PartialOrd,
-    Ord,
-    Hash,
-    Debug,
-    FromBytes,
-    IntoBytes,
-    Immutable,
-    Default,
-)]
+#[derive(defmt::Format, Copy, Clone, PartialEq, Eq, Debug, FromBytes, IntoBytes, Immutable)]
 #[repr(transparent)]
 struct Marker(u8);
 impl Marker {
@@ -175,12 +161,20 @@ impl Marker {
         self.0.into()
     }
 }
-const DATA_COMPLETED: u32 = 0xFFFF_FF80; // mostly to easily be able to recognise it as 128
+impl Default for Marker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(PartialEq, Eq, defmt::Format, Copy, Clone, PartialOrd, Ord, Hash, Debug, Default)]
 #[repr(C)]
 pub struct Record {
+    /// Absolute position of the record in the flash.
     pub position: u32,
+    /// Length of the data payload, not including the prefix or suffix.
     pub length: u32,
+    /// The counter value, this is an increasing value as records get written.
     pub counter: u32,
 }
 impl Record {
@@ -196,11 +190,12 @@ impl Record {
 }
 
 // We use this module to ensure without a doubt that the private member attributes of these on-flash structs aren't
-// accidentally accessed
+// accidentally accessed, it prevents easy errors with the whole bit-flipped count and length.
 mod module_to_make_private {
     use super::*;
 
-    const PREFIX_COMPLETE: u32 = 1337;
+    const DATA_COMPLETED: u32 = 0xFFFF_FF80; // Single byte change and visible as 128 in the entries.
+    const PREFIX_COMPLETE: u32 = 0xFFFF_FFF1; // F1 PreF1X, 241 in decimal, also single byte change
     #[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format, Default, Debug)]
     #[repr(C)]
     pub struct FlashSuffix {
@@ -225,31 +220,39 @@ mod module_to_make_private {
     )]
     #[repr(C)]
     pub struct FlashPrefix {
+        /// Length, value is stored inverted, such taht the default bytes of 0xFFFF_FFFF result in zero, and partial
+        /// writes result in partial loss of the data, but given that we can never write a length that exceeds the
+        /// arena, we can't actually lose too much data in most cases.
         length: u32,
+        /// Counter of this record, highest record is the most recent one, also written inverted.
         counter: u32,
+        /// Prefix complete is just a sentinel value, it is not inverted but just check against [`PREFIX_COMPLETE`].
         prefix_complete: u32,
     }
     crate::static_assert_size!(FlashPrefix, 12);
     impl FlashPrefix {
         pub const SIZE: u32 = core::mem::size_of::<FlashPrefix>() as u32;
+        /// Is this prefix actually complete? Was the prefix complete sentinel written?
         pub fn is_complete(&self) -> bool {
             self.prefix_complete == PREFIX_COMPLETE
         }
+
+        /// If this prefix is completely made up of 0xFF bytes, it is unused.
         pub fn is_unused(&self) -> bool {
             self.length == u32::MAX && self.counter == u32::MAX && self.prefix_complete == u32::MAX
         }
 
+        /// Convert the prefix to the record metadata, this returns a None if the prefix was not complete.
         pub fn to_metadata(&self) -> Option<Metadata> {
             Metadata::from_prefix(self)
         }
     }
 
-    /// This is what is on the flash, the 'anchor' is after the data_complete byte, such that individual entries
+    /// This is the combined suffix, prefix pair, which in general we retrieve both at the same time.
+    /// This is what is on the flash, the 'anchor' is after the suffix byte, such that individual entries
     /// write their length first, followed by counter. That way, if power loss happens the length is already (partially)
     /// written and we just jump over a (possibly partially) used section.
     ///
-    /// todo; should we negate length? To ensure that u32, if only first byte is written doesn't result in 0x0FF_FFFF which
-    /// is very large and effectively ruins all data in the arena size.
     #[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format, Default, Debug)]
     #[repr(C)]
     pub struct FlashMetadata {
@@ -264,12 +267,16 @@ mod module_to_make_private {
         pub const SIZE: u32 = core::mem::size_of::<FlashMetadata>() as u32;
     }
 
+    /// Record metadata.
+    ///
+    /// Think of this as the non-flash prefix.
     #[derive(PartialEq, Eq, defmt::Format, Default, Debug)]
     pub struct Metadata {
         pub length: u32,
         pub counter: u32,
     }
     impl Metadata {
+        /// Create a metadata from the prefix, only if the prefix is actually complete.
         pub fn from_prefix(prefix: &FlashPrefix) -> Option<Metadata> {
             if prefix.is_complete() {
                 Some(Metadata {
@@ -280,6 +287,8 @@ mod module_to_make_private {
                 None
             }
         }
+
+        /// Convert the metadata info a complete prefix.
         pub fn into_prefix(&self) -> FlashPrefix {
             FlashPrefix {
                 length: !self.length,
@@ -291,6 +300,7 @@ mod module_to_make_private {
 }
 use module_to_make_private::{FlashMetadata, FlashPrefix, FlashSuffix, Metadata};
 
+/// End marker at the far end of the data to handle wrap around.
 #[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format, Default, Debug)]
 #[repr(C)]
 struct EndMarker {
@@ -299,9 +309,14 @@ struct EndMarker {
     marker: Marker,
     _pad: [u8; 3],
 }
+// Enforce the order of the position and marker is not changed without reading the comment.
+const _: [(); 1] = [(); (core::mem::offset_of!(EndMarker, position)
+    < core::mem::offset_of!(EndMarker, marker)) as usize];
 
 impl EndMarker {
     pub const SIZE: usize = core::mem::size_of::<EndMarker>();
+
+    /// Returns the address of a valid entry.
     fn holds_valid_entry(&self) -> Option<u32> {
         let marker = self.marker.to_state();
         if marker == WrappingState::ValidEntryInEnd
@@ -313,6 +328,9 @@ impl EndMarker {
             None
         }
     }
+
+    /// Returns the address, even if the marker is destroyed, this is necessary to calculate the section that is
+    /// still to be erased.
     pub fn destroyed_entry(&self) -> Option<u32> {
         let marker = self.marker.to_state();
         if marker == WrappingState::EndMarkerDestroy
@@ -324,6 +342,8 @@ impl EndMarker {
             None
         }
     }
+
+    /// Creates a valid entry endmarker with the provided position.
     pub fn valid_entry(position: u32) -> Self {
         Self {
             marker: Marker::new().with_state_set(WrappingState::ValidEntryInEnd),
@@ -338,19 +358,44 @@ static_assert_size!(EndMarker, 8);
 #[derive(PartialEq, Eq, defmt::Format, Default)]
 #[repr(C)]
 pub struct RecordManager {
+    /// Start of the region of data in the flash we own.
     arena_start: u32,
+    /// Length of the data on flash we own.
     arena_length: u32,
     /// The most advanced valid record that was written in full.
     valid_record: Record,
     /// The position of the next free data in the flash available for writing.
     next_free: u32,
 
+    /// Internal variable to keep track of the wrapping state.
     wrapping_state: WrappingState,
 }
 
 impl RecordManager {
+    /// Create a new record manager.
+    ///
+    /// Arena MUST be length equal to integer times sector size, it must start on a sector boundary and it must be
+    /// at least two sectors in size.
+    pub async fn new<F: FlashMemory>(
+        flash: &mut F,
+        arena: core::ops::Range<u32>,
+    ) -> Result<Self, F::Error> {
+        // create the struct.
+        let mut z = RecordManager {
+            arena_start: arena.start,
+            arena_length: arena.len() as u32,
+            ..Default::default()
+        };
+        // Populate the remainder of the functions with methods.
+        z.valid_record.position = z.writeable_start();
+        z.next_free = z.writeable_start();
+        // Seek to the current valid record.
+        z.initialise(flash).await?;
+        Ok(z)
+    }
+
     async fn initialise<F: FlashMemory>(&mut self, flash: &mut F) -> Result<(), F::Error> {
-        // Special case, check the end token.
+        // Handle the special case, check the end token.
         let mut end_marker: EndMarker = Default::default();
         flash
             .flash_read_into(self.writable_end(), &mut end_marker)
@@ -489,29 +534,18 @@ impl RecordManager {
         Ok(())
     }
 
-    pub async fn new<F: FlashMemory>(
-        flash: &mut F,
-        arena: core::ops::Range<u32>,
-    ) -> Result<Self, F::Error> {
-        let mut z = RecordManager {
-            arena_start: arena.start,
-            arena_length: arena.len() as u32,
-            ..Default::default()
-        };
-        z.valid_record.position = z.writeable_start();
-        z.next_free = z.writeable_start();
-        z.initialise(flash).await?;
-        Ok(z)
-    }
-
+    /// The end of the writeable data available for records.
     fn writable_end(&self) -> u32 {
         self.arena_start + self.arena_length - EndMarker::SIZE as u32
     }
+
+    /// The start of the writable data, historically this skipped a sentinel at the start.
     fn writeable_start(&self) -> u32 {
         self.arena_start
     }
 
-    pub fn next_record(&self, data_length: usize) -> Record {
+    /// Determine the next record location, determining if wrapping needs to happen.
+    fn next_record(&self, data_length: usize) -> Record {
         let length = data_length as u32;
         // println!("valid_record: {:?}", self.valid_record);
         let next_free = self.next_free;
@@ -535,12 +569,15 @@ impl RecordManager {
         }
     }
 
-    pub async fn service_wrapping<F: FlashMemory>(
-        &mut self,
-        flash: &mut F,
-    ) -> Result<(), F::Error> {
+    /// Worker function to handle the wrapping around.
+    async fn service_wrapping<F: FlashMemory>(&mut self, flash: &mut F) -> Result<(), F::Error> {
         // println!("self.wrapping_state: {:?}", self.wrapping_state);
         loop {
+            // This is a loop, but it's very much bounded in two sections:
+            // Normal to BeginningEraseDone, which writes the end marker, erases the front sector.
+            // Then we drop out of the function for data to be written.
+            // Then we are resumed from BeginningDataWrite to EndErase, which removes the remaining populated sectors
+            // after new data is written to the front.
             match self.wrapping_state {
                 WrappingState::NormalWrite => {
                     let mut end_marker: EndMarker;
@@ -670,22 +707,16 @@ impl RecordManager {
         flash: &mut F,
         data: &[u8],
     ) -> Result<Record, F::Error> {
-        // Figure out where this goes.
-        // Basically  two options:
-        //  It goes after the dirty record entry.
-        //  We need to wrap around, erase sectors etc.
-        //
-        //
-        // Update the counter.
-        // Write the new data to the flash.
-
+        // Get the proposed location.
         let new_record = self.next_record(data.len());
 
         // If the data is wrapping... service wrapping until the front section is available for writing.
         if new_record.position < self.valid_record.position {
             self.service_wrapping(flash).await?;
         }
-        // println!(" self.wrapping_state: {:?}", self.wrapping_state);
+
+        // And if the wrapping state is servicable, also service it, this is here to ensure that we handle situations
+        // where data was written to the front, but the data was not yet erased in the end.
         if self.wrapping_state.is_servicable() {
             // println!("Servicifing wrapping state {:?}", self.wrapping_state);
             self.service_wrapping(flash).await?;
@@ -705,13 +736,16 @@ impl RecordManager {
         position += data.len() as u32;
         flash.flash_write(position, suffix.as_bytes()).await?;
 
-        // Write succeeded, so update its records.
+        // Write succeeded, so update our internal records.
         self.valid_record.position = new_record.position;
         self.valid_record.length = data.len() as u32;
         self.valid_record.counter = new_record.counter;
+        // And advance the next free position.
         self.next_free = new_record.position + data.len() as u32 + FlashMetadata::SIZE;
 
         // If we were in beginning erase done, we have now done beginning data write, and can wipe the remainder.
+        // Technically this is also handled by the service at the top, but it is nicer to do the whole wrapping logic
+        // in a single invocation to update_record.
         if self.wrapping_state == WrappingState::BeginningEraseDone {
             self.wrapping_state = WrappingState::BeginningDataWrite;
             self.service_wrapping(flash).await?;
@@ -719,6 +753,8 @@ impl RecordManager {
 
         Ok(self.valid_record)
     }
+
+    /// Returns the valid record, if any.
     pub fn valid_record(&self) -> Option<Record> {
         if self.valid_record.counter != 0 {
             Some(self.valid_record)
@@ -726,6 +762,8 @@ impl RecordManager {
             None
         }
     }
+
+    /// Read the provided record into a value.
     pub async fn record_read_into<T: zerocopy::FromBytes + zerocopy::IntoBytes, F: FlashMemory>(
         &mut self,
         flash: &mut F,
@@ -814,8 +852,8 @@ impl Iterator for AlignedSegmentIter {
     }
 }
 
-/// A chunker specifically for a data slice at a position, in segments of 256, where the start need not align on a
-/// boundary.
+/// A chunker specifically for a data slice at a position, in segments of 256, where the start offset need not align on
+/// a boundary, the generated segments always do.
 pub struct ProgramChunker<'a> {
     chunker: AlignedSegmentIter,
     data: &'a [u8],
@@ -904,11 +942,12 @@ mod test {
         }
     }
 
+    /// Test flash that holds a consecutive block of data.
     struct TestFlash {
         data: Vec<u8>,
 
-        /// The fuel this flash has, each byte modification consumes one fuel. If zero, no modification happens.
-        /// if None, fuel functionality is disabled.
+        /// The fuel this flash has, each byte modification consumes one fuel. If zero, no modification will happen.
+        /// If None, fuel functionality is disabled.
         fuel: Option<usize>,
 
         /// An offset applied to all indices to map from a virtual address to the address in the data vector.
@@ -929,7 +968,10 @@ mod test {
             self.fuel = v
         }
         pub fn get_arena_u32(&self) -> (u32, u32) {
-            (0, (self.data.len() as u32))
+            (
+                self.start_address as u32,
+                self.start_address as u32 + (self.data.len() as u32),
+            )
         }
 
         pub fn set_start_address(&mut self, address: usize) {
@@ -1240,7 +1282,7 @@ mod test {
     }
 
     /// This is a variation of the loss_restore test, that fuzzess the system with:
-    /// Randomly running out of fuel. Reinitialising the mgr.
+    /// Randomly running out of fuel, which also reinitialising the mgr.
     /// Random data lengths.
     #[test]
     fn test_record_manager_fuzz() -> Result<(), Box<dyn std::error::Error>> {
