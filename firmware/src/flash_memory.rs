@@ -685,8 +685,8 @@ impl RecordManager {
                         // Hmm, the state is that the marker is burnt, but reading it doesn't actually have a valid entry?
                         // self.wrapping_state = WrappingState::NormalWrite; // Just assume we're done?
                         // break;
-                        println!("end_marker: {:?}", end_marker);
-                        println!("end_marker: {:?}", end_marker.marker.to_state());
+                        defmt::error!("end_marker: {:?}", end_marker);
+                        defmt::error!("end_marker state: {:?}", end_marker.marker.to_state());
                         todo!(); // Dunno how this would happen, feels like a logic bug.
                     }
                 }
@@ -1243,7 +1243,7 @@ mod test {
                         mgr.record_read_into(&mut flash, &new_rec, &mut v)
                             .await
                             .unwrap();
-                        println!("new_rec: {:?}", new_rec);
+                        traceln!("new_rec: {:?}", new_rec);
                         assert_eq!(new_value, v);
                     }
                     Err(_) => {

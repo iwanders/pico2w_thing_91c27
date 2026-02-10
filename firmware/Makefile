@@ -12,6 +12,8 @@ deploy:
 	make flash
 	make print
 
+build:
+		cargo build-arm --release
 print:
 	$(info blocking on ${SERIAL_PORT} )
 	$(shell until [ -e "${SERIAL_PORT}" ]; do  	  sleep 0.01;	done)
