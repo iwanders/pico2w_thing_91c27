@@ -388,34 +388,30 @@ impl RecordManager {
 
         // No end marker... just do the normal thing.
         // println!("No end marker");
-
         let mut current_position = self.writeable_start();
-
-        let mut prefix = FlashPrefix::default();
 
         // Since we need to retrieve the suffix of payload, we are also likely to retrieve the next prefix.
         // This is not always the case though, only if the prefix is not invalid, so we keep track of the location
-        // of the prefix in the prefix variable above.
+        // of the prefix that's stored.
         let mut prefix_location: Option<u32> = None;
+        let mut prefix = FlashPrefix::default();
 
         while current_position < self.writable_end() {
-            // println!("In init parser at {}", current_position);
-            let mut previous_flash_metadata: FlashMetadata = Default::default();
-
             // Check if the prefix was already retrieved with the suffix of the previous record.
-            let current_read_location = current_position - FlashSuffix::SIZE;
+            let current_read_location = current_position;
             let prefix_in_cache = prefix_location
                 .map(|z| z == current_read_location)
                 .unwrap_or(false);
 
             if !prefix_in_cache {
+                // println!("In init parser at {}", current_position);
+                let mut previous_metadata: FlashPrefix = Default::default();
                 flash
-                    .flash_read_into(current_read_location, &mut previous_flash_metadata)
+                    .flash_read_into(current_read_location, &mut previous_metadata)
                     .await?;
                 //println!("Reading at {:?}", current_position - FlashSuffix::SIZE);
                 prefix_location = None;
-
-                prefix = previous_flash_metadata.prefix;
+                prefix = previous_metadata;
             }
 
             if prefix.is_unused() {
@@ -488,7 +484,7 @@ impl RecordManager {
                 // );
             } else {
                 // We actually retrieved the next prefix location when we read the suffix.
-                prefix_location = Some(next_suffix_prefix);
+                prefix_location = Some(current_position);
                 prefix = current_flash.prefix;
             }
         }
@@ -516,7 +512,7 @@ impl RecordManager {
         self.arena_start + self.arena_length - EndMarker::SIZE as u32
     }
     fn writeable_start(&self) -> u32 {
-        self.arena_start + FlashSuffix::SIZE
+        self.arena_start
     }
 
     pub fn next_record(&self, data_length: usize) -> Record {
@@ -1075,7 +1071,7 @@ mod test {
             let record = record.unwrap();
             assert_eq!(record.counter, 1);
             assert_eq!(record.length, 4);
-            assert_eq!(record.position, 4);
+            assert_eq!(record.position, 0);
             println!("flash start: {:?}", &flash.data[0..64]);
 
             let mut read_back: u32 = 0;
@@ -1091,7 +1087,7 @@ mod test {
             let record = record.unwrap();
             assert_eq!(record.counter, 2);
             assert_eq!(record.length, 4);
-            assert_eq!(record.position, 4 + FlashMetadata::SIZE + 4);
+            assert_eq!(record.position, FlashMetadata::SIZE + 4);
             println!("flash start: {:?}", &flash.data[0..64]);
 
             let mut read_back: u32 = 0;
@@ -1132,7 +1128,7 @@ mod test {
             assert_eq!(record.is_some(), true);
             let record = record.unwrap();
             println!("BIG read record: {:?}", record);
-            assert_eq!(record.position, 4);
+            assert_eq!(record.position, 0);
             large_data.fill(0);
             mgr.record_read_into(&mut flash, &record, &mut large_data)
                 .await?;
@@ -1144,7 +1140,7 @@ mod test {
                 .unwrap();
             let data: u32 = 55;
             let record = mgr.update_record(&mut flash, data.as_bytes()).await?;
-            assert_eq!(record.position, 2068);
+            assert_eq!(record.position, 2064);
 
             // Verify the end of the flash is filled with 1s, becuase that means we correctly cleared it.
             assert_eq!(
