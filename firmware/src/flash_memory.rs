@@ -354,8 +354,6 @@ pub struct RecordManager {
 
 impl RecordManager {
     async fn initialise<F: FlashMemory>(&mut self, flash: &mut F) -> Result<(), F::Error> {
-        const ITERATION_LIMIT: usize = 1024; // IW: todo; this is a bit of a hack...
-
         // Special case, check the end token.
         let mut end_marker: EndMarker = Default::default();
         flash
@@ -363,7 +361,7 @@ impl RecordManager {
             .await?;
         self.wrapping_state = end_marker.marker.to_state();
 
-        // Handle pinned valid entry.
+        // Handle pinned valid entry in the end marker.
         if let Some(valid_end_entry) = end_marker.holds_valid_entry() {
             // println!("Valid entry in end marker: {:?}", valid_end_entry);
             let mut entry_flash_metadata: FlashMetadata = Default::default();
@@ -373,43 +371,18 @@ impl RecordManager {
                     &mut entry_flash_metadata,
                 )
                 .await?;
-            let prefix = entry_flash_metadata.prefix;
-            // Next, retrieve the suffix.
-            if let Some(metadata) = prefix.to_metadata() {
+
+            // The metadata prefix should always be good since the end marker is only written when the prefix has
+            // actually been written in full.
+            if let Some(metadata) = entry_flash_metadata.prefix.to_metadata() {
                 self.valid_record = Record {
                     position: valid_end_entry,
                     length: metadata.length,
                     counter: metadata.counter,
                 };
+                // If there is an entry in the end marker, the next write will always be at the start of the range.
                 self.next_free = self.writeable_start();
             }
-            // println!("metadata counter: {:?}", metadata.counter);
-            /*
-            if end_marker.marker.to_state() == WrappingState::ValidEntryInEnd {
-                println!("Beginning erase done, trying to find relevant area");
-                // Advance from the start, until we've found an empty record.
-                let mut current_position = self.writeable_start();
-
-                for _ in 0..ITERATION_LIMIT {
-                    let mut current_flash: FlashMetadata = Default::default();
-                    let prefix_len = FlashPrefix::SIZE;
-                    let suffix_len = FlashSuffix::SIZE;
-                    flash
-                        .flash_read_into(current_position - suffix_len, &mut current_flash)
-                        .await?;
-                    let mut current: Metadata = current_flash.prefix.to_metadata().unwrap();
-                    if current.length == 0 && current.counter == 0 {
-                        // Empty slot located!
-                        self.dirty_record = Record {
-                            position: current_position,
-                            length: 0,
-                            counter: current.counter,
-                        };
-                        return Ok(());
-                    }
-                    current_position += current.length + FlashMetadata::SIZE;
-                }
-            } */
             return Ok(());
         }
 
@@ -420,8 +393,6 @@ impl RecordManager {
 
         let mut prefix = FlashPrefix::default();
 
-        let mut finished_init: bool = false;
-
         // Since we need to retrieve the suffix of payload, we are also likely to retrieve the next prefix.
         // This is not always the case though, only if the prefix is not invalid, so we keep track of the location
         // of the prefix in the prefix variable above.
@@ -431,18 +402,17 @@ impl RecordManager {
             // println!("In init parser at {}", current_position);
             let mut previous_flash_metadata: FlashMetadata = Default::default();
 
+            // Check if the prefix was already retrieved with the suffix of the previous record.
             let current_read_location = current_position - FlashSuffix::SIZE;
             let prefix_in_cache = prefix_location
                 .map(|z| z == current_read_location)
                 .unwrap_or(false);
+
             if !prefix_in_cache {
                 flash
-                    .flash_read_into(
-                        current_position - FlashSuffix::SIZE,
-                        &mut previous_flash_metadata,
-                    )
+                    .flash_read_into(current_read_location, &mut previous_flash_metadata)
                     .await?;
-                println!("Reading at {:?}", current_position - FlashSuffix::SIZE);
+                //println!("Reading at {:?}", current_position - FlashSuffix::SIZE);
                 prefix_location = None;
 
                 prefix = previous_flash_metadata.prefix;
@@ -450,7 +420,6 @@ impl RecordManager {
 
             if prefix.is_unused() {
                 // Previous slot was never used. This means that previous position is where the record is.
-                finished_init = true;
                 // println!("prefix is unused, so slot was unused");
                 break;
             }
@@ -463,7 +432,7 @@ impl RecordManager {
                 continue;
             }
 
-            // If we get here, prefix MUST be complete.
+            // If we get here, prefix MUST be complete, so to_metadata will return true.
             let metadata = prefix.to_metadata();
             if metadata.is_none() {
                 // Dunno what happened, invariant seems violated.
@@ -481,12 +450,12 @@ impl RecordManager {
             let next_suffix_prefix = current_position + FlashPrefix::SIZE + metadata.length;
 
             // Length and counter are real, so now we retrieve the next metadata block to see if the data was
-            // actually finished.
+            // actually finished. We also retrieve the next prefix here, and if usable skip over reading it separately.
             let mut current_flash: FlashMetadata = Default::default();
             flash
                 .flash_read_into(next_suffix_prefix, &mut current_flash)
                 .await?;
-            println!("Reading at {:?}", next_suffix_prefix);
+            //println!("Reading at {:?}", next_suffix_prefix);
 
             // If the suffix state everything is complete, this is a valid record.
             if current_flash.suffix.is_complete() {
@@ -506,8 +475,7 @@ impl RecordManager {
 
             // If the next prefix is unused, we know we are done.
             if current_flash.prefix.is_unused() {
-                // println!("current flash prefix is unused");
-                finished_init = true;
+                // Next slot is unused, so we can break out of the loop.
                 break;
             }
 
@@ -518,22 +486,14 @@ impl RecordManager {
                 // "Prefix incomplete, advancing by prefix to {:?}",
                 // current_position
                 // );
-                self.next_free = current_position;
             } else {
                 // We actually retrieved the next prefix location when we read the suffix.
                 prefix_location = Some(next_suffix_prefix);
                 prefix = current_flash.prefix;
             }
         }
+        self.next_free = current_position;
 
-        // println!("self.next_free: {}", self.next_free);
-        if !finished_init {
-            //panic!("never finished init");
-        }
-        // Dirty is at least the valid record.
-
-        // println!("init valid_record : {:?}", self.valid_record);
-        // println!("init dirty_record : {:?}", self.dirty_record);
         Ok(())
     }
 
