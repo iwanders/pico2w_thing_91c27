@@ -118,17 +118,6 @@ enum WrappingState {
     EndEraseDone = 6,
 }
 impl WrappingState {
-    pub fn advanced(&mut self) -> WrappingState {
-        match self {
-            WrappingState::NormalWrite => WrappingState::ValidEntryInEnd,
-            WrappingState::ValidEntryInEnd => WrappingState::BeginningEraseDone,
-            WrappingState::BeginningEraseDone => WrappingState::BeginningDataWrite,
-            WrappingState::BeginningDataWrite => WrappingState::EndMarkerDestroy,
-            WrappingState::EndMarkerDestroy => WrappingState::EndErase,
-            WrappingState::EndErase => WrappingState::EndEraseDone,
-            WrappingState::EndEraseDone => WrappingState::NormalWrite,
-        }
-    }
     pub fn is_servicable(&mut self) -> bool {
         match self {
             WrappingState::NormalWrite => false, // nothing to service, we're happily writing.
@@ -228,7 +217,7 @@ mod module_to_make_private {
             self.data_complete == DATA_COMPLETED
         }
 
-        pub fn completed(prefix: &FlashPrefix) -> Self {
+        pub fn completed(_prefix: &FlashPrefix) -> Self {
             Self {
                 data_complete: DATA_COMPLETED,
             }
@@ -430,22 +419,34 @@ impl RecordManager {
         let mut current_position = self.writeable_start();
 
         let mut prefix = FlashPrefix::default();
-        let mut suffix = FlashSuffix::default();
 
         let mut finished_init: bool = false;
+
+        // Since we need to retrieve the suffix of payload, we are also likely to retrieve the next prefix.
+        // This is not always the case though, only if the prefix is not invalid, so we keep track of the location
+        // of the prefix in the prefix variable above.
+        let mut prefix_location: Option<u32> = None;
 
         while current_position < self.writable_end() {
             // println!("In init parser at {}", current_position);
             let mut previous_flash_metadata: FlashMetadata = Default::default();
-            flash
-                .flash_read_into(
-                    current_position - FlashSuffix::SIZE,
-                    &mut previous_flash_metadata,
-                )
-                .await?;
 
-            prefix = previous_flash_metadata.prefix;
-            suffix = previous_flash_metadata.suffix;
+            let current_read_location = current_position - FlashSuffix::SIZE;
+            let prefix_in_cache = prefix_location
+                .map(|z| z == current_read_location)
+                .unwrap_or(false);
+            if !prefix_in_cache {
+                flash
+                    .flash_read_into(
+                        current_position - FlashSuffix::SIZE,
+                        &mut previous_flash_metadata,
+                    )
+                    .await?;
+                println!("Reading at {:?}", current_position - FlashSuffix::SIZE);
+                prefix_location = None;
+
+                prefix = previous_flash_metadata.prefix;
+            }
 
             if prefix.is_unused() {
                 // Previous slot was never used. This means that previous position is where the record is.
@@ -485,6 +486,7 @@ impl RecordManager {
             flash
                 .flash_read_into(next_suffix_prefix, &mut current_flash)
                 .await?;
+            println!("Reading at {:?}", next_suffix_prefix);
 
             // If the suffix state everything is complete, this is a valid record.
             if current_flash.suffix.is_complete() {
@@ -517,6 +519,10 @@ impl RecordManager {
                 // current_position
                 // );
                 self.next_free = current_position;
+            } else {
+                // We actually retrieved the next prefix location when we read the suffix.
+                prefix_location = Some(next_suffix_prefix);
+                prefix = current_flash.prefix;
             }
         }
 
