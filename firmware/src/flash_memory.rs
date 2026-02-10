@@ -114,8 +114,6 @@ enum WrappingState {
     EndMarkerDestroy = 4,
     /// The end part should be erased next.
     EndErase = 5,
-    /// The end erasure is done.
-    EndEraseDone = 6,
 }
 impl WrappingState {
     pub fn is_servicable(&mut self) -> bool {
@@ -126,7 +124,6 @@ impl WrappingState {
             WrappingState::BeginningDataWrite => true,
             WrappingState::EndMarkerDestroy => true,
             WrappingState::EndErase => true,
-            WrappingState::EndEraseDone => true,
         }
     }
 }
@@ -134,7 +131,6 @@ impl WrappingState {
 impl From<u8> for WrappingState {
     fn from(value: u8) -> Self {
         for z in [
-            WrappingState::EndEraseDone,
             WrappingState::EndErase,
             WrappingState::EndMarkerDestroy,
             WrappingState::BeginningDataWrite,
@@ -662,9 +658,6 @@ impl RecordManager {
                     }
                     // This wipes the end marker.
                     self.wrapping_state = WrappingState::NormalWrite;
-                    break;
-                }
-                WrappingState::EndEraseDone => {
                     break;
                 }
             }
@@ -1442,9 +1435,7 @@ mod test {
         let z = m.with_state_set(WrappingState::EndErase);
         assert_eq!(z.0, 0b1101_1111);
         assert_eq!(WrappingState::from(z.0), WrappingState::EndErase);
-        let e = z.with_state_set(WrappingState::EndEraseDone);
-        assert_eq!(e.0, 0b1001_1111);
-        assert_eq!(WrappingState::from(e.0), WrappingState::EndEraseDone);
+
         // Seems to work, we can burn individual bits to advance the state.
         let v = m.with_state_set(WrappingState::ValidEntryInEnd);
         assert_eq!(v.0, 0b1111_1101);
