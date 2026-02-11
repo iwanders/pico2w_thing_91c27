@@ -13,7 +13,7 @@
 //!
 //! On flash:
 //! ```nocode
-//!   Begin Marker u32, this is a throwaway entry to allow uniform handling.
+//!  ---
 //!              <----- position
 //!   Length: u32,            \
 //!   Increment_counter: u32, | FlashPrefix
@@ -569,6 +569,18 @@ impl RecordManager {
         }
     }
 
+    /// Remaining data before the wrapping happens.
+    pub fn available_before_wrap(&self) -> usize {
+        (self.writable_end() - self.next_free) as usize
+    }
+
+    /// Return whether or not the next write of this length will result in the data wrapping.
+    pub fn write_will_wrap(&self, length: usize) -> bool {
+        let new_record = self.next_record(length);
+
+        new_record.position < self.valid_record.position
+    }
+
     /// Worker function to handle the wrapping around.
     async fn service_wrapping<F: FlashMemory>(&mut self, flash: &mut F) -> Result<(), F::Error> {
         // println!("self.wrapping_state: {:?}", self.wrapping_state);
@@ -702,7 +714,8 @@ impl RecordManager {
         Ok(())
     }
 
-    pub async fn update_record<F: FlashMemory>(
+    /// Add a new record holding the specified data.
+    pub async fn new_record<F: FlashMemory>(
         &mut self,
         flash: &mut F,
         data: &[u8],
@@ -754,6 +767,19 @@ impl RecordManager {
         Ok(self.valid_record)
     }
 
+    /// Programs the specified data to the specified record. This can only convert bits from 1 to 0.
+    /// It does not do any checking for lengths or whether the record position is in our arena.
+    pub async fn program_record<F: FlashMemory>(
+        &mut self,
+        flash: &mut F,
+        record: &Record,
+        data: &[u8],
+    ) -> Result<(), F::Error> {
+        flash
+            .flash_write(record.position + FlashPrefix::SIZE, data)
+            .await
+    }
+
     /// Returns the valid record, if any.
     pub fn valid_record(&self) -> Option<Record> {
         if self.valid_record.counter != 0 {
@@ -770,9 +796,18 @@ impl RecordManager {
         record: &Record,
         data: &mut T,
     ) -> Result<(), F::Error> {
-        //println!("Reading at {}", record.position + 8);
+        self.record_read(flash, record, data.as_mut_bytes()).await
+    }
+
+    /// Read the provided record into bytes
+    pub async fn record_read<F: FlashMemory>(
+        &mut self,
+        flash: &mut F,
+        record: &Record,
+        data: &mut [u8],
+    ) -> Result<(), F::Error> {
         flash
-            .flash_read_into(record.position + FlashPrefix::SIZE, data)
+            .flash_read(record.position + FlashPrefix::SIZE, data)
             .await
     }
 }
@@ -1114,7 +1149,7 @@ mod test {
             assert_eq!(mgr.valid_record().is_none(), true);
 
             let data: u32 = 5;
-            mgr.update_record(&mut flash, data.as_bytes()).await?;
+            mgr.new_record(&mut flash, data.as_bytes()).await?;
             let record = mgr.valid_record();
             assert_eq!(record.is_some(), true);
             let record = record.unwrap();
@@ -1130,7 +1165,7 @@ mod test {
 
             // Write another data entry.
             let data: u32 = 7;
-            mgr.update_record(&mut flash, data.as_bytes()).await?;
+            mgr.new_record(&mut flash, data.as_bytes()).await?;
             let record = mgr.valid_record();
             assert_eq!(record.is_some(), true);
             let record = record.unwrap();
@@ -1161,12 +1196,12 @@ mod test {
                 < (3 * TestFlash::SECTOR_SIZE as u32 + (3 * TestFlash::SECTOR_SIZE as u32 / 4))
             {
                 counter += 1;
-                record = mgr.update_record(&mut flash, counter.as_bytes()).await?;
+                record = mgr.new_record(&mut flash, counter.as_bytes()).await?;
             }
 
             // There's now less than 1/4 * TestFlash::SECTOR_SIZE left... so adding a large record will wrap around.
             let mut large_data = [1u8; TestFlash::SECTOR_SIZE / 2];
-            record = mgr.update_record(&mut flash, &large_data).await?;
+            record = mgr.new_record(&mut flash, &large_data).await?;
             println!("Z Reading record: {:?}", record);
 
             let mut mgr = RecordManager::new(&mut flash, (start as u32)..(end as u32))
@@ -1187,7 +1222,7 @@ mod test {
                 .await
                 .unwrap();
             let data: u32 = 55;
-            let record = mgr.update_record(&mut flash, data.as_bytes()).await?;
+            let record = mgr.new_record(&mut flash, data.as_bytes()).await?;
             assert_eq!(record.position, 2064 + start as u32);
 
             // Verify the end of the flash is filled with 1s, becuase that means we correctly cleared it.
@@ -1245,7 +1280,7 @@ mod test {
                 // Try to write a new record with value + 1
                 let new_value = highest_seen + 1;
                 traceln!("Writing: {:?}", new_value);
-                let res = mgr.update_record(&mut flash, new_value.as_bytes()).await;
+                let res = mgr.new_record(&mut flash, new_value.as_bytes()).await;
                 match res {
                     Ok(new_rec) => {
                         // Write succeeded, verify the new record is equal to the new value.
@@ -1357,7 +1392,7 @@ mod test {
                     // Try to write a new record with value + 1
                     let new_value = highest_seen + 1;
                     traceln!("Writing: {:?}", new_value);
-                    let res = mgr.update_record(&mut flash, new_value.as_bytes()).await;
+                    let res = mgr.new_record(&mut flash, new_value.as_bytes()).await;
                     let mut should_drop = false;
                     match res {
                         Ok(new_rec) => {
