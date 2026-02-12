@@ -367,7 +367,12 @@ where
     }
 
     async fn flash_flush(&mut self) -> Result<(), Self::Error> {
-        todo!();
+        let mut status = self.status().await?;
+        while status.write_in_progress() {
+            embassy_time::Timer::after_micros(1).await;
+            status = self.status().await?
+        }
+        Ok(())
     }
 }
 
@@ -376,6 +381,7 @@ where
     Spi: SpiDevice<u8>,
     Spi::Error: embedded_hal_async::spi::Error,
 {
+    use embassy_time::Instant;
     if false {
         let mut first_256 = [0u8; 256];
         for (i, v) in first_256.iter_mut().enumerate() {
@@ -384,23 +390,80 @@ where
         flash.cmd_page_program_4b(0, &first_256).await?;
     }
 
-    if false {
+    if true {
+        // Erase the first two sectors.
+        let start = Instant::now();
         flash.cmd_erase_sector_4b(0).await?;
+        flash.flash_flush().await?;
+        flash.cmd_erase_sector_4b(4096).await?;
+        flash.flash_flush().await?;
+        let end = Instant::now();
+        defmt::info!("Erase and flush took {:?} us", (end - start).as_micros());
     }
 
+    if true {
+        // Dump the first two sectors.
+        const BLOCK_SIZE: usize = 512;
+        let upper = 4096 * 2;
+        for i in 0..(upper / BLOCK_SIZE) {
+            let p = BLOCK_SIZE * i;
+            let mut d = [0u8; BLOCK_SIZE as usize];
+            flash.cmd_read_fast_4b(p as u32, &mut d).await?;
+            defmt::info!("// {:?}", p);
+            defmt::info!("{:?},", d);
+            embassy_time::Timer::after_millis(200).await;
+        }
+    }
+
+    use crate::flash_memory::RecordManager;
+
     defmt::info!("Status: {:?}", flash.status().await?);
-    defmt::info!("Status: {:?}", flash.status().await?);
-    defmt::info!("Status: {:?}", flash.status().await?);
-    defmt::info!("Status: {:?}", flash.status().await?);
-    defmt::info!("Status: {:?}", flash.status().await?);
-    defmt::info!("Status: {:?}", flash.status().await?);
-    defmt::info!("Status: {:?}", flash.status().await?);
-    defmt::info!("Status: {:?}", flash.status().await?);
-    defmt::info!("Status: {:?}", flash.status().await?);
-    defmt::info!("Status: {:?}", flash.status().await?);
-    defmt::info!("Status: {:?}", flash.status().await?);
-    defmt::info!("Status: {:?}", flash.status().await?);
-    defmt::info!("Status: {:?}", flash.status().await?);
+
+    if false {
+        let mut start = Instant::now();
+        let mut mgr =
+            RecordManager::new(&mut flash, 0..(Mx25::<Spi>::SECTOR_SIZE as u32) * 2).await?;
+        let mut end = Instant::now();
+        defmt::info!("Init took : {:?} us", (end - start).as_micros());
+
+        let mut total = embassy_time::Duration::from_nanos(0);
+        // We got two sectors.
+        let mut counter = 0u32;
+        while !mgr.write_will_wrap(4) {
+            start = Instant::now();
+            let new_record = mgr.new_record(&mut flash, counter.as_bytes()).await?;
+            end = Instant::now();
+            let duration = end - start;
+            total += duration;
+            defmt::info!(
+                "new record : {:?} us, {}, {}",
+                duration.as_micros(),
+                new_record.position,
+                new_record.counter
+            );
+            counter += 1;
+        }
+        defmt::info!("total duration for writing: {:?} ms", total.as_millis(),);
+    }
+
+    if false {
+        let mut start = Instant::now();
+        let mut mgr =
+            RecordManager::new(&mut flash, 0..(Mx25::<Spi>::SECTOR_SIZE as u32) * 2).await?;
+        let mut end = Instant::now();
+        defmt::info!("Init took : {:?} us", (end - start).as_micros());
+        let will_wrap = mgr.write_will_wrap(4);
+        defmt::info!("will_wrap {:?}  ", will_wrap);
+        defmt::info!("available_before_wrap {:?}  ", mgr.available_before_wrap());
+
+        if false {
+            let mut counter = 0u32;
+            start = Instant::now();
+            let new_record = mgr.new_record(&mut flash, counter.as_bytes()).await?;
+            end = Instant::now();
+            defmt::info!("Write took : {:?} us", (end - start).as_micros());
+        }
+    }
 
     let mut counter = 0u32;
     loop {

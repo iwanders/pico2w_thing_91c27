@@ -1436,6 +1436,28 @@ mod test {
     }
 
     #[test]
+    fn test_record_manager_problems_silica() -> Result<(), Box<dyn std::error::Error>> {
+        smol::block_on(async || -> Result<(), Box<dyn std::error::Error>> {
+            use super::FlashMemory;
+            let mut flash = TestFlash::new(TestFlash::SECTOR_SIZE * 2);
+            let start = 0;
+            let end = start + TestFlash::SECTOR_SIZE * 2;
+            flash.set_start_address(start);
+            let bad_start = [
+                0u8, 0, 0, 0, 240, 255, 255, 255, 241, 255, 255, 255, 255, 255,
+            ];
+            flash.data[0..bad_start.len()].copy_from_slice(&bad_start);
+
+            let mut mgr = RecordManager::new(&mut flash, (start as u32)..(end as u32)).await?;
+            // Addition with overflow... where did these 0 bytes come from though?? :<
+
+            Ok(())
+        }());
+
+        Ok(())
+    }
+
+    #[test]
     fn test_aligned_segment_iter() -> Result<(), Box<dyn std::error::Error>> {
         let mut o = AlignedSegmentIter::new(256, 0, 512).collect::<Vec<_>>();
         assert_eq!(o.len(), 2);
