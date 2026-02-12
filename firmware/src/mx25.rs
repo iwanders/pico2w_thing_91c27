@@ -185,11 +185,11 @@ where
         read_values: &mut [u8],
     ) -> Result<(), Error<Spi::Error>> {
         use embedded_hal_async::spi::Operation;
-        let address = address.as_bytes();
+        // let address = address.as_bytes();
         self.spi
             .transaction(&mut [
                 Operation::Write(&[instructions::READ_NORMAL_READ]),
-                Operation::Write(&address[0..3]),
+                Operation::Write(&[(address >> 16) as u8, (address >> 8) as u8, address as u8]),
                 Operation::Read(read_values),
             ])
             .await?;
@@ -205,7 +205,7 @@ where
         self.spi
             .transaction(&mut [
                 Operation::Write(&[instructions::FAST_READ_4B_READ4B]),
-                Operation::Write(address.as_bytes()),
+                Operation::Write(&address.to_be_bytes()),
                 Operation::Write(&[0]), // dummy byte
                 Operation::Read(read_values),
             ])
@@ -238,7 +238,7 @@ where
         self.spi
             .transaction(&mut [
                 Operation::Write(&[instructions::PAGE_PROGRAM_4B_PP4B]),
-                Operation::Write(address.as_bytes()),
+                Operation::Write(&address.to_be_bytes()),
                 Operation::Write(write_values),
             ])
             .await?;
@@ -253,10 +253,13 @@ where
             return Err(Error::EraseIncorrectStart);
         }
         self.set_write_mode(true).await?; // This is cleared automatically.
+                                          // self.set_four_byte_mode(true).await?;
+                                          // let address = address / 4096;
+
         self.spi
             .transaction(&mut [
                 Operation::Write(&[instructions::ERASE_SECTOR_4KB_SE4B]),
-                Operation::Write(address.as_bytes()),
+                Operation::Write(&address.to_be_bytes()),
             ])
             .await?;
 
@@ -390,7 +393,7 @@ where
         flash.cmd_page_program_4b(0, &first_256).await?;
     }
 
-    if true {
+    if false {
         // Erase the first two sectors.
         let start = Instant::now();
         flash.cmd_erase_sector_4b(0).await?;
@@ -446,7 +449,7 @@ where
         defmt::info!("total duration for writing: {:?} ms", total.as_millis(),);
     }
 
-    if false {
+    if true {
         let mut start = Instant::now();
         let mut mgr =
             RecordManager::new(&mut flash, 0..(Mx25::<Spi>::SECTOR_SIZE as u32) * 2).await?;
@@ -456,12 +459,12 @@ where
         defmt::info!("will_wrap {:?}  ", will_wrap);
         defmt::info!("available_before_wrap {:?}  ", mgr.available_before_wrap());
 
-        if false {
+        if will_wrap && false {
             let mut counter = 0u32;
             start = Instant::now();
             let new_record = mgr.new_record(&mut flash, counter.as_bytes()).await?;
             end = Instant::now();
-            defmt::info!("Write took : {:?} us", (end - start).as_micros());
+            defmt::info!("Wrapping write took : {:?} us", (end - start).as_micros());
         }
     }
 
@@ -470,7 +473,7 @@ where
         defmt::info!("Status: {:?}", flash.status().await?);
         embassy_time::Timer::after_millis(1000).await;
         let mut read_values = [0u8; 256];
-        flash.cmd_read_fast_4b(0, &mut read_values).await?;
+        flash.cmd_read_fast_4b(7680, &mut read_values).await?;
         defmt::info!("Toggling to : {:?}", read_values);
         counter += 1;
 
