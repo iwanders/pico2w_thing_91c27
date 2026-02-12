@@ -530,7 +530,7 @@ pub mod program {
             }
         }
 
-        if true {
+        if false {
             // Flash memory
             // spi: Peri<'static, embassy_rp::peripherals::SPI0>,
             // cs: Peri<'static, embassy_rp::peripherals::PIN_17>,
@@ -576,6 +576,16 @@ pub mod program {
             } else {
                 defmt::warn!("Failed to detect flash");
             }
+        }
+
+        if true {
+            let start = embassy_time::Instant::now();
+            let z = micro_hap::pairing::PairCode::from_digits([1, 3, 2, 3, 4, 3, 2, 5]).unwrap();
+            let mut p: micro_hap::pairing::SetupInfo = Default::default();
+            p.assign_from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16], z);
+            let end = embassy_time::Instant::now();
+            defmt::warn!("Took {} ms", (end - start).as_millis());
+            // Whopping 814 ms... but not the end of the world.
         }
 
         let mut counter = 0;

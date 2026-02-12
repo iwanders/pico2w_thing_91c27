@@ -407,7 +407,7 @@ where
         flash.cmd_page_program_4b(0, &first_256).await?;
     }
 
-    if true {
+    if false {
         // Try to read the secure thing again.
         flash.set_secured_otp_mode(true).await?;
         let mut first_256 = [0u8; 256];
