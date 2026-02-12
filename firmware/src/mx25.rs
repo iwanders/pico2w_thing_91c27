@@ -37,6 +37,8 @@ pub mod instructions {
 
     /// Sector Erase
     pub const ERASE_SECTOR_4KB_SE4B: u8 = 0x21;
+    /// Sector erase non 4byte.
+    pub const ERASE_SECTOR_4KB_SE: u8 = 0x20;
 
     /// Reset enable
     pub const RESET_ENABLE_RSTEN: u8 = 0x66;
@@ -195,6 +197,18 @@ where
             .await?;
         Ok(())
     }
+
+    pub async fn cmd_erase_sector(&mut self, address: u32) -> Result<(), Error<Spi::Error>> {
+        use embedded_hal_async::spi::Operation;
+        self.spi
+            .transaction(&mut [
+                Operation::Write(&[instructions::ERASE_SECTOR_4KB_SE]),
+                Operation::Write(&[(address >> 16) as u8, (address >> 8) as u8, address as u8]),
+            ])
+            .await?;
+        Ok(())
+    }
+
     pub async fn cmd_read_fast_4b(
         &mut self,
         address: u32,
@@ -393,6 +407,21 @@ where
         flash.cmd_page_program_4b(0, &first_256).await?;
     }
 
+    if true {
+        // Try to read the secure thing again.
+        flash.set_secured_otp_mode(true).await?;
+        let mut first_256 = [0u8; 256];
+        //for (i, v) in first_256.iter_mut().enumerate() {
+        //    *v = i as u8;
+        //}
+        //flash.cmd_page_program_4b(0, &first_256).await?;  // Oops, well I ruined the first 255 bytes.
+        // flash.cmd_erase_sector(0).await?;
+        // flash.flash_flush().await?;
+        flash.cmd_read_fast_4b(0 as u32, &mut first_256).await?;
+        flash.set_secured_otp_mode(false).await?;
+        defmt::info!("first 256 {:?},", first_256);
+    }
+
     if false {
         // Erase the first two sectors.
         let start = Instant::now();
@@ -404,7 +433,7 @@ where
         defmt::info!("Erase and flush took {:?} us", (end - start).as_micros());
     }
 
-    if true {
+    if false {
         // Dump the first two sectors.
         const BLOCK_SIZE: usize = 512;
         let upper = 4096 * 2;
@@ -449,7 +478,7 @@ where
         defmt::info!("total duration for writing: {:?} ms", total.as_millis(),);
     }
 
-    if true {
+    if false {
         let mut start = Instant::now();
         let mut mgr =
             RecordManager::new(&mut flash, 0..(Mx25::<Spi>::SECTOR_SIZE as u32) * 2).await?;
