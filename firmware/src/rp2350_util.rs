@@ -139,6 +139,37 @@ pub mod otp {
     }
 }
 
+/// Some helpers for making a sort-of-ok mostly-cryptographically secure random number generator.
+/// We do this because the real Trng was spamming autocorrect errors, perhaps becuase I was pulling bytes out of it
+/// in bursts?
+/// ```nocode
+/// let mut trng = embassy_rp::trng::Trng::new(p.TRNG, Irqs, embassy_rp::trng::Config::default());
+/// 13.459326 WARN  TRNG Autocorrect error! Resetting TRNG. Increase sample count to reduce likelihood
+/// 13.459846 WARN  TRNG CRNGT error! Increase sample count to reduce likelihood
+/// Much much spam of that last command, lets just switch to a cryptographically secure RNG.
+/// ```
+pub mod random_util {
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
+
+    pub fn instantiate_rng() -> ChaCha8Rng {
+        let mut key = [0u8; 32];
+
+        // Upper half of the key comes from the OTP part, this is a reasonable source of unique data and sort-of-private.
+        let rng_init =
+            embassy_rp::otp::get_private_random_number().expect("failed to retrieve random bytes");
+        key[0..16].copy_from_slice(&rng_init.to_le_bytes());
+
+        // We collect the second part of the key with some random from the random oscillator.
+        for i in 16..key.len() {
+            key[i] = embassy_rp::clocks::RoscRng::next_u8();
+        }
+
+        // Finally, make the generator.
+        ChaCha8Rng::from_seed(key)
+    }
+}
+
 pub mod xip {
     const XIP_NOCACHE_NOALLOC_NOTRANSLATE_BASE: *const u8 = 0x1c000000 as *const u8;
     pub unsafe fn flash_slice(flash_offset: usize, length: usize) -> &'static [u8] {

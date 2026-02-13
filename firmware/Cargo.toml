@@ -68,7 +68,10 @@ postcard = "1.0.0"
 # To easily convert slice of one type into another.
 zerocopy = { version = "0.8.26", features = ["derive"] }
 
-chacha20 = "0.9.1"
+# Some stuff to fuzz deterministically
+rand_chacha ={version= "0.10.0", default-features=false}
+#chacha20 = {version="0.10", features=["rng"]}
+rand = {version="0.10.0", default-features=false}
 
 thiserror = {version="2", default-features=false}
 bitfield-struct = "0.11.0"
@@ -111,9 +114,6 @@ embassy-futures = "0.1.2"
 # I need an async executor to run the tests.
 smol = "2.0.2"
 
-# Some stuff to fuzz deterministically
-rand_chacha = "0.10.0"
-rand = "0.10.0"
 
 embassy-time = { version = "0.5", features = [
     "defmt",

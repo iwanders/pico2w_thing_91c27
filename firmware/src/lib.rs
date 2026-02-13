@@ -8,8 +8,8 @@ pub mod defmt_serial;
 pub mod static_files;
 
 pub mod flash_memory;
-#[cfg(target_arch = "arm")]
-pub mod hap;
+// #[cfg(target_arch = "arm")]
+// pub mod hap;
 pub mod icm42688;
 pub mod lsm6dsv320x;
 pub mod mx25;
@@ -218,7 +218,7 @@ pub mod program {
 
         // Test section
         info!("Going into test.");
-        //hw_test::hw_test(unsafe { embassy_rp::Peripherals::steal() }).await;
+        hw_test::hw_test(unsafe { embassy_rp::Peripherals::steal() }).await;
         //hw_test::test_wifi(unsafe { embassy_rp::Peripherals::steal() }, spawner).await;
         //hap::main(spawner, unsafe { embassy_rp::Peripherals::steal() }).await; // ---------------------- << HAP ENTRY
         let mut indicator = Output::new(p.PIN_26, Level::Low);
@@ -578,7 +578,7 @@ pub mod program {
             }
         }
 
-        if true {
+        if false {
             let start = embassy_time::Instant::now();
             let z = micro_hap::pairing::PairCode::from_digits([1, 3, 2, 3, 4, 3, 2, 5]).unwrap();
             let mut p: micro_hap::pairing::SetupInfo = Default::default();

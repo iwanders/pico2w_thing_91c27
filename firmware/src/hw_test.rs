@@ -481,9 +481,10 @@ pub async fn hw_test(p: Peripherals) -> ! {
     const TEST_LSM: bool = false;
     const TEST_BME: bool = false;
     const TEST_FLASH: bool = false;
-    const TEST_SDCARD: bool = true;
+    const TEST_SDCARD: bool = false;
     const TEST_BATTERY_VOLTAGE: bool = false;
     const TEST_MIC: bool = false;
+    const TEST_COLLECT_ENTROPY: bool = true;
 
     if TEST_ICM {
         test_icm(IcmPinTransfer {
@@ -565,6 +566,20 @@ pub async fn hw_test(p: Peripherals) -> ! {
             Timer::after_secs(1).await;
         }
         */
+    }
+    if TEST_COLLECT_ENTROPY {
+        for _ in 0..10 {
+            defmt::info!("RNG: {}", embassy_rp::clocks::RoscRng::next_u8());
+            Timer::after_secs(1).await;
+            // value 164 occurs a LOT... but that could be because we have this 1 s periodic wait, if we just pull some
+            // values from it and then wait a bit, pull some more values, it's probably fine.
+        }
+        //        defmt::info!("RNG: {:x}", embassy_rp::clocks::RoscRng {}.next_u32());
+        let mut rng = crate::rp2350_util::random_util::instantiate_rng();
+        for _ in 0..10 {
+            use rand::Rng;
+            defmt::info!("RNG: {:x}", rng.next_u32());
+        }
     }
 
     if TEST_MIC {
