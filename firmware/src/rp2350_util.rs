@@ -151,6 +151,7 @@ pub mod otp {
 pub mod random_util {
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
+    pub type RngType = ChaCha8Rng;
 
     pub fn instantiate_rng() -> ChaCha8Rng {
         let mut key = [0u8; 32];

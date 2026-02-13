@@ -8,8 +8,8 @@ pub mod defmt_serial;
 pub mod static_files;
 
 pub mod flash_memory;
-// #[cfg(target_arch = "arm")]
-// pub mod hap;
+#[cfg(target_arch = "arm")]
+pub mod hap;
 pub mod icm42688;
 pub mod lsm6dsv320x;
 pub mod mx25;

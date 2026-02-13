@@ -11,11 +11,6 @@ use embassy_sync::watch::DynSender;
 use static_cell::StaticCell;
 use zerocopy::IntoBytes;
 
-use chacha20::{
-    cipher::{KeyIvInit, StreamCipher},
-    ChaCha8,
-};
-
 use embassy_futures::join::join;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use micro_hap::IntoBytesForAccessoryInterface;
@@ -26,6 +21,7 @@ use micro_hap::{
     ble::HumiditySensorServiceHandles, ble::TimedWrite, AccessoryInterface, CharId,
     CharacteristicResponse, InterfaceError, PlatformSupport,
 };
+use rand::RngExt;
 
 #[derive(Debug, Copy, Clone)]
 struct DataUpdate {
@@ -131,15 +127,11 @@ pub struct ActualPairSupport {
     pub config_number: u8,
     pub broadcast_parameters: BleBroadcastParameters,
     pub ble_broadcast_config: heapless::index_map::FnvIndexMap<CharId, BleBroadcastInterval, 16>,
-    pub prng: ChaCha8,
+    pub prng: crate::rp2350_util::random_util::RngType,
 }
 
 impl ActualPairSupport {
-    fn new(rng_init: u128) -> Self {
-        let mut key = [0u8; 32];
-        key[0..16].copy_from_slice(rng_init.as_bytes());
-        let nonce = [0u8; 12];
-
+    fn new() -> Self {
         Self {
             ed_ltsk: [
                 182, 215, 245, 151, 120, 82, 56, 100, 73, 148, 49, 127, 131, 22, 235, 192, 207, 15,
@@ -150,7 +142,7 @@ impl ActualPairSupport {
             config_number: 1,
             broadcast_parameters: Default::default(),
             ble_broadcast_config: Default::default(),
-            prng: ChaCha8::new_from_slices(&key, &nonce).unwrap(),
+            prng: crate::rp2350_util::random_util::instantiate_rng(),
         }
     }
 }
@@ -164,7 +156,7 @@ impl PlatformSupport for ActualPairSupport {
     }
 
     async fn fill_random(&mut self, buffer: &mut [u8]) -> () {
-        self.prng.apply_keystream(buffer);
+        self.prng.fill(buffer);
     }
 
     async fn store_pairing(&mut self, pairing: &Pairing) -> Result<(), InterfaceError> {
@@ -550,10 +542,7 @@ pub async fn run<'p, 'cyw, C>(
         humidity_handles,
     };
 
-    // This isn't great, because we always initialise the same way at boot, but the trng spammed the autocorrect error.
-    let init_u128 =
-        embassy_rp::otp::get_private_random_number().expect("failed to retrieve random bytes");
-    let mut support = ActualPairSupport::new(init_u128);
+    let mut support = ActualPairSupport::new();
     let support = &mut support;
 
     let temperature_char_id = temperature_handles.value.hap;
@@ -722,11 +711,6 @@ pub async fn main(spawner: Spawner, p: Peripherals) {
     unwrap!(spawner.spawn(cyw43_task(runner)));
     control.init(clm).await;
     let controller: ExternalController<_, 10> = ExternalController::new(bt_device);
-
-    // let mut trng = embassy_rp::trng::Trng::new(p.TRNG, Irqs, embassy_rp::trng::Config::default());
-    // 13.459326 WARN  TRNG Autocorrect error! Resetting TRNG. Increase sample count to reduce likelihood
-    // 13.459846 WARN  TRNG CRNGT error! Increase sample count to reduce likelihood
-    // Much much spam of that last command, lets just switch to a cryptographically secure RNG.
 
     // DO NOT CHANGE ORDER: https://github.com/embassy-rs/embassy/issues/4558
     // let adcthing = p.ADC_TEMP_SENSOR;
