@@ -58,6 +58,8 @@ pub mod program {
         "hw_test.rs",
         "lsm6dsv320x.rs",
         "mx25.rs",
+        "hap.rs",
+        "flash_memory.rs",
     ];
 
     // Program metadata for `picotool info`.
@@ -218,9 +220,9 @@ pub mod program {
 
         // Test section
         info!("Going into test.");
-        hw_test::hw_test(unsafe { embassy_rp::Peripherals::steal() }).await;
+        //hw_test::hw_test(unsafe { embassy_rp::Peripherals::steal() }).await;
         //hw_test::test_wifi(unsafe { embassy_rp::Peripherals::steal() }, spawner).await;
-        //hap::main(spawner, unsafe { embassy_rp::Peripherals::steal() }).await; // ---------------------- << HAP ENTRY
+        hap::main(spawner, unsafe { embassy_rp::Peripherals::steal() }).await; // ---------------------- << HAP ENTRY
         let mut indicator = Output::new(p.PIN_26, Level::Low);
         let delay = Duration::from_millis(250);
 

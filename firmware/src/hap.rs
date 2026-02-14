@@ -7,11 +7,12 @@ use embassy_executor::Spawner;
 use embassy_rp::bind_interrupts;
 use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::DMA_CH0;
+use embassy_time::{Duration, Timer};
 
 use embassy_rp::pio::Pio;
 use embassy_sync::watch::DynSender;
 use static_cell::StaticCell;
-use zerocopy::IntoBytes;
+use zerocopy::{FromBytes, Immutable, IntoBytes};
 
 use embassy_futures::join::join;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
@@ -658,13 +659,53 @@ impl Bulb {
     }
 }
 
-fn should_factory_reset<F: FlashMemory>(
+async fn should_factory_reset<F: FlashMemory>(
     flash: &mut F,
     arena: core::ops::Range<u32>,
     bulb: &Bulb,
-) -> bool {
-    struct BootRecord {};
-    false
+) -> Result<bool, F::Error> {
+    let blink = async || {
+        bulb.set_state(true);
+        Timer::after(Duration::from_millis(100)).await;
+        bulb.set_state(false);
+        Timer::after(Duration::from_millis(100)).await;
+    };
+
+    #[derive(IntoBytes, FromBytes, Immutable, Debug, Default, defmt::Format)]
+    struct BootRecord {
+        consecutive_quick_resets: u8,
+    }
+    let mut mgr = RecordManager::new(flash, arena).await?;
+    let mut current = BootRecord::default();
+    if let Some(record) = mgr.valid_record() {
+        defmt::println!("Found record with counter {}", record.counter);
+        mgr.record_read_into(flash, &record, &mut current).await?;
+        defmt::println!("Factory reset counter {:?}", current);
+    };
+    current.consecutive_quick_resets += 1;
+    mgr.new_record(flash, current.as_bytes()).await?;
+
+    if current.consecutive_quick_resets > 5 {
+        defmt::println!("Factory reset counter exceeded, setting to zero");
+        mgr.new_record(flash, BootRecord::default().as_bytes())
+            .await?;
+        return Ok(true);
+    }
+
+    // Quick burst to show the current reset count.
+    for _ in 0..current.consecutive_quick_resets {
+        blink().await;
+    }
+    Timer::after(Duration::from_millis(1000)).await;
+    defmt::println!("Window opens");
+    bulb.set_state(true);
+    Timer::after(Duration::from_millis(5000)).await;
+    bulb.set_state(false);
+
+    mgr.new_record(flash, BootRecord::default().as_bytes())
+        .await?;
+    defmt::println!("Window closed");
+    Ok(false)
 }
 
 //#[embassy_executor::main]
@@ -715,7 +756,8 @@ pub async fn main(spawner: Spawner, p: Peripherals) {
     let mut flash = Mx25::new(device).await.unwrap();
 
     let factory_reset_counting = 0..(flash.flash_sector_size() as u32 * 2);
-    if should_factory_reset(&mut flash, factory_reset_counting, bulb) {
+    let r = should_factory_reset(&mut flash, factory_reset_counting, bulb).await;
+    if r.is_err() || r.unwrap() {
         // Perform the factory reset
         defmt::warn!("Doing factory reset");
     }
