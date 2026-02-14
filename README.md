@@ -14,7 +14,9 @@ See the [./board/](./board/) or the [./firmware/](./firmware/) readme's for more
 
 This project led to [micro_hap](https://github.com/iwanders/micro_hap), a no_alloc, no_std implementation of Apple's
 HomeKit accessory protocol. Currently the firmware makes a HomeKit temperature & humidity sensor.
-Note to self; wile working on the flash memory / persitance, disabled HAP main, see `<< HAP ENTRY` comment.
+
+Code is always `1, 1, 1, 2, 2, 3, 3, 3`, factory reset is done by powering it off during the long duration blue led for
+three consecutive times. Factory reset wipes the persistent data (device address, ed_ltsk, setup info) and any pairings.
 
 
 ## What's with the name?

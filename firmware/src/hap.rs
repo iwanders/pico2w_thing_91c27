@@ -688,7 +688,7 @@ async fn should_factory_reset<F: FlashMemory>(
     current.consecutive_quick_resets += 1;
     mgr.new_record(flash, current.as_bytes()).await?;
 
-    if current.consecutive_quick_resets > 5 {
+    if current.consecutive_quick_resets > 3 {
         defmt::println!("Factory reset counter exceeded, setting to zero");
         mgr.new_record(flash, BootRecord::default().as_bytes())
             .await?;
@@ -773,17 +773,20 @@ pub async fn main(spawner: Spawner, p: Peripherals) {
     let r = should_factory_reset(&mut flash, arena_factory_reset, bulb).await;
 
     // Read persistent data from flash.
-    let mut mgr = RecordManager::new(&mut flash, arena_persistent_flash)
+    let mut persistent_mgr = RecordManager::new(&mut flash, arena_persistent_flash)
         .await
         .unwrap();
 
+    let mut pairing_mgr = RecordManager::new(&mut flash, arena_pairing_data)
+        .await
+        .unwrap();
     let persistent_data: &mut PersistentFactoryData = {
         static STATE: StaticCell<PersistentFactoryData> = StaticCell::new();
         STATE.init(PersistentFactoryData::default())
     };
 
     // If doing factory reset, or no persistent data yet.
-    if r.is_err() || r.unwrap() || mgr.valid_record().is_none() {
+    if r.is_err() || r.unwrap() || persistent_mgr.valid_record().is_none() {
         // Perform the factory reset
         defmt::warn!("Doing factory reset");
         // Populate the persistent data with new stuff, write to flash.
@@ -802,16 +805,21 @@ pub async fn main(spawner: Spawner, p: Peripherals) {
         );
         defmt::info!("Done calculating verifier");
         defmt::info!("Writing to flash.");
-        mgr.new_record(&mut flash, persistent_data.as_bytes())
+        persistent_mgr
+            .new_record(&mut flash, persistent_data.as_bytes())
             .await
             .unwrap();
+        // Erasing the pairings like this is a bit of an ugly solution... but it works, and factory resets are super
+        // rare.
+        pairing_mgr.erase(&mut flash).await.unwrap();
         for _ in 0..3 {
             blink().await;
         }
     }
 
-    if let Some(persistent_record) = mgr.valid_record() {
-        mgr.record_read_into(&mut flash, &persistent_record, persistent_data)
+    if let Some(persistent_record) = persistent_mgr.valid_record() {
+        persistent_mgr
+            .record_read_into(&mut flash, &persistent_record, persistent_data)
             .await
             .unwrap();
         defmt::info!(
@@ -835,20 +843,18 @@ pub async fn main(spawner: Spawner, p: Peripherals) {
     };
 
     // Now that we have the persistent data, we also need to retrieve the pairing data from the flash.
-    let mut pair_support: &mut ActualPairSupport = {
+    let pair_support: &mut ActualPairSupport = {
         static STATE: StaticCell<ActualPairSupport> = StaticCell::new();
         STATE.init(ActualPairSupport::new(pair_support_working_buffer))
     };
     pair_support.ed_ltsk = persistent_data.ed_ltsk;
 
     // Try to retrieve the pairing data.
-    let mut pairing_mgr = RecordManager::new(&mut flash, arena_pairing_data)
-        .await
-        .unwrap();
     if let Some(pairing_record) = pairing_mgr.valid_record() {
         // Retrieve the pairing data.
         let scratch = &mut pair_support.working_buffer[0..pairing_record.length()];
-        mgr.record_read(&mut flash, &pairing_record, scratch)
+        persistent_mgr
+            .record_read(&mut flash, &pairing_record, scratch)
             .await
             .unwrap();
 
