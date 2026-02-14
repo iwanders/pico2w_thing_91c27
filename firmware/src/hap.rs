@@ -3,11 +3,15 @@ use crate::flash_memory::{FlashMemory, RecordManager};
 use crate::mx25::Mx25;
 use cyw43_pio::{PioSpi, DEFAULT_CLOCK_DIVIDER, RM2_CLOCK_DIVIDER};
 use defmt::{error, info, unwrap, warn};
+use embassy_embedded_hal::shared_bus::asynch::spi::SpiDevice;
 use embassy_executor::Spawner;
 use embassy_rp::bind_interrupts;
 use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::DMA_CH0;
 use embassy_rp::pio::Pio;
+use embassy_rp::spi::{Config, Spi};
+use embassy_sync::blocking_mutex::raw::NoopRawMutex;
+use embassy_sync::mutex::Mutex;
 use embassy_sync::watch::DynSender;
 use embassy_time::{Duration, Timer};
 use serde::{Deserialize, Serialize};
@@ -112,29 +116,42 @@ use micro_hap::BleBroadcastInterval;
 #[derive(
     FromBytes, IntoBytes, Immutable, Debug, Deserialize, Serialize, defmt::Format, Default,
 )]
-pub struct PeristentFactoryData {
+pub struct PersistentFactoryData {
     pub setup_info: micro_hap::pairing::SetupInfo,
     pub ed_ltsk: [u8; micro_hap::pairing::ED25519_LTSK],
     pub device_id: micro_hap::DeviceId,
 }
-crate::static_assert_size!(PeristentFactoryData, 438);
+crate::static_assert_size!(PersistentFactoryData, 438);
 
+type FlashSpiBusType = Spi<'static, embassy_rp::peripherals::SPI0, embassy_rp::spi::Async>;
+type FlashSpiDeviceType = SpiDevice<'static, NoopRawMutex, FlashSpiBusType, Output<'static>>;
+type FlashType = Mx25<FlashSpiDeviceType>;
+pub struct FlashAndManager {
+    pub flash: FlashType,
+    pub mgr: RecordManager,
+}
+
+pub const PAIRING_MAP_SIZE: usize = 4;
+pub const BLE_BROADCAST_MAP_SIZE: usize = 16;
 pub struct ActualPairSupport {
     pub ed_ltsk: [u8; micro_hap::pairing::ED25519_LTSK],
     pub pairings: heapless::index_map::FnvIndexMap<
         micro_hap::pairing::PairingId,
         micro_hap::pairing::Pairing,
-        2,
+        PAIRING_MAP_SIZE,
     >,
     pub global_state_number: u16,
     pub config_number: u8,
     pub broadcast_parameters: BleBroadcastParameters,
-    pub ble_broadcast_config: heapless::index_map::FnvIndexMap<CharId, BleBroadcastInterval, 16>,
+    pub ble_broadcast_config:
+        heapless::index_map::FnvIndexMap<CharId, BleBroadcastInterval, BLE_BROADCAST_MAP_SIZE>,
     pub prng: crate::rp2350_util::random_util::RngType,
+    pub working_buffer: &'static mut [u8],
+    pub pairing_store: Option<FlashAndManager>,
 }
 
 impl ActualPairSupport {
-    fn new() -> Self {
+    fn new(working_buffer: &'static mut [u8]) -> Self {
         Self {
             ed_ltsk: [
                 182, 215, 245, 151, 120, 82, 56, 100, 73, 148, 49, 127, 131, 22, 235, 192, 207, 15,
@@ -146,7 +163,25 @@ impl ActualPairSupport {
             broadcast_parameters: Default::default(),
             ble_broadcast_config: Default::default(),
             prng: crate::rp2350_util::random_util::instantiate_rng(),
+            working_buffer,
+            pairing_store: None,
         }
+    }
+
+    async fn flush_pairings_to_flash(&mut self) -> Result<(), <FlashType as FlashMemory>::Error> {
+        if self.pairing_store.is_none() {
+            return Ok(()); // nothing to do, we don't have persistent storage.
+        }
+        // Okay, so serialize the current map into the working buffer.
+        let res_slice = postcard::to_slice(&self.pairings, &mut self.working_buffer).unwrap();
+        if let Some(z) = self.pairing_store.as_mut() {
+            match z.mgr.new_record(&mut z.flash, res_slice).await {
+                Ok(_) => defmt::info!("flashed {} pairings to memory", self.pairings.len()),
+                Err(e) => defmt::error!("Failed to write pairings to memory: {:?}", e),
+            }
+        }
+
+        Ok(())
     }
 }
 impl PlatformSupport for ActualPairSupport {
@@ -167,6 +202,12 @@ impl PlatformSupport for ActualPairSupport {
         self.pairings
             .insert(pairing.id, *pairing)
             .expect("assuming we have anough space for now");
+
+        // Need to serialize this, and then write it to the flash.
+        self.flush_pairings_to_flash()
+            .await
+            .map_err(|_| InterfaceError::Custom("writing to flash failed"))?;
+
         Ok(())
     }
 
@@ -176,6 +217,9 @@ impl PlatformSupport for ActualPairSupport {
     }
     async fn remove_pairing(&mut self, id: &PairingId) -> Result<(), InterfaceError> {
         let _ = self.pairings.remove(id);
+        self.flush_pairings_to_flash()
+            .await
+            .map_err(|_| InterfaceError::Custom("writing to flash failed"))?;
         Ok(())
     }
     async fn is_paired(&mut self) -> Result<bool, micro_hap::InterfaceError> {
@@ -291,7 +335,8 @@ pub async fn run<'p, 'cyw, C>(
     // temp_adc: embassy_rp::adc::Channel<'_>,
     // adc: embassy_rp::adc::Adc<'_, embassy_rp::adc::Async>,
     bme280: BMEDevice,
-    persistent_data: &PeristentFactoryData,
+    persistent_data: &PersistentFactoryData,
+    pair_support: &mut ActualPairSupport,
 ) where
     C: Controller, // + ControllerCmdSync<LeReadLocalSupportedFeatures>
                    // + ControllerCmdSync<LeSetDataLength>,
@@ -407,7 +452,6 @@ pub async fn run<'p, 'cyw, C>(
         STATE.init_with(micro_hap::AccessoryContext::default)
     };
     pair_ctx.accessory = static_information;
-
     pair_ctx.info = persistent_data.setup_info;
 
     let out_buffer: &mut [u8] = {
@@ -504,8 +548,8 @@ pub async fn run<'p, 'cyw, C>(
         humidity_handles,
     };
 
-    let mut support = ActualPairSupport::new();
-    let support = &mut support;
+    // let mut support = ActualPairSupport::new();
+    let support = pair_support;
 
     let temperature_char_id = temperature_handles.value.hap;
     let humidity_char_id = humidity_handles.value.hap;
@@ -687,6 +731,7 @@ pub async fn main(spawner: Spawner, p: Peripherals) {
         bulb.set_state(false);
         Timer::after(Duration::from_millis(100)).await;
     };
+
     // First, some flash management.
     // Flash memory
     // spi: Peri<'static, embassy_rp::peripherals::SPI0>,
@@ -694,10 +739,6 @@ pub async fn main(spawner: Spawner, p: Peripherals) {
     // clk: Peri<'static, embassy_rp::peripherals::PIN_18>,
     // mosi: Peri<'static, embassy_rp::peripherals::PIN_19>,
     // miso: Peri<'static, embassy_rp::peripherals::PIN_16>,
-    use embassy_embedded_hal::shared_bus::asynch::spi::SpiDevice;
-    use embassy_rp::spi::{Config, Spi};
-    use embassy_sync::blocking_mutex::raw::NoopRawMutex;
-    use embassy_sync::mutex::Mutex;
     let flash_cs = Output::new(p.PIN_17, Level::High);
     let mut flash_config = Config::default();
 
@@ -715,29 +756,30 @@ pub async fn main(spawner: Spawner, p: Peripherals) {
         flash_rx_dma,
         flash_config,
     );
-    static SPI_BUS: StaticCell<
-        Mutex<NoopRawMutex, Spi<'_, embassy_rp::peripherals::SPI0, embassy_rp::spi::Async>>,
-    > = StaticCell::new();
+    static SPI_BUS: StaticCell<Mutex<NoopRawMutex, FlashSpiBusType>> = StaticCell::new();
     let flash_spi_bus = Mutex::new(flash_spi);
     let flash_spi_bus = SPI_BUS.init(flash_spi_bus);
-    let device = SpiDevice::new(flash_spi_bus, flash_cs);
-    let mut flash = Mx25::new(device).await.unwrap();
+    let device: FlashSpiDeviceType = SpiDevice::new(flash_spi_bus, flash_cs);
+    let mut flash: FlashType = Mx25::new(device).await.unwrap();
 
+    // Flash arenas
     let arena_factory_reset = 0..(flash.flash_sector_size() as u32 * 2);
-    let r = should_factory_reset(&mut flash, arena_factory_reset, bulb).await;
-
-    // Allocate the persistent factory data.
     let arena_persistent_flash =
         (flash.flash_sector_size() as u32 * 2)..(flash.flash_sector_size() as u32 * 4);
+    let arena_pairing_data =
+        (flash.flash_sector_size() as u32 * 4)..(flash.flash_sector_size() as u32 * 6);
 
-    // Read persisten data from flash.
+    // Determine factor reset.
+    let r = should_factory_reset(&mut flash, arena_factory_reset, bulb).await;
+
+    // Read persistent data from flash.
     let mut mgr = RecordManager::new(&mut flash, arena_persistent_flash)
         .await
         .unwrap();
 
-    let mut persistent_data: &mut PeristentFactoryData = {
-        static STATE: StaticCell<PeristentFactoryData> = StaticCell::new();
-        STATE.init(PeristentFactoryData::default())
+    let persistent_data: &mut PersistentFactoryData = {
+        static STATE: StaticCell<PersistentFactoryData> = StaticCell::new();
+        STATE.init(PersistentFactoryData::default())
     };
 
     // If doing factory reset, or no persistent data yet.
@@ -763,6 +805,9 @@ pub async fn main(spawner: Spawner, p: Peripherals) {
         mgr.new_record(&mut flash, persistent_data.as_bytes())
             .await
             .unwrap();
+        for _ in 0..3 {
+            blink().await;
+        }
     }
 
     if let Some(persistent_record) = mgr.valid_record() {
@@ -777,9 +822,58 @@ pub async fn main(spawner: Spawner, p: Peripherals) {
         defmt::warn!("Whelp... no valid record after we did a factory reset... we're continuing, but this is volatile");
     }
 
+    let pair_support_working_buffer: &mut [u8] = {
+        // This scratch space must be able to hold the serialized form of
+        //
+        // FnvIndexMap< micro_hap::pairing::PairingId, micro_hap::pairing::Pairing, PAIRING_MAP_SIZE, >
+        const PAIRING_SIZE: usize = core::mem::size_of::<micro_hap::pairing::Pairing>();
+        const PAIRING_ID_SIZE: usize = core::mem::size_of::<micro_hap::pairing::PairingId>();
+        // And lets some for serialization overhead.
+        const SCRATCH_SPACE: usize = PAIRING_MAP_SIZE * (PAIRING_SIZE + PAIRING_ID_SIZE + 16) + 16;
+        static STATE: StaticCell<[u8; SCRATCH_SPACE]> = StaticCell::new();
+        STATE.init([0u8; SCRATCH_SPACE])
+    };
+
+    // Now that we have the persistent data, we also need to retrieve the pairing data from the flash.
+    let mut pair_support: &mut ActualPairSupport = {
+        static STATE: StaticCell<ActualPairSupport> = StaticCell::new();
+        STATE.init(ActualPairSupport::new(pair_support_working_buffer))
+    };
+    pair_support.ed_ltsk = persistent_data.ed_ltsk;
+
+    // Try to retrieve the pairing data.
+    let mut pairing_mgr = RecordManager::new(&mut flash, arena_pairing_data)
+        .await
+        .unwrap();
+    if let Some(pairing_record) = pairing_mgr.valid_record() {
+        // Retrieve the pairing data.
+        let scratch = &mut pair_support.working_buffer[0..pairing_record.length()];
+        mgr.record_read(&mut flash, &pairing_record, scratch)
+            .await
+            .unwrap();
+
+        // We now have the pairing data. Now we need to parse it.
+        if let Ok(pairings) = postcard::from_bytes(&scratch) {
+            pair_support.pairings = pairings;
+            defmt::info!(
+                "Succesfully read {} pairings from flash.",
+                pair_support.pairings.len()
+            );
+        } else {
+            defmt::warn!("Parsing pairings failed! Booo.");
+        }
+    } else {
+        defmt::info!("No pairing data found.");
+    }
+    // And pass the flash and manager to the pair support such that we can write the new pairing entries.
+    pair_support.pairing_store = Some(FlashAndManager {
+        flash,
+        mgr: pairing_mgr,
+    });
+
     if false {
-        // Hardcode stuff.
-        //     // srp salt and verifier for [1, 1, 1, 2, 2, 3, 3, 3]
+        // Hardcoded stuff.
+        // srp salt and verifier for [1, 1, 1, 2, 2, 3, 3, 3]
         const SRP_SALT: [u8; 16] = [
             0xbc, 0xd1, 0xf5, 0x2a, 0xd6, 0x68, 0x02, 0x2d, 0x57, 0x01, 0xcb, 0xaa, 0xfa, 0x5f,
             0x35, 0x48,
@@ -907,5 +1001,12 @@ pub async fn main(spawner: Spawner, p: Peripherals) {
         .await
         .unwrap();
     defmt::debug!("bme280 dev: {:?}", bme280_dev);
-    run(controller, control, bme280_dev, persistent_data).await;
+    run(
+        controller,
+        control,
+        bme280_dev,
+        persistent_data,
+        pair_support,
+    )
+    .await;
 }

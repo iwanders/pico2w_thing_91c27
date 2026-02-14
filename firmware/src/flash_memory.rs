@@ -194,6 +194,9 @@ impl Record {
             counter: self.counter,
         }
     }
+    pub fn length(&self) -> usize {
+        self.length as usize
+    }
 }
 
 // We use this module to ensure without a doubt that the private member attributes of these on-flash structs aren't
