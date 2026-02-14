@@ -806,6 +806,21 @@ impl RecordManager {
         self.record_read(flash, record, data.as_mut_bytes()).await
     }
 
+    /// Read the provided record into a value, starting from offset.
+    pub async fn record_read_offset_into<
+        T: zerocopy::FromBytes + zerocopy::IntoBytes,
+        F: FlashMemory,
+    >(
+        &mut self,
+        flash: &mut F,
+        record: &Record,
+        offset: usize,
+        data: &mut T,
+    ) -> Result<(), F::Error> {
+        self.record_read_offset(flash, record, offset, data.as_mut_bytes())
+            .await
+    }
+
     /// Read the provided record into bytes
     pub async fn record_read<F: FlashMemory>(
         &mut self,
@@ -816,6 +831,34 @@ impl RecordManager {
         flash
             .flash_read(record.position + FlashPrefix::SIZE, data)
             .await
+    }
+
+    /// Read the provided record into bytes, starting reading at the provided offset.
+    pub async fn record_read_offset<F: FlashMemory>(
+        &mut self,
+        flash: &mut F,
+        record: &Record,
+        offset: usize,
+        data: &mut [u8],
+    ) -> Result<(), F::Error> {
+        flash
+            .flash_read(record.position + FlashPrefix::SIZE + offset as u32, data)
+            .await
+    }
+
+    /// Performs a full erase of the arena owned by this manager.
+    ///
+    /// This is a destructive operation that will erase all data in the arena. It should only be used when you are sure
+    /// that no data needs to be preserved.
+    pub async fn erase<F: FlashMemory>(&mut self, flash: &mut F) -> Result<(), F::Error> {
+        let start = self.arena_start as usize;
+        let end = (self.arena_start + self.arena_length) as usize;
+        for e in EraseChunker::new(F::SECTOR_SIZE, start..end) {
+            flash.flash_erase_sector(e.offset as u32).await?;
+            flash.flash_flush().await?;
+        }
+
+        Ok(())
     }
 }
 
@@ -1240,6 +1283,15 @@ mod test {
                 true,
                 "Flash should be filled with 1s at the end"
             );
+
+            // Do a full erase.
+            mgr.erase(&mut flash).await?;
+            assert_eq!(flash.data.iter().all(|&x| x == 0xFF), true,);
+
+            let mut mgr = RecordManager::new(&mut flash, (start as u32)..(end as u32))
+                .await
+                .unwrap();
+            assert_eq!(mgr.valid_record().is_none(), true);
 
             Ok(())
         }())

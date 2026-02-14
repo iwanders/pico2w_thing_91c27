@@ -172,7 +172,7 @@ where
         Ok(())
     }
 
-    async fn verify_nothing_in_progress(&mut self) -> Result<(), Error<Spi::Error>> {
+    pub async fn verify_nothing_in_progress(&mut self) -> Result<(), Error<Spi::Error>> {
         let status = self.status().await?;
         if status.write_in_progress() {
             Err(Error::WriteInProgress)
@@ -323,7 +323,7 @@ where
     }
 
     /// Sets four byte mode.
-    async fn set_four_byte_mode(&mut self, state: bool) -> Result<(), Error<Spi::Error>> {
+    pub async fn set_four_byte_mode(&mut self, state: bool) -> Result<(), Error<Spi::Error>> {
         if state {
             self.command(instructions::FOUR_BYTE_ADDRESS_ENABLE_EN4B)
                 .await
