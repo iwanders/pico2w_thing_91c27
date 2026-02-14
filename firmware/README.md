@@ -86,3 +86,12 @@ And [rs-matter-embassy](https://github.com/sysgrok/rs-matter-embassy) seems to b
 Read some of the spec, this is really an IP based standard, that only uses BLE for commissioning and joining the network.
 The alternative supported radio (to wifi/lan) is threads/802.15.4, which my phone doesn't support so that rules out using it without a gateway.
 TL;DR: Matter uses ble for setup, then switches to Wifi or 802.15.4.
+
+
+## On development
+It helps to set the following in `.cargo/config.toml` to ensure the LSP uses the correct arch (and disable this when working on tests).
+```
+[build]
+# Set the default target to match the Cortex-M33 in the RP2350
+target = "thumbv8m.main-none-eabihf"
+```
