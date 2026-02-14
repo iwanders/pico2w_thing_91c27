@@ -1,4 +1,6 @@
 use crate::bme280::BME280;
+use crate::flash_memory::{FlashMemory, RecordManager};
+use crate::mx25::Mx25;
 use cyw43_pio::{PioSpi, DEFAULT_CLOCK_DIVIDER, RM2_CLOCK_DIVIDER};
 use defmt::{error, info, unwrap, warn};
 use embassy_executor::Spawner;
@@ -639,9 +641,88 @@ async fn cyw43_task(
     runner.run().await
 }
 
+// use embassy_rp::gpio;
+// use gpio::{Level, Output};
+struct Bulb {
+    pin: core::cell::RefCell<Output<'static>>,
+}
+impl Bulb {
+    pub fn new(pin: Output<'static>) -> Self {
+        Self { pin: pin.into() }
+    }
+    pub fn set_state(&self, value: bool) {
+        // There's no yield in this section, so this should be safe even with concurrent tasks under the current
+        // scheduler.
+        let mut z = self.pin.borrow_mut();
+        let _r = (*z).set_level(if value { Level::High } else { Level::Low });
+    }
+}
+
+fn should_factory_reset<F: FlashMemory>(
+    flash: &mut F,
+    arena: core::ops::Range<u32>,
+    bulb: &Bulb,
+) -> bool {
+    struct BootRecord {};
+    false
+}
+
 //#[embassy_executor::main]
 use embassy_rp::Peripherals;
 pub async fn main(spawner: Spawner, p: Peripherals) {
+    // Initialise the flash memory handling.
+
+    // Create the bulb function.
+    let bulb_pin = Output::new(p.PIN_26, Level::Low);
+    let bulb: &'static Bulb = {
+        static STATE: StaticCell<Bulb> = StaticCell::new();
+        STATE.init_with(|| Bulb::new(bulb_pin))
+    };
+    // First, some flash management.
+    // Flash memory
+    // spi: Peri<'static, embassy_rp::peripherals::SPI0>,
+    // cs: Peri<'static, embassy_rp::peripherals::PIN_17>,
+    // clk: Peri<'static, embassy_rp::peripherals::PIN_18>,
+    // mosi: Peri<'static, embassy_rp::peripherals::PIN_19>,
+    // miso: Peri<'static, embassy_rp::peripherals::PIN_16>,
+    use embassy_embedded_hal::shared_bus::asynch::spi::SpiDevice;
+    use embassy_rp::spi::{Config, Spi};
+    use embassy_sync::blocking_mutex::raw::NoopRawMutex;
+    use embassy_sync::mutex::Mutex;
+    let flash_cs = Output::new(p.PIN_17, Level::High);
+    let mut flash_config = Config::default();
+
+    // Max SPI rate is 24 O_o
+    flash_config.frequency = 24_000_000;
+
+    let flash_tx_dma = p.DMA_CH5;
+    let flash_rx_dma = p.DMA_CH6;
+    let flash_spi = Spi::new(
+        p.SPI0,
+        p.PIN_18,
+        p.PIN_19,
+        p.PIN_16,
+        flash_tx_dma,
+        flash_rx_dma,
+        flash_config,
+    );
+    static SPI_BUS: StaticCell<
+        Mutex<NoopRawMutex, Spi<'_, embassy_rp::peripherals::SPI0, embassy_rp::spi::Async>>,
+    > = StaticCell::new();
+    let flash_spi_bus = Mutex::new(flash_spi);
+    let flash_spi_bus = SPI_BUS.init(flash_spi_bus);
+    let device = SpiDevice::new(flash_spi_bus, flash_cs);
+    let mut flash = Mx25::new(device).await.unwrap();
+
+    let factory_reset_counting = 0..(flash.flash_sector_size() as u32 * 2);
+    if should_factory_reset(&mut flash, factory_reset_counting, bulb) {
+        // Perform the factory reset
+        defmt::warn!("Doing factory reset");
+    }
+
+    // First, handle the boot-quick-reset-counting-factory reset thing.
+    // When we get here, the entire stack has already been started, and we have things like USB comms already.
+
     let (fw, clm, btfw) =
         if let Some(p) = crate::rp2350_util::rom_data::get_partition_by_name("static_files") {
             let (start, end) = p.get_first_last_bytes();
@@ -718,12 +799,6 @@ pub async fn main(spawner: Spawner, p: Peripherals) {
     // let temp_channel = embassy_rp::adc::Channel::new_temp_sensor(adcthing);
     //  temp_channel, adc,
 
-    // let mut bulb_pin = Output::new(p.PIN_26, Level::Low);
-    // let mut bulb = move |state: bool| {
-    //     //embassy_futures::block_on(control.gpio_set(0, true));
-    //     info!("setting pin to: {}", state);
-    //     bulb_pin.set_level(if state { Level::High } else { Level::Low });
-    // };
     //
     let mut config = embassy_rp::i2c::Config::default();
     config.frequency = 1_000_000; // gotta go fast!

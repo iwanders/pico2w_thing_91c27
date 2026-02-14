@@ -86,6 +86,13 @@ pub trait FlashMemory {
 
         Ok(())
     }
+
+    fn flash_sector_size(&self) -> usize {
+        Self::SECTOR_SIZE
+    }
+    fn flash_page_size(&self) -> usize {
+        Self::PAGE_SIZE
+    }
 }
 
 /// State machine for the wrapping situation.
