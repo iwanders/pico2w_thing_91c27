@@ -2,9 +2,8 @@
 
 use crate::flash_memory::FlashMemory;
 use bitfield_struct::bitfield;
-use defmt::{info, warn};
 use embedded_hal_async::spi::SpiDevice;
-use zerocopy::{FromBytes, Immutable, IntoBytes, TryFromBytes};
+use zerocopy::{Immutable, IntoBytes, TryFromBytes};
 
 pub mod regs {
     pub const JEDEC_ID: u8 = 0x9F;
@@ -148,6 +147,8 @@ pub struct ConfigRegister {
     - whole chip.
 
     The device allow the interruption of Sector-Erase, Block-Erase or Page-Program operations and conduct other operations.
+
+  Note that address is big endian!
 */
 
 impl<Spi: embedded_hal_async::spi::SpiDevice> Mx25<Spi>
@@ -181,13 +182,13 @@ where
         }
     }
 
+    /// The normal read command, using a three byte address location.
     pub async fn cmd_read_normal(
         &mut self,
         address: u32,
         read_values: &mut [u8],
     ) -> Result<(), Error<Spi::Error>> {
         use embedded_hal_async::spi::Operation;
-        // let address = address.as_bytes();
         self.spi
             .transaction(&mut [
                 Operation::Write(&[instructions::READ_NORMAL_READ]),
@@ -198,6 +199,7 @@ where
         Ok(())
     }
 
+    /// Erase a sector using a 3 byte address location.
     pub async fn cmd_erase_sector(&mut self, address: u32) -> Result<(), Error<Spi::Error>> {
         use embedded_hal_async::spi::Operation;
         self.spi
@@ -209,6 +211,7 @@ where
         Ok(())
     }
 
+    /// Read data at address.
     pub async fn cmd_read_fast_4b(
         &mut self,
         address: u32,
@@ -226,6 +229,10 @@ where
             .await?;
         Ok(())
     }
+
+    /// Program a page, with a 4 byte address.
+    ///
+    /// The programming starts at address, and may not cross a page boundary. Pages are 256 bytes.
     pub async fn cmd_page_program_4b(
         &mut self,
         address: u32,
@@ -260,6 +267,7 @@ where
         Ok(())
     }
 
+    /// Erase a 4096 byte sector, address must be a sectory boundary.
     pub async fn cmd_erase_sector_4b(&mut self, address: u32) -> Result<(), Error<Spi::Error>> {
         use embedded_hal_async::spi::Operation;
         if address & 0xFFF != 0 {
@@ -280,6 +288,10 @@ where
         Ok(())
     }
 
+    /// Create a new device and verify its type.
+    ///
+    /// This will verify that the flash memory responds to commands and
+    /// has the expected JEDEC ID.
     pub async fn new(spi: Spi) -> Result<Self, Error<Spi::Error>> {
         // Verify we can read the whoami register.
         let mut z = Self { spi };
@@ -323,7 +335,8 @@ where
     }
 
     /// Sets four byte mode.
-    pub async fn set_four_byte_mode(&mut self, state: bool) -> Result<(), Error<Spi::Error>> {
+    #[allow(unused)]
+    async fn set_four_byte_mode(&mut self, state: bool) -> Result<(), Error<Spi::Error>> {
         if state {
             self.command(instructions::FOUR_BYTE_ADDRESS_ENABLE_EN4B)
                 .await
@@ -342,7 +355,11 @@ where
     }
 
     /// Sets whether or not we're in the otp mode.
-    async fn set_secured_otp_mode(&mut self, state: bool) -> Result<(), Error<Spi::Error>> {
+    ///
+    /// <div class="warning">
+    /// This is really one time programmable, bits can only go from 1 to 0. NEVER the other way around.
+    /// </div>
+    pub async fn set_secured_otp_mode(&mut self, state: bool) -> Result<(), Error<Spi::Error>> {
         if state {
             self.command(instructions::SECURED_OTP_ENTER_ENSO).await
         } else {
@@ -350,6 +367,7 @@ where
         }
     }
 
+    /// Read from the OTP section.
     pub async fn read_secure(
         &mut self,
         address: u16,
@@ -489,9 +507,9 @@ where
         defmt::info!("available_before_wrap {:?}  ", mgr.available_before_wrap());
 
         if will_wrap && false {
-            let mut counter = 0u32;
+            let counter = 0u32;
             start = Instant::now();
-            let new_record = mgr.new_record(&mut flash, counter.as_bytes()).await?;
+            let _new_record = mgr.new_record(&mut flash, counter.as_bytes()).await?;
             end = Instant::now();
             defmt::info!("Wrapping write took : {:?} us", (end - start).as_micros());
         }
