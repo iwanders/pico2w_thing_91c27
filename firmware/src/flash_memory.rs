@@ -174,6 +174,10 @@ impl Default for Marker {
     }
 }
 
+/// A record in flash, this struct is returned by [`RecordManager::valid_record`]
+///
+/// Fields are public, but in general this is not constructed (or modified) directly, they're public mostly for
+/// inspection.
 #[derive(PartialEq, Eq, defmt::Format, Copy, Clone, PartialOrd, Ord, Hash, Debug, Default)]
 #[repr(C)]
 pub struct Record {
@@ -185,15 +189,20 @@ pub struct Record {
     pub counter: u32,
 }
 impl Record {
+    /// Converts the position and length to a range of usize.
     pub fn to_range(&self) -> core::ops::Range<usize> {
         (self.position as usize)..((self.position + self.length) as usize)
     }
+
+    /// Convert this into the metadata for this record.
     pub fn into_completed_metadata(&self) -> Metadata {
         Metadata {
             length: self.length,
             counter: self.counter,
         }
     }
+
+    /// Returns the length of this record.
     pub fn length(&self) -> usize {
         self.length as usize
     }
@@ -206,6 +215,8 @@ mod module_to_make_private {
 
     const DATA_COMPLETED: u32 = 0xFFFF_FF80; // Single byte change and visible as 128 in the entries.
     const PREFIX_COMPLETE: u32 = 0xFFFF_FFF1; // F1 PreF1X, 241 in decimal, also single byte change
+
+    /// The suffix for a record in the flash memory., which goes after the record payload / data.
     #[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format, Default, Debug)]
     #[repr(C)]
     pub struct FlashSuffix {
@@ -214,10 +225,15 @@ mod module_to_make_private {
     crate::static_assert_size!(FlashSuffix, 4);
     impl FlashSuffix {
         pub const SIZE: u32 = core::mem::size_of::<FlashSuffix>() as u32;
+
+        /// Returns whether this suffix is marking data as completed.
         pub fn is_complete(&self) -> bool {
             self.data_complete == DATA_COMPLETED
         }
 
+        /// Create a completed suffix given the provided prefix.
+        ///
+        /// Currently doesn't actually use the prefix, but this made sense... >_<
         pub fn completed(_prefix: &FlashPrefix) -> Self {
             Self {
                 data_complete: DATA_COMPLETED,
@@ -225,12 +241,13 @@ mod module_to_make_private {
         }
     }
 
+    /// The prefix for a record in the flash memory.
     #[derive(
         PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format, Default, Debug, Copy, Clone,
     )]
     #[repr(C)]
     pub struct FlashPrefix {
-        /// Length, value is stored inverted, such taht the default bytes of 0xFFFF_FFFF result in zero, and partial
+        /// Length, value is stored inverted, such that the default bytes of 0xFFFF_FFFF result in zero, and partial
         /// writes result in partial loss of the data, but given that we can never write a length that exceeds the
         /// arena, we can't actually lose too much data in most cases.
         length: u32,
@@ -242,6 +259,7 @@ mod module_to_make_private {
     crate::static_assert_size!(FlashPrefix, 12);
     impl FlashPrefix {
         pub const SIZE: u32 = core::mem::size_of::<FlashPrefix>() as u32;
+
         /// Is this prefix actually complete? Was the prefix complete sentinel written?
         pub fn is_complete(&self) -> bool {
             self.prefix_complete == PREFIX_COMPLETE
@@ -314,6 +332,8 @@ use module_to_make_private::{FlashMetadata, FlashPrefix, FlashSuffix, Metadata};
 #[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format, Default, Debug)]
 #[repr(C)]
 struct EndMarker {
+    /// The position in the flash at which the valid record can be found while we don't seek the valid record from the
+    /// start of the arena.
     position: u32,
     // Do not change order, we must ensure that position is written BEFORE the marker.
     marker: Marker,
@@ -365,6 +385,13 @@ impl EndMarker {
 static_assert_size!(EndMarker, 8);
 
 /// A manager to store a record in flash, handling power interruptions and wear levelling.
+///
+/// There is always only a single most recent record. The record can be arbitrary (and varying) length between subsequent
+/// calls to new_record.
+///
+/// The record manager should get an arena of at least two sectors and the arena should be aligned on the sector size.
+/// To be able to wrap around, the new record must fit inside the sectors not overlapping with the currently valid
+/// record.
 #[derive(PartialEq, Eq, defmt::Format, Default)]
 #[repr(C)]
 pub struct RecordManager {
@@ -404,8 +431,10 @@ impl RecordManager {
         Ok(z)
     }
 
+    /// Internal method to actually iterate over the flash and correctly set the next free and valid record values.
     async fn initialise<F: FlashMemory>(&mut self, flash: &mut F) -> Result<(), F::Error> {
-        // Handle the special case, check the end token.
+        // First, handle the special case, check the end token, because if that's present we can't iterate from the
+        // front as that may have already been erased.
         let mut end_marker: EndMarker = Default::default();
         flash
             .flash_read_into(self.writable_end(), &mut end_marker)
@@ -724,7 +753,7 @@ impl RecordManager {
         Ok(())
     }
 
-    /// Add a new record holding the specified data.
+    /// Add a new record holding the provided data.
     pub async fn new_record<F: FlashMemory>(
         &mut self,
         flash: &mut F,
@@ -768,7 +797,7 @@ impl RecordManager {
 
         // If we were in beginning erase done, we have now done beginning data write, and can wipe the remainder.
         // Technically this is also handled by the service at the top, but it is nicer to do the whole wrapping logic
-        // in a single invocation to update_record.
+        // in a single invocation to this function.
         if self.wrapping_state == WrappingState::BeginningEraseDone {
             self.wrapping_state = WrappingState::BeginningDataWrite;
             self.service_wrapping(flash).await?;
@@ -799,7 +828,7 @@ impl RecordManager {
         }
     }
 
-    /// Read the provided record into a value.
+    /// Read the provided record into a zerocopy value.
     pub async fn record_read_into<T: zerocopy::FromBytes + zerocopy::IntoBytes, F: FlashMemory>(
         &mut self,
         flash: &mut F,
