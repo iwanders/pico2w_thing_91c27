@@ -164,7 +164,7 @@ impl Marker {
     pub fn with_state_set(&self, state: WrappingState) -> Self {
         Self(self.0 & !(1 << state as u8))
     }
-    pub fn to_state(&self) -> WrappingState {
+    pub fn to_state(self) -> WrappingState {
         self.0.into()
     }
 }
@@ -271,7 +271,7 @@ mod module_to_make_private {
         }
 
         /// Convert the prefix to the record metadata, this returns a None if the prefix was not complete.
-        pub fn to_metadata(&self) -> Option<Metadata> {
+        pub fn to_metadata(self) -> Option<Metadata> {
             Metadata::from_prefix(self)
         }
     }
@@ -305,7 +305,7 @@ mod module_to_make_private {
     }
     impl Metadata {
         /// Create a metadata from the prefix, only if the prefix is actually complete.
-        pub fn from_prefix(prefix: &FlashPrefix) -> Option<Metadata> {
+        pub fn from_prefix(prefix: FlashPrefix) -> Option<Metadata> {
             if prefix.is_complete() {
                 Some(Metadata {
                     length: !prefix.length,
@@ -634,7 +634,7 @@ impl RecordManager {
                     let mut end_marker: EndMarker;
 
                     if let Some(valid_entry) = self.valid_record() {
-                        end_marker = EndMarker::valid_entry(valid_entry.position as u32);
+                        end_marker = EndMarker::valid_entry(valid_entry.position);
                     } else {
                         // Can't be wrapping if we don't have data yet, somehow this function got called while the arena is still
                         // emtpy, so it should be good to return.

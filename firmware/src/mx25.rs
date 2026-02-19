@@ -242,7 +242,7 @@ where
         if write_values.len() > 256 {
             return Err(Error::ProgramExceedsPage);
         }
-        if write_values.len() == 0 {
+        if write_values.is_empty() {
             return Ok(()); // we must sent 1-n bytes.
         }
 
@@ -435,7 +435,7 @@ where
         //flash.cmd_page_program_4b(0, &first_256).await?;  // Oops, well I ruined the first 255 bytes.
         // flash.cmd_erase_sector(0).await?;
         // flash.flash_flush().await?;
-        flash.cmd_read_fast_4b(0 as u32, &mut first_256).await?;
+        flash.cmd_read_fast_4b(0, &mut first_256).await?;
         flash.set_secured_otp_mode(false).await?;
         defmt::info!("first 256 {:?},", first_256);
     }
@@ -457,7 +457,7 @@ where
         let upper = 4096 * 2;
         for i in 0..(upper / BLOCK_SIZE) {
             let p = BLOCK_SIZE * i;
-            let mut d = [0u8; BLOCK_SIZE as usize];
+            let mut d = [0u8; BLOCK_SIZE];
             flash.cmd_read_fast_4b(p as u32, &mut d).await?;
             defmt::info!("// {:?}", p);
             defmt::info!("{:?},", d);

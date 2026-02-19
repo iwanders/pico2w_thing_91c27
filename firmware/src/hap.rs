@@ -87,7 +87,7 @@ impl<'a, 'b> AccessoryInterface for LightBulbAccessory<'a, 'b> {
 
         if char_id == self.bulb_handles.on.hap {
             let value = data
-                .get(0)
+                .first()
                 .ok_or(InterfaceError::CharacteristicWriteInvalid)?;
             let val_as_bool = *value != 0;
 
@@ -173,7 +173,7 @@ impl ActualPairSupport {
             return Ok(()); // nothing to do, we don't have persistent storage.
         }
         // Okay, so serialize the current map into the working buffer.
-        let res_slice = postcard::to_slice(&self.pairings, &mut self.working_buffer).unwrap();
+        let res_slice = postcard::to_slice(&self.pairings, self.working_buffer).unwrap();
         if let Some(z) = self.pairing_store.as_mut() {
             match z.mgr.new_record(&mut z.flash, res_slice).await {
                 Ok(_) => defmt::info!("flashed {} pairings to memory", self.pairings.len()),
@@ -329,7 +329,7 @@ async fn measurement_task(
 // use bt_hci::cmd::le::LeSetDataLength;
 // use bt_hci::controller::ControllerCmdSync;
 /// Run the BLE stack.
-pub async fn run<'p, 'cyw, C>(
+pub async fn run<C>(
     controller: C,
     bulb_control: cyw43::Control<'_>,
     // temp_adc: embassy_rp::adc::Channel<'_>,
@@ -346,7 +346,7 @@ pub async fn run<'p, 'cyw, C>(
     let address: Address = Address::random(persistent_data.device_id.0);
 
     // The unused space in this one can be printed.
-    let mut attribute_buffer: &mut [u8] = {
+    let attribute_buffer: &mut [u8] = {
         const ATTRIBUTE_BUFFER_SIZE: usize = 128;
         static STATE: StaticCell<[u8; ATTRIBUTE_BUFFER_SIZE]> = StaticCell::new();
         STATE.init([0u8; ATTRIBUTE_BUFFER_SIZE])
@@ -373,7 +373,7 @@ pub async fn run<'p, 'cyw, C>(
     let (remaining_buffer, information_handles) =
         micro_hap::ble::services::AccessoryInformationService::add_to_attribute_table(
             &mut attribute_table,
-            &mut attribute_buffer,
+            attribute_buffer,
         )
         .unwrap();
     let (remaining_buffer, protocol_handles) =
@@ -658,7 +658,7 @@ impl Bulb {
         // There's no yield in this section, so this should be safe even with concurrent tasks under the current
         // scheduler.
         let mut z = self.pin.borrow_mut();
-        let _r = (*z).set_level(if value { Level::High } else { Level::Low });
+        (*z).set_level(if value { Level::High } else { Level::Low });
     }
 }
 
@@ -859,7 +859,7 @@ pub async fn main(spawner: Spawner, p: Peripherals) {
             .unwrap();
 
         // We now have the pairing data. Now we need to parse it.
-        if let Ok(pairings) = postcard::from_bytes(&scratch) {
+        if let Ok(pairings) = postcard::from_bytes(scratch) {
             pair_support.pairings = pairings;
             defmt::info!(
                 "Succesfully read {} pairings from flash.",

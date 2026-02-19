@@ -1,3 +1,4 @@
+#![allow(clippy::all)]
 #![allow(dead_code)]
 use embassy_executor::Spawner;
 use embassy_rp::gpio::{Input, Level, Output};
