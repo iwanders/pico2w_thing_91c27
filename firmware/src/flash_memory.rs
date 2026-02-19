@@ -317,7 +317,7 @@ mod module_to_make_private {
         }
 
         /// Convert the metadata info a complete prefix.
-        pub fn into_prefix(&self) -> FlashPrefix {
+        pub fn to_prefix(&self) -> FlashPrefix {
             FlashPrefix {
                 length: !self.length,
                 counter: !self.counter,
@@ -777,7 +777,7 @@ impl RecordManager {
         // println!("New record: {:?}", new_record);
         // We write the data to the next record.
         let new_metadata = new_record.into_completed_metadata();
-        let prefix = new_metadata.into_prefix();
+        let prefix = new_metadata.to_prefix();
         let suffix = FlashSuffix::completed(&prefix);
 
         let mut position = new_record.position;

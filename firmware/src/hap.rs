@@ -1,8 +1,8 @@
 use crate::bme280::BME280;
 use crate::flash_memory::{FlashMemory, RecordManager};
 use crate::mx25::Mx25;
-use cyw43_pio::{PioSpi, DEFAULT_CLOCK_DIVIDER, RM2_CLOCK_DIVIDER};
-use defmt::{error, info, unwrap, warn};
+use cyw43_pio::{PioSpi, RM2_CLOCK_DIVIDER}; // DEFAULT_CLOCK_DIVIDER,
+use defmt::{error, info, unwrap};
 use embassy_embedded_hal::shared_bus::asynch::spi::SpiDevice;
 use embassy_executor::Spawner;
 use embassy_rp::bind_interrupts;

@@ -183,7 +183,7 @@ async fn test_sdcard(p: SdCardPinTransfer) {
 
         loop {
             indicator.set_high();
-            let bytes = sdcard.num_bytes();
+            let _bytes = sdcard.num_bytes();
             indicator.set_low();
             Timer::after_millis(1).await;
         }
@@ -231,7 +231,7 @@ async fn test_mic(p: MicPinTransfer) {
     defmt::info!("clock_half: {:#?}", clock_half);
     Timer::after_millis(100).await;
 
-    let mut counter = 0;
+    // let mut counter = 0;
     // At lower sample rate the serial port can keep up, but there's definitely clipping going on.
     // cat /dev/ttyACM1 | pacat --rate=24000 --channels=2 --format=s32le --raw --volume=32000 -v
     const SAMPLE_RATE: u32 = 24_000;
@@ -338,8 +338,8 @@ async fn test_mic(p: MicPinTransfer) {
 
         core::mem::swap(&mut back_buffer, &mut front_buffer);
 
-        counter += 1;
-        if counter % 100 == 0 || true {
+        // counter += 1;
+        if true {
             // make an i32 window.
             let back_i32 = unsafe {
                 core::slice::from_raw_parts(back_buffer.as_ptr().cast::<i32>(), BUFFER_SIZE)
@@ -540,8 +540,8 @@ pub async fn hw_test(p: Peripherals) -> ! {
     }
 
     if TEST_BATTERY_VOLTAGE {
-        use embassy_rp::adc::{Adc, Channel, Config, InterruptHandler};
-        use embassy_rp::gpio::Pull;
+        //use embassy_rp::adc::{Adc, Channel, Config, InterruptHandler};
+        //use embassy_rp::gpio::Pull;
         fn convert_to_celsius(raw_temp: u16) -> f32 {
             // According to chapter 12.4.6 Temperature Sensor in RP235x datasheet
             let temp = 27.0 - (raw_temp as f32 * 3.3 / 4096.0 - 0.706) / 0.001721;

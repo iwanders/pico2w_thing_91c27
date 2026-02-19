@@ -46,7 +46,7 @@ pub mod program {
     use embassy_usb::class::cdc_acm::{CdcAcmClass, State as CdcState};
     use embassy_usb::UsbDevice;
 
-    use super::bme280::BME280;
+    //use super::bme280::BME280;
 
     // List of files in this project (yes it could be created from build.rs), but this is fine for now.
     // These files are used to look up against when a panic happens.
@@ -561,7 +561,7 @@ pub mod program {
             //let bus = embedded_hal_bus::spi::RefCellDevice::new_no_delay(&cspi, cs);
 
             use embassy_embedded_hal::shared_bus::asynch::spi::SpiDevice;
-            use embassy_embedded_hal::shared_bus::SpiDeviceError;
+            //use embassy_embedded_hal::shared_bus::SpiDeviceError;
             use embassy_sync::blocking_mutex::raw::NoopRawMutex;
             use embassy_sync::mutex::Mutex;
             static SPI_BUS: StaticCell<

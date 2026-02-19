@@ -506,7 +506,7 @@ where
         defmt::info!("will_wrap {:?}  ", will_wrap);
         defmt::info!("available_before_wrap {:?}  ", mgr.available_before_wrap());
 
-        if will_wrap && false {
+        if false {
             let counter = 0u32;
             start = Instant::now();
             let _new_record = mgr.new_record(&mut flash, counter.as_bytes()).await?;
@@ -514,7 +514,6 @@ where
             defmt::info!("Wrapping write took : {:?} us", (end - start).as_micros());
         }
     }
-
     let mut counter = 0u32;
     loop {
         defmt::info!("Status: {:?}", flash.status().await?);

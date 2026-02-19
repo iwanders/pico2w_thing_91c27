@@ -162,8 +162,8 @@ pub mod random_util {
         key[0..16].copy_from_slice(&rng_init.to_le_bytes());
 
         // We collect the second part of the key with some random from the random oscillator.
-        for i in 16..key.len() {
-            key[i] = embassy_rp::clocks::RoscRng::next_u8();
+        for z in key.iter_mut().skip(16) {
+            *z = embassy_rp::clocks::RoscRng::next_u8();
         }
 
         // Finally, make the generator.
@@ -173,8 +173,15 @@ pub mod random_util {
 
 pub mod xip {
     const XIP_NOCACHE_NOALLOC_NOTRANSLATE_BASE: *const u8 = 0x1c000000 as *const u8;
+
+    /// Returns a slice of the flash memory at the given offset and length.
+    ///
+    /// # Safety
+    /// This function assumes that the provided `flash_offset` and `length` are within the bounds of the flash memory.
+    /// It also returns a non-mutable reference, while writes to the flash may mutate this data.
+    ///
     pub unsafe fn flash_slice(flash_offset: usize, length: usize) -> &'static [u8] {
-        &core::slice::from_raw_parts(
+        core::slice::from_raw_parts(
             XIP_NOCACHE_NOALLOC_NOTRANSLATE_BASE.offset(flash_offset as isize),
             length,
         )
