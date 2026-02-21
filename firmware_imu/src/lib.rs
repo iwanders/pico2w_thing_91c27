@@ -81,6 +81,30 @@ pub mod program {
         usb.run().await
     }
 
+    struct Disconnected {}
+
+    use embassy_usb::driver::EndpointError;
+    impl From<EndpointError> for Disconnected {
+        fn from(val: EndpointError) -> Self {
+            match val {
+                EndpointError::BufferOverflow => panic!("Buffer overflow"),
+                EndpointError::Disabled => Disconnected {},
+            }
+        }
+    }
+
+    #[embassy_executor::task]
+    async fn data_serial_task(mut z: CdcAcmClass<'static, MyUsbDriver>) -> ! {
+        z.wait_connection().await;
+        let mut buf = [0; 64];
+        loop {
+            let n = z.read_packet(&mut buf).await.unwrap();
+            let data = &buf[..n];
+            info!("data: {:x}", data);
+            z.write_packet(data).await.unwrap();
+        }
+    }
+
     pub async fn main(spawner: Spawner) {
         let p = embassy_rp::init(Default::default());
         rp2350_util::panic_info_scratch::set_panic_files(PANIC_HANDLER_FILE_LIST);
@@ -130,6 +154,12 @@ pub mod program {
             builder
         };
 
+        {
+            static STATE: StaticCell<usb_picotool_reset::State> = StaticCell::new();
+            let state = STATE.init(usb_picotool_reset::State::new());
+            usb_picotool_reset::PicoResetClass::new(&mut builder, state)
+        };
+
         // Create classes on the builder.
         let cdc_class_full = {
             static STATE: StaticCell<CdcState> = StaticCell::new();
@@ -138,10 +168,11 @@ pub mod program {
             s
         };
 
-        {
-            static STATE: StaticCell<usb_picotool_reset::State> = StaticCell::new();
-            let state = STATE.init(usb_picotool_reset::State::new());
-            usb_picotool_reset::PicoResetClass::new(&mut builder, state)
+        let mut data_cdc = {
+            static STATEZ: StaticCell<CdcState> = StaticCell::new();
+            let state = STATEZ.init(CdcState::new());
+            let s = CdcAcmClass::new(&mut builder, state, 64);
+            s
         };
 
         // Build the builder.
@@ -152,9 +183,15 @@ pub mod program {
 
         let (tx, mut rx) = cdc_class_full.split();
 
-        //defmt_serial::runner(spawner, defmt_serial::WritableSerial::new(tx)).await;
         let logger = defmt_serial::SerialLogger::new(tx);
         let s = spawner.spawn(defmt_serial_task(logger));
+        if let Err(e) = s {
+            info!("setup failed: {:?}", e);
+        } else {
+            info!("setup good");
+        }
+
+        let s = spawner.spawn(data_serial_task(data_cdc));
         if let Err(e) = s {
             info!("setup failed: {:?}", e);
         } else {
