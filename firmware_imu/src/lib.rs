@@ -7,6 +7,7 @@ use rp2350_support::{defmt_serial, static_files};
 use rp2350_support::{rp2350_util, usb_picotool_reset};
 
 pub mod icm42688;
+pub mod imu;
 pub mod lsm6dsv320x;
 
 #[cfg(target_arch = "arm")]
@@ -46,6 +47,7 @@ pub mod program {
         "mx25.rs",
         "hap.rs",
         "flash_memory.rs",
+        "imu_handler.rs",
     ];
 
     // Program metadata for `picotool info`.
@@ -79,30 +81,6 @@ pub mod program {
     #[embassy_executor::task]
     async fn usb_task(mut usb: MyUsbDevice) -> ! {
         usb.run().await
-    }
-
-    struct Disconnected {}
-
-    use embassy_usb::driver::EndpointError;
-    impl From<EndpointError> for Disconnected {
-        fn from(val: EndpointError) -> Self {
-            match val {
-                EndpointError::BufferOverflow => panic!("Buffer overflow"),
-                EndpointError::Disabled => Disconnected {},
-            }
-        }
-    }
-
-    #[embassy_executor::task]
-    async fn data_serial_task(mut z: CdcAcmClass<'static, MyUsbDriver>) -> ! {
-        z.wait_connection().await;
-        let mut buf = [0; 64];
-        loop {
-            let n = z.read_packet(&mut buf).await.unwrap();
-            let data = &buf[..n];
-            info!("data: {:x}", data);
-            z.write_packet(data).await.unwrap();
-        }
     }
 
     pub async fn main(spawner: Spawner) {
@@ -168,7 +146,7 @@ pub mod program {
             s
         };
 
-        let mut data_cdc = {
+        let mut data_cdc: CdcAcmClass<'_, Driver<'_, USB>> = {
             static STATEZ: StaticCell<CdcState> = StaticCell::new();
             let state = STATEZ.init(CdcState::new());
             let s = CdcAcmClass::new(&mut builder, state, 64);
@@ -185,13 +163,6 @@ pub mod program {
 
         let logger = defmt_serial::SerialLogger::new(tx);
         let s = spawner.spawn(defmt_serial_task(logger));
-        if let Err(e) = s {
-            info!("setup failed: {:?}", e);
-        } else {
-            info!("setup good");
-        }
-
-        let s = spawner.spawn(data_serial_task(data_cdc));
         if let Err(e) = s {
             info!("setup failed: {:?}", e);
         } else {
@@ -224,45 +195,13 @@ pub mod program {
             chipid[0], chipid[1], chipid[2], chipid[3]
         );
 
-        //let flash_dev_info = rp2350_util::chip_info::get_flash_dev_info();
-        //info!("flash_dev_info id: {:?}", flash_dev_info);
-
-        // Create the driver, from the HAL.
-        /*
-         */
-
-        // Do stuff with the class!
-        /*
-        loop {
-            cdc_class.wait_connection().await;
-            info!("Connected");
-            let _ = echo(&mut cdc_class).await;
-            info!("Disconnected");
-        }
-        */
-
         // Test section
-        info!("Going into test.");
-        //hw_test::hw_test(unsafe { embassy_rp::Peripherals::steal() }).await;
-        //hw_test::test_wifi(unsafe { embassy_rp::Peripherals::steal() }, spawner).await;
         let mut indicator = Output::new(p.PIN_26, Level::Low);
         let delay = Duration::from_millis(250);
+        // imu::imu_entry(spawner);
 
-        /*
-        struct BmePinTransfer {
-            i2c: embassy_rp::peripherals::I2C0,
-            sda: embassy_rp::peripherals::PIN_20,
-            scl: embassy_rp::peripherals::PIN_21,
-        }
-        async fn test_bme(p: BmePinTransfer) {
-            use embassy_rp::i2c::{Config, I2c};
-            let config = Config::default();
-            //config.frequency = 100_000;
-            let mut i2c = I2c::new_blocking(p.i2c, p.scl, p.sda, config);
-        */
-
-        if true {
-            // LSM
+        // LSM
+        let lsm = {
             use embassy_rp::spi::{Config, Spi};
             let mut cs = Output::new(p.PIN_13, Level::High);
             let mut config = Config::default();
@@ -273,11 +212,7 @@ pub mod program {
             let tx_dma = p.DMA_CH1;
             let rx_dma = p.DMA_CH2;
             let mut spi = Spi::new(p.SPI1, p.PIN_10, p.PIN_11, p.PIN_12, tx_dma, rx_dma, config);
-            //let cspi = core::cell::RefCell::new(spi);
-            //let bus = embedded_hal_bus::spi::RefCellDevice::new_no_delay(&cspi, cs);
-
             use embassy_embedded_hal::shared_bus::asynch::spi::SpiDevice;
-            use embassy_embedded_hal::shared_bus::SpiDeviceError;
             use embassy_sync::blocking_mutex::raw::NoopRawMutex;
             use embassy_sync::mutex::Mutex;
             static SPI_BUS: StaticCell<
@@ -287,125 +222,23 @@ pub mod program {
             let spi_bus = SPI_BUS.init(spi_bus);
             let device = SpiDevice::new(spi_bus, cs);
 
-            type OurError = lsm6dsv320x::Error<
-                SpiDeviceError<embassy_rp::spi::Error, core::convert::Infallible>,
-            >;
             let mut lsm = lsm6dsv320x::LSM6DSV320X::new(device).await;
-            if let Ok(mut lsm) = lsm {
-                let mut lsm_test = async move || -> Result<(), OurError> {
-                    lsm.reset().await?;
-                    Timer::after_millis(20).await; // wait a bit after the reset.
 
-                    // Low accelerometer setup;
-                    use lsm6dsv320x::{AccelerationMode, AccelerationModeDataRate, OutputDataRate};
-                    lsm.control_acceleration(AccelerationModeDataRate {
-                        mode: AccelerationMode::HighPerformance,
-                        rate: OutputDataRate::Hz480,
-                    })
-                    .await?;
-                    use lsm6dsv320x::{AccelerationFilterScale, AccelerationScale};
-                    lsm.filter_acceleration(AccelerationFilterScale {
-                        scale: AccelerationScale::G2,
-                    })
-                    .await?;
-
-                    // High acceleratometer setup;
-                    use lsm6dsv320x::{
-                        AccelerationDataRateHigh, AccelerationModeDataRateHigh,
-                        AccelerationScaleHigh,
-                    };
-                    lsm.control_acceleration_high(AccelerationModeDataRateHigh {
-                        scale: AccelerationScaleHigh::G320,
-                        rate: AccelerationDataRateHigh::Hz480,
-                        ..Default::default()
-                    })
-                    .await?;
-
-                    // Gyroscope setup.
-                    use lsm6dsv320x::{GyroscopeMode, GyroscopeModeDataRate};
-                    lsm.control_gyroscope(GyroscopeModeDataRate {
-                        mode: GyroscopeMode::HighPerformance,
-                        rate: OutputDataRate::Hz480,
-                    })
-                    .await?;
-                    use lsm6dsv320x::{GyroscopeBandwidthScale, GyroscopeScale};
-                    lsm.filter_gyroscope(GyroscopeBandwidthScale {
-                        scale: GyroscopeScale::DPS4000,
-                    })
-                    .await?;
-
-                    // Setup fifo.
-                    use lsm6dsv320x::{FifoControl, FifoMode, TemperatureBatch};
-                    lsm.control_fifo(FifoControl {
-                        mode: FifoMode::Continuous,
-                        temperature: TemperatureBatch::Hz60,
-                    })
-                    .await?;
-                    use lsm6dsv320x::FifoBatch;
-                    lsm.control_fifo_batch(FifoBatch {
-                        gyroscope: OutputDataRate::Hz480,
-                        acceleration: OutputDataRate::Hz480,
-                    })
-                    .await?;
-                    // And this last one to start collecting high G samples to the fifo.
-                    use lsm6dsv320x::{BatchDataRateConfig, TriggerBDRSource};
-                    lsm.control_bdr_config(BatchDataRateConfig {
-                        trigger_bdr: TriggerBDRSource::Acceleration,
-                        batch_acceleration_high: true,
-                        threshold: 0,
-                    })
-                    .await?;
-
-                    if false {
-                        let buffer = {
-                            const LEN: usize = 1792;
-                            static FIFO_BUFFER: StaticCell<[u8; LEN]> = StaticCell::new();
-                            FIFO_BUFFER.init([0u8; LEN])
-                        };
-                        loop {
-                            let s = lsm.get_fifo_status().await?;
-
-                            let b = embassy_time::Instant::now();
-                            lsm.get_fifo(&mut buffer[0..(s.unread() as usize) * 7])
-                                .await?;
-                            let e = embassy_time::Instant::now();
-                            defmt::info!("s: {:?} took: {} us", s, (e - b).as_micros());
-                            defmt::info!("b: {:?}", buffer[0..6]);
-                            // Okay, we can keep up with the data rate, it takes about 240 us to transfer 30 samples of
-                            // 7 bytes each. Even with a 1ms delay we can keep up.
-
-                            Timer::after_millis(1).await;
-                        }
-                    }
-
+            match lsm {
+                Ok(lsm) => lsm,
+                Err(e) => {
+                    defmt::error!("No lsm: {:?}", e);
                     loop {
-                        Timer::after_millis(100).await;
-                        let r = lsm.read_acceleration().await?;
-                        let h = lsm.read_acceleration_high().await?;
-                        let g = lsm.read_gyroscope().await?;
-                        defmt::info!("r: {:?}  h: {:?}  g: {:?}", r, h, g);
-
-                        let s = lsm.get_fifo_status().await?;
-                        defmt::info!("s: {:?}", s);
-
-                        let mut buffer = [0u8; 128];
-                        lsm.get_fifo(&mut buffer).await?;
-                        defmt::info!("b: {:?}", buffer);
-
-                        // let temp = lsm.read_temperature().await?;
-                        // let t = lsm.read_timestamp().await?;
-                        // defmt::info!("t: {}, temp: {:?}", t, temp);
-                        defmt::info!("msp: {}", cortex_m::register::msp::read());
+                        indicator.set_high();
+                        Timer::after(delay).await;
+                        indicator.set_low();
+                        Timer::after(delay).await;
                     }
-
-                    Ok(())
-                };
-                let r = lsm_test().await;
-                defmt::warn!("test r: {:?}", r);
+                }
             }
-        }
+        };
 
-        if false {
+        let icm = {
             // ICM
             // spi: Peri<'static, embassy_rp::peripherals::SPI0>,
             // cs: Peri<'static, embassy_rp::peripherals::PIN_5>,
@@ -422,11 +255,8 @@ pub mod program {
             let tx_dma = p.DMA_CH3;
             let rx_dma = p.DMA_CH4;
             let mut spi = Spi::new(p.SPI0, p.PIN_2, p.PIN_3, p.PIN_4, tx_dma, rx_dma, config);
-            //let cspi = core::cell::RefCell::new(spi);
-            //let bus = embedded_hal_bus::spi::RefCellDevice::new_no_delay(&cspi, cs);
 
             use embassy_embedded_hal::shared_bus::asynch::spi::SpiDevice;
-            use embassy_embedded_hal::shared_bus::SpiDeviceError;
             use embassy_sync::blocking_mutex::raw::NoopRawMutex;
             use embassy_sync::mutex::Mutex;
             static SPI_BUS: StaticCell<
@@ -436,97 +266,29 @@ pub mod program {
             let spi_bus = SPI_BUS.init(spi_bus);
             let device = SpiDevice::new(spi_bus, cs);
 
-            type OurError =
-                icm42688::Error<SpiDeviceError<embassy_rp::spi::Error, core::convert::Infallible>>;
             let mut icm = icm42688::ICM42688::new(device).await;
-            if let Ok(mut icm) = icm {
-                let mut lsm_test = async move || -> Result<(), OurError> {
-                    defmt::info!("Detected ICM");
-                    let _ = icm.reset().await;
-                    Timer::after_millis(10).await;
-
-                    // set the power register.
-                    use icm42688::{PowerConfig, SensorMode};
-                    icm.control_power(PowerConfig {
-                        gyroscope: SensorMode::LowNoise,
-                        acceleration: SensorMode::LowNoise,
-                    })
-                    .await?;
-
-                    // Set the rates.
-                    use icm42688::{GyroscopeConfig, GyroscopeOutputDataRate, GyroscopeScale};
-                    icm.control_gyro(GyroscopeConfig {
-                        scale: GyroscopeScale::Dps2000,
-                        rate: GyroscopeOutputDataRate::Hz200,
-                    })
-                    .await?;
-
-                    use icm42688::{
-                        AccelerationConfig, AccelerationOutputDataRate, AccelerationScale,
-                    };
-                    icm.control_accel(AccelerationConfig {
-                        scale: AccelerationScale::G2,
-                        rate: AccelerationOutputDataRate::Hz3_125,
-                    })
-                    .await?;
-
-                    // Wait the required time after enabling the sensors.
-                    Timer::after_millis(40).await;
-
-                    // Enable the fifo.
-                    use icm42688::FifoConfig;
-                    icm.control_fifo_config(FifoConfig {
-                        resume_partial: true,
-                        watermark_gt_persist: true,
-                        high_resolution: false,
-                        fsync: false,
-                        batch_temperature: true,
-                        batch_gyro: true,
-                        batch_accel: true,
-                        watermark: 0,
-                    })
-                    .await?;
-                    //
-                    icm.control_fifo_mode(icm42688::FifoMode::StreamToFifo)
-                        .await?;
-
+            match icm {
+                Ok(icm) => icm,
+                Err(e) => {
+                    defmt::warn!("Failed to detect ICM: {:?}", e);
                     loop {
-                        Timer::after_millis(100).await;
-                        let r = icm.read_temperature().await?;
-                        defmt::info!("t: {:?}", r);
-                        let a = icm.read_acceleration().await?;
-                        let g = icm.read_gyroscope().await?;
-                        defmt::info!("a: {:?},  g {:?}", a, g);
-                        let f = icm.read_fifo_count().await?;
-                        defmt::info!("f: {:?},  ", f);
-
-                        let mut buffer = [0u8; 128];
-                        let buffer_len = buffer.len();
-                        icm.get_fifo(&mut buffer[0..buffer_len.min(f as usize)])
-                            .await?;
-                        defmt::info!("b: {:?}", buffer);
+                        indicator.set_high();
+                        Timer::after(delay).await;
+                        indicator.set_low();
+                        Timer::after(delay).await;
                     }
-
-                    Ok(())
-                };
-                let r = lsm_test().await;
-                defmt::warn!("test r: {:?}", r);
-            } else {
-                defmt::warn!("Failed to detect ICM");
+                }
             }
-        }
+        };
 
-        if false {
-            let start = embassy_time::Instant::now();
-            let z = micro_hap::pairing::PairCode::from_digits([1, 3, 2, 3, 4, 3, 2, 5]).unwrap();
-            let mut p: micro_hap::pairing::SetupInfo = Default::default();
-            p.assign_from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16], z);
-            let end = embassy_time::Instant::now();
-            defmt::warn!("Took {} ms", (end - start).as_millis());
-            // Whopping 814 ms... but not the end of the world.
-        }
+        // Hand the data bus and the imu's over to the imu handling for task setup.
+        imu::imu_entry(spawner, icm, lsm, data_cdc, indicator);
 
+        /*
         let mut counter = 0;
+
+
+
         loop {
             info!("led on!");
 
@@ -549,20 +311,8 @@ pub mod program {
             }
             defmt::info!("counter: {}", counter);
             counter += 1;
-
-            /*
-            if counter > 20 && false {
-                panic!();
-            }
-            if counter > 80 && false {
-                error!("reboot in {}", delay);
-                Timer::after(delay).await;
-
-                //usb_picotool_reset::boot_to_bootsel_watchdog(&mut watchdog);
-                rp2350_util::reboot::reboot(RebootSettings::flash(), Duration::from_millis(100));
-            }*/
         }
-        /**/
+        */
     }
 }
 

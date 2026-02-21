@@ -56,8 +56,6 @@ rand = {workspace=true}
 
 thiserror ={workspace=true}
 bitfield-struct = {workspace=true}
-micro_hap = { workspace = true } #, features = ["defmt"]
-
 
 [target.'cfg(target_arch = "arm")'.dependencies]
 #trouble-host = { version = "0.2.4", features = ["defmt"] }
