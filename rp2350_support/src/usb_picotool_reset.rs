@@ -5,6 +5,7 @@
 //
 
 use defmt::error;
+use embassy_usb::types::StringIndex;
 
 use crate::rp2350_util::reboot;
 use embassy_time::Duration;
@@ -23,11 +24,12 @@ use crate::rp2350_util::reboot::RebootSettings;
 
 struct Control {
     index: u16,
+    str_index: StringIndex,
 }
 
 impl Control {
-    fn new(index: u16) -> Self {
-        Control { index }
+    fn new(index: u16, str_index: StringIndex) -> Self {
+        Control { index, str_index }
     }
 }
 
@@ -53,6 +55,13 @@ impl Handler for Control {
             return Some(OutResponse::Rejected);
         }
         None
+    }
+    fn get_string(&mut self, index: StringIndex, _lang_id: u16) -> Option<&str> {
+        if index == self.str_index {
+            Some("Picotool Reset Endpoint")
+        } else {
+            None
+        }
     }
 }
 
@@ -80,21 +89,23 @@ pub struct PicoResetClass<'d, D: Driver<'d>> {
 
 impl<'d, D: Driver<'d>> PicoResetClass<'d, D> {
     pub fn new(builder: &mut Builder<'d, D>, state: &'d mut State) {
+        let str_index = builder.string();
         let mut func = builder.function(
             PICO_RESET_CLASS,
             PICO_RESET_SUBCLASS,
             PICO_RESET_INTERFACE_PROTOCOL,
         );
         let mut iface = func.interface();
-        let count = iface.interface_number().0;
+        // let count = iface.interface_number().0;
         let mut _alt = iface.alt_setting(
             PICO_RESET_CLASS,
             PICO_RESET_SUBCLASS,
             PICO_RESET_INTERFACE_PROTOCOL,
-            None,
+            Some(str_index),
         );
+        let index = iface.interface_number();
 
-        let control = state.control.write(Control::new(count as u16));
+        let control = state.control.write(Control::new(index.0 as u16, str_index));
 
         drop(func);
 
