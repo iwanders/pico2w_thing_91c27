@@ -12,7 +12,7 @@ rp2350_support={workspace=true}
 embassy-embedded-hal = {workspace=true}
 embassy-sync = {workspace=true}
 embassy-time = {workspace=true}
-embassy-usb = {workspace=true}
+embassy-usb = {workspace=true, features=["max-handler-count-8", "max-interface-count-8"]}
 # For the sd card.
 embedded-sdmmc = {workspace=true}
 embedded-hal-bus =  {workspace=true}
