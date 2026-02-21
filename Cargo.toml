@@ -3,6 +3,7 @@ resolver = "2"
 
 members = [
     "firmware",
+    "firmware_imu",
     "rp2350_support",
 ]
 
