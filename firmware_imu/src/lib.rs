@@ -47,7 +47,7 @@ pub mod program {
         "mx25.rs",
         "hap.rs",
         "flash_memory.rs",
-        "imu_handler.rs",
+        "imu.rs",
     ];
 
     // Program metadata for `picotool info`.

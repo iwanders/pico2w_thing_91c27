@@ -17,40 +17,123 @@ use static_cell::StaticCell;
 async fn lsm_task(mut indicator: Output<'static>) -> ! {
     let delay = Duration::from_millis(50);
     loop {
-        info!("led on!");
-
+        // info!("led on!");
         indicator.set_high();
-
         Timer::after(delay).await;
-
-        info!("led off!");
-
+        // info!("led off!");
         indicator.set_low();
         Timer::after(delay).await;
     }
 }
 
-pub async fn imu_entry<
-    IcmSPI: embedded_hal_async::spi::SpiDevice,
-    LsmSPI: embedded_hal_async::spi::SpiDevice,
->(
+type CdcType = CdcAcmClass<'static, Driver<'static, USB>>;
+
+pub async fn imu_entry<IcmSPI: SpiDevice, LsmSPI: SpiDevice>(
     spawner: Spawner,
-    icm: ICM42688<IcmSPI>,
-    lsm: LSM6DSV320X<LsmSPI>,
-    cdc: CdcAcmClass<'static, Driver<'static, USB>>,
-    output_pin: Output<'static>,
+    mut icm: ICM42688<IcmSPI>,
+    mut lsm: LSM6DSV320X<LsmSPI>,
+    mut cdc: CdcType,
+    mut output_pin: Output<'static>,
 ) {
     defmt::info!("Setting up imu!");
 
-    spawner.spawn(lsm_task(output_pin)).unwrap();
-
-    // _lsm_test(lsm).await.unwrap();
     // _icm_test(icm).await.unwrap();
+    //
+    configure_lsm(&mut lsm).await.unwrap();
+    // _lsm_test(lsm).await.unwrap();
+
+    let buffer = {
+        const LEN: usize = 1792;
+        static FIFO_BUFFER: StaticCell<[u8; LEN]> = StaticCell::new();
+        FIFO_BUFFER.init([0u8; LEN])
+    };
+
+    // This keeps up and produces a 159kb/s transfer on the data cdc.
+    loop {
+        let s = lsm.get_fifo_status().await.unwrap();
+
+        let b = embassy_time::Instant::now();
+        let read_len = s.unread() as usize;
+        lsm.get_fifo(&mut buffer[0..(read_len) * 7]).await.unwrap();
+        let e = embassy_time::Instant::now();
+        defmt::info!("s: {:?} took: {} us", s, (e - b).as_micros());
+
+        let relevant_data = &buffer[0..(read_len * 7)];
+        for w in relevant_data.chunks(64) {
+            cdc.write_packet(&w).await.unwrap();
+        }
+
+        Timer::after_millis(1).await;
+    }
 }
 
-async fn _lsm_test<LsmSPI: embedded_hal_async::spi::SpiDevice>(
+async fn configure_lsm<LsmSPI: SpiDevice>(
+    lsm: &mut LSM6DSV320X<LsmSPI>,
+) -> Result<(), lsm6dsv320x::Error<LsmSPI::Error>> {
+    // Low accelerometer setup;
+    use lsm6dsv320x::{AccelerationMode, AccelerationModeDataRate, OutputDataRate};
+    lsm.control_acceleration(AccelerationModeDataRate {
+        mode: AccelerationMode::HighPerformance,
+        rate: OutputDataRate::Hz7680,
+    })
+    .await?;
+    use lsm6dsv320x::{AccelerationFilterScale, AccelerationScale};
+    lsm.filter_acceleration(AccelerationFilterScale {
+        scale: AccelerationScale::G8,
+    })
+    .await?;
+
+    // High acceleratometer setup;
+    use lsm6dsv320x::{
+        AccelerationDataRateHigh, AccelerationModeDataRateHigh, AccelerationScaleHigh,
+    };
+    lsm.control_acceleration_high(AccelerationModeDataRateHigh {
+        scale: AccelerationScaleHigh::G320,
+        rate: AccelerationDataRateHigh::Hz7680,
+        ..Default::default()
+    })
+    .await?;
+
+    // Gyroscope setup.
+    use lsm6dsv320x::{GyroscopeMode, GyroscopeModeDataRate};
+    lsm.control_gyroscope(GyroscopeModeDataRate {
+        mode: GyroscopeMode::HighPerformance,
+        rate: OutputDataRate::Hz7680,
+    })
+    .await?;
+    use lsm6dsv320x::{GyroscopeBandwidthScale, GyroscopeScale};
+    lsm.filter_gyroscope(GyroscopeBandwidthScale {
+        scale: GyroscopeScale::DPS4000,
+    })
+    .await?;
+
+    // Setup fifo.
+    use lsm6dsv320x::{FifoControl, FifoMode, TemperatureBatch};
+    lsm.control_fifo(FifoControl {
+        mode: FifoMode::Continuous,
+        temperature: TemperatureBatch::Hz60,
+    })
+    .await?;
+    use lsm6dsv320x::FifoBatch;
+    lsm.control_fifo_batch(FifoBatch {
+        gyroscope: OutputDataRate::Hz7680,
+        acceleration: OutputDataRate::Hz7680,
+    })
+    .await?;
+    // And this last one to start collecting high G samples to the fifo.
+    use lsm6dsv320x::{BatchDataRateConfig, TriggerBDRSource};
+    lsm.control_bdr_config(BatchDataRateConfig {
+        trigger_bdr: TriggerBDRSource::Acceleration,
+        batch_acceleration_high: true,
+        threshold: 0,
+    })
+    .await?;
+    Ok(())
+}
+
+async fn _lsm_test<LsmSPI: SpiDevice>(
     mut lsm: LSM6DSV320X<LsmSPI>,
-) -> Result<(), lsm6dsv320x::Error<<LsmSPI as embedded_hal_async::spi::ErrorType>::Error>> {
+) -> Result<(), lsm6dsv320x::Error<LsmSPI::Error>> {
     lsm.reset().await?;
     Timer::after_millis(20).await; // wait a bit after the reset.
 
