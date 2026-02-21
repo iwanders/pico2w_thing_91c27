@@ -282,7 +282,7 @@ pub mod program {
         };
 
         // Hand the data bus and the imu's over to the imu handling for task setup.
-        imu::imu_entry(spawner, icm, lsm, data_cdc, indicator);
+        imu::imu_entry(spawner, icm, lsm, data_cdc, indicator).await;
 
         /*
         let mut counter = 0;
