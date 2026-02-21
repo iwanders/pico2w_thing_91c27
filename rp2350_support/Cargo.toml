@@ -1,0 +1,40 @@
+[package]
+name = "rp2350_support"
+version = "0.1.0"
+edition = "2021"
+autobins = true
+
+[dependencies]
+
+embassy-sync={workspace=true}
+embassy-usb={workspace=true}
+serde={workspace=true}
+defmt={workspace=true}
+defmt-rtt={workspace=true}
+zerocopy={workspace=true}
+heapless={workspace=true}
+postcard={workspace=true}
+rand_chacha={workspace=true}
+rand={workspace=true}
+static_cell={workspace=true}
+critical-section={workspace=true}
+
+[target.'cfg(target_arch = "arm")'.dependencies]
+embassy-rp={workspace=true}
+embassy-time={workspace=true}
+
+
+
+[dev-dependencies]
+# I need an async executor to run the tests.
+smol = {workspace=true}
+
+
+[features]
+# We use this feature here, that's set to opt into the host binaries.
+std = []
+
+
+[[bin]]
+name = "pack_assets"
+required-features = ["std"]

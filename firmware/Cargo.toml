@@ -6,126 +6,82 @@ autobins = true
 
 [dependencies]
 
+rp2350_support={workspace=true}
+
 # Core embassy functionality.
-embassy-embedded-hal = { version = "0.5", features = ["defmt", "time"] }
-embassy-sync = { version = "0.7.2", features = ["defmt"] }
-embassy-time = { version = "0.5", features = [
-    "defmt",
-    "defmt-timestamp-uptime",
-] }
-embassy-usb = { version = "0.5.0", features = ["defmt"] }
-# embassy-net = { version = "0.7.0", features = [
-#   "defmt",
-#   "icmp",
-#   "tcp",
-#   "udp",
-#   "raw",
-#   "dhcpv4",
-#   "medium-ethernet",
-#   "dns",
-#   "proto-ipv4",
-#   "proto-ipv6",
-#   "multicast",
-# ] }
-
-
+embassy-embedded-hal = {workspace=true}
+embassy-sync = {workspace=true}
+embassy-time = {workspace=true}
+embassy-usb = {workspace=true}
 # For the sd card.
-embedded-sdmmc = "0.7.0"
-embedded-hal-bus = { version = "0.1", features = ["async"] }
+embedded-sdmmc = {workspace=true}
+embedded-hal-bus =  {workspace=true}
 
 # wifi/bluetooth chip.
-cyw43 = { version = "0.6.0", features = [
-    "defmt",
-    "firmware-logs",
-    "bluetooth",
-] }
+cyw43 = {workspace=true}
 
 # Misc stuff to make board work.
-critical-section = "1.2.0"
-pio = { version = "0.3" }
+critical-section = {workspace=true}
+pio = {workspace=true}
 
 
 # logging
-defmt = "1.0.1"
-defmt-rtt = "1.0.0"
+defmt = {workspace=true}
+defmt-rtt = {workspace=true}
 
 # Fixed points, for the i2s
-fixed = "1.28.0"
+fixed = {workspace=true}
 
 # Memory handling.
-static_cell = "2.1"
-heapless = { version = "0.9.0", features = ["serde"] }
+static_cell ={workspace=true}
+heapless = {workspace=true}
 
 # for the bme driver (and possibly others).
-embedded-hal-async = { version = "1.0.0", features = ["defmt-03"] }
+embedded-hal-async = {workspace=true}
 #embedded-hal  = { version = "1.0.0", features = ["defmt-03"] }
 
 # For asset serialization.
 #bincode = { version = "2.0.1", default-features = false }
-serde = { version = "1.0", default-features = false, features = ["derive"] }
-serde_bytes = { version = "0.11.17", default-features = false }
-postcard = "1.0.0"
+serde = {workspace=true}
+serde_bytes = {workspace=true}
+postcard ={workspace=true}
 
 # To easily convert slice of one type into another.
-zerocopy = { version = "0.8.26", features = ["derive"] }
+zerocopy = {workspace=true}
 
 # Some stuff to fuzz deterministically
-rand_chacha ={version= "0.10.0", default-features=false}
+rand_chacha ={workspace=true}
 #chacha20 = {version="0.10", features=["rng"]}
-rand = {version="0.10.0", default-features=false}
+rand = {workspace=true}
 
-thiserror = {version="2", default-features=false}
-bitfield-struct = "0.11.0"
+thiserror ={workspace=true}
+bitfield-struct = {workspace=true}
 micro_hap = { workspace = true } #, features = ["defmt"]
+
+
 [target.'cfg(target_arch = "arm")'.dependencies]
 #trouble-host = { version = "0.2.4", features = ["defmt"] }
-trouble-host = { features = [
-"peripheral",
-"default-packet-pool-mtu-1024",
-], git = "https://github.com/embassy-rs/trouble", rev = "51cf300cb4951370ce043ffe5f67594a420cfd3e" }
+trouble-host = { workspace=true }
 #], path = "../../trouble/host" }
 # All actual hardware dependencies that don't compile on x86 go here.
-cortex-m = { version = "0.7.6", features = ["inline-asm"] }
-cortex-m-rt = "0.7.0"
-embassy-executor = { version = "0.9.0", features = [
-    "arch-cortex-m",
-    "executor-thread",
-    "executor-interrupt",
-    "defmt",
-    #"task-arena-size-40960",
-] }
-embassy-rp = { version = "0.9.0", features = [
-    "defmt",
-    "unstable-pac",
-    "time-driver",
-    "critical-section-impl",
-    "rp235xa",
-    "binary-info",
-    # Is this actually better / necessary, claim is it avoids halting both cores for an XIP transfer,
-    # but how do we know how much ram we have left?
-    # https://github.com/embassy-rs/embassy/issues/4367#issuecomment-3032809069 may have some clues.
-   # "boot2-ram-memcpy",
-   # "run-from-ram",
-] }
-cyw43-pio = { version = "0.9.0", features = ["defmt"] }
-embassy-futures = "0.1.2"
+cortex-m = { workspace=true }
+cortex-m-rt = { workspace=true }
+embassy-executor = { workspace=true }
+embassy-rp = { workspace=true }
+cyw43-pio = { workspace=true }
+embassy-futures = { workspace=true }
 
 
 [dev-dependencies]
 # I need an async executor to run the tests.
-smol = "2.0.2"
+smol ={ workspace=true }
 
 
-embassy-time = { version = "0.5", features = [
+embassy-time = { workspace=true, features = [
     "defmt",
     "defmt-timestamp-uptime",
     "std",
-] }
+]  }
 [features]
 # We use this feature here, that's set to opt into the host binaries.
 std = []
-
-
-[[bin]]
-name = "pack_assets"
-required-features = ["std"]

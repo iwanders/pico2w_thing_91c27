@@ -3,9 +3,10 @@
 
 pub mod bme280;
 
-pub mod defmt_serial;
+use rp2350_support::{defmt_serial, static_files};
 
-pub mod static_files;
+#[cfg(target_arch = "arm")]
+use rp2350_support::{rp2350_util, usb_picotool_reset};
 
 pub mod flash_memory;
 #[cfg(target_arch = "arm")]
@@ -18,10 +19,6 @@ pub mod mx25;
 pub mod hw_test;
 #[cfg(target_arch = "arm")]
 pub mod i2s_input;
-#[cfg(target_arch = "arm")]
-pub mod rp2350_util;
-#[cfg(target_arch = "arm")]
-pub mod usb_picotool_reset;
 
 #[cfg(target_arch = "arm")]
 pub mod program {

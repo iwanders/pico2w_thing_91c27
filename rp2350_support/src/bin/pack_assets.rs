@@ -1,4 +1,4 @@
-use firmware::static_files;
+use rp2350_support::static_files;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let files = [
