@@ -52,6 +52,7 @@ pub async fn imu_entry<IcmSPI: SpiDevice, LsmSPI: SpiDevice>(
     loop {
         // This is roughly 430 kb/s, but the two of them in sequence results in less throughput.
         if true {
+            /*
             let status = icm.read_status().await.unwrap();
             let f = icm.read_fifo_count().await.unwrap();
             defmt::info!(
@@ -62,9 +63,22 @@ pub async fn imu_entry<IcmSPI: SpiDevice, LsmSPI: SpiDevice>(
             );
             icm.get_fifo(&mut buffer[0..BUFFER_LEN.min(f as usize)])
                 .await
-                .unwrap();
+                .unwrap();*/
+
+            let (status, fifo_bytes) = icm.get_status_fifo(buffer).await.unwrap();
+            // defmt::info!(
+            //     "status data {:?}, full {},  f: {:?},  ",
+            //     status.data_ready(),
+            //     status.fifo_full(),
+            //     fifo_bytes
+            // );
+            output_pin.set_level(if status.fifo_full() {
+                embassy_rp::gpio::Level::High
+            } else {
+                embassy_rp::gpio::Level::Low
+            });
             // defmt::info!("b: {:?}", buffer);
-            let relevant_data = &buffer[0..f as usize];
+            let relevant_data = &buffer[0..fifo_bytes];
             for w in relevant_data.chunks(64) {
                 cdc.write_packet(&w).await.unwrap();
             }

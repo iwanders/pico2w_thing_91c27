@@ -402,6 +402,20 @@ where
     pub async fn control_gyro(&mut self, config: GyroscopeConfig) -> Result<(), Error<Spi::Error>> {
         self.write(regs::GYRO_CONFIG0, &[config.to_reg()]).await
     }
+
+    pub async fn get_status_fifo(
+        &mut self,
+        values: &mut [u8],
+    ) -> Result<(RegIntStatus, usize), Error<Spi::Error>> {
+        let mut raw_data = [0u8; 3];
+        self.read(regs::INT_STATUS, raw_data.as_mut_bytes()).await?;
+        let status = RegIntStatus::from_bits(raw_data[0]);
+        let count = u16::from_le_bytes([raw_data[2], raw_data[1]]);
+        let up_to = values.len().min(count as usize);
+        self.read(regs::FIFO_DATA, &mut values[0..up_to]).await?;
+        Ok((status, count as usize))
+    }
+
     pub async fn control_accel(
         &mut self,
         config: AccelerationConfig,
