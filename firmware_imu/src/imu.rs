@@ -2,6 +2,7 @@ use embassy_executor::Spawner;
 use embassy_rp::gpio::Output;
 use embassy_rp::peripherals::USB;
 use embassy_rp::usb::Driver;
+use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_time::{Duration, Timer};
 use embassy_usb::class::cdc_acm::CdcAcmClass;
 use embedded_hal_async::spi::SpiDevice;
@@ -28,10 +29,30 @@ async fn lsm_task(mut indicator: Output<'static>) -> ! {
 
 type CdcType = CdcAcmClass<'static, Driver<'static, USB>>;
 
-pub async fn imu_entry<IcmSPI: SpiDevice, LsmSPI: SpiDevice>(
+type IcmSPI = embassy_rp::spi::Spi<'static, embassy_rp::peripherals::SPI0, embassy_rp::spi::Async>;
+type IcmDeviceSPI = embassy_embedded_hal::shared_bus::asynch::spi::SpiDevice<
+    'static,
+    NoopRawMutex,
+    IcmSPI,
+    Output<'static>,
+>;
+type ICM = ICM42688<IcmDeviceSPI>;
+type ICMError = icm42688::Error<<IcmDeviceSPI as embedded_hal_async::spi::ErrorType>::Error>;
+
+type LsmSPI = embassy_rp::spi::Spi<'static, embassy_rp::peripherals::SPI1, embassy_rp::spi::Async>;
+type LsmDeviceSPI = embassy_embedded_hal::shared_bus::asynch::spi::SpiDevice<
+    'static,
+    NoopRawMutex,
+    LsmSPI,
+    Output<'static>,
+>;
+type LSM = LSM6DSV320X<LsmDeviceSPI>;
+type LSMError = lsm6dsv320x::Error<<LsmDeviceSPI as embedded_hal_async::spi::ErrorType>::Error>;
+
+pub async fn imu_entry(
     spawner: Spawner,
-    mut icm: ICM42688<IcmSPI>,
-    mut lsm: LSM6DSV320X<LsmSPI>,
+    mut icm: ICM,
+    mut lsm: LSM,
     mut cdc: CdcType,
     mut output_pin: Output<'static>,
 ) {
@@ -78,6 +99,8 @@ pub async fn imu_entry<IcmSPI: SpiDevice, LsmSPI: SpiDevice>(
                 embassy_rp::gpio::Level::Low
             });
             // defmt::info!("b: {:?}", buffer);
+            // If we don't write to serial here, we can keep up... maybe we can barely make it if we push into the serial
+            // port from another task?
             let relevant_data = &buffer[0..fifo_bytes];
             for w in relevant_data.chunks(64) {
                 cdc.write_packet(&w).await.unwrap();
@@ -103,9 +126,7 @@ pub async fn imu_entry<IcmSPI: SpiDevice, LsmSPI: SpiDevice>(
     }
 }
 
-async fn configure_lsm<LsmSPI: SpiDevice>(
-    lsm: &mut LSM6DSV320X<LsmSPI>,
-) -> Result<(), lsm6dsv320x::Error<LsmSPI::Error>> {
+async fn configure_lsm(lsm: &mut LSM) -> Result<(), LSMError> {
     // Low accelerometer setup;
     use lsm6dsv320x::{AccelerationMode, AccelerationModeDataRate, OutputDataRate};
     lsm.control_acceleration(AccelerationModeDataRate {
@@ -257,9 +278,7 @@ async fn _lsm_test<LsmSPI: SpiDevice>(
     Ok(())
 }
 
-async fn configure_icm<SPI: embedded_hal_async::spi::SpiDevice>(
-    icm: &mut ICM42688<SPI>,
-) -> Result<(), icm42688::Error<<SPI as embedded_hal_async::spi::ErrorType>::Error>> {
+async fn configure_icm(icm: &mut ICM) -> Result<(), ICMError> {
     defmt::info!("Detected ICM");
     let _ = icm.reset().await;
     Timer::after_millis(10).await;
