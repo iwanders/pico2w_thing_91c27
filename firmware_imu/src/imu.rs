@@ -14,19 +14,6 @@ use crate::lsm6dsv320x::LSM6DSV320X;
 use defmt::{info, warn};
 use static_cell::StaticCell;
 
-#[embassy_executor::task]
-async fn lsm_task(mut indicator: Output<'static>) -> ! {
-    let delay = Duration::from_millis(50);
-    loop {
-        // info!("led on!");
-        indicator.set_high();
-        Timer::after(delay).await;
-        // info!("led off!");
-        indicator.set_low();
-        Timer::after(delay).await;
-    }
-}
-
 type CdcType = CdcAcmClass<'static, Driver<'static, USB>>;
 
 type IcmSPI = embassy_rp::spi::Spi<'static, embassy_rp::peripherals::SPI0, embassy_rp::spi::Async>;
@@ -49,6 +36,91 @@ type LsmDeviceSPI = embassy_embedded_hal::shared_bus::asynch::spi::SpiDevice<
 type LSM = LSM6DSV320X<LsmDeviceSPI>;
 type LSMError = lsm6dsv320x::Error<<LsmDeviceSPI as embedded_hal_async::spi::ErrorType>::Error>;
 
+/*
+
+Okay, so one task for each imu.
+
+Each writes into a ringbuffer using a non blocking spsc
+
+We have one task to shovel bytes from both ringbuffers to the data port.
+*/
+
+#[embassy_executor::task]
+async fn icm_task(
+    mut icm: ICM,
+    mut producer: heapless::spsc::Producer<'static, u8>,
+    buffer: &'static mut [u8],
+) -> ! {
+    //usb.run().await
+    loop {
+        let (status, fifo_bytes) = icm.get_status_fifo(buffer).await.unwrap();
+        let relevant_data = &buffer[0..fifo_bytes];
+        for b in relevant_data.iter() {
+            if producer.enqueue(*b).is_err() {
+                // defmt::warn!("buffer overrrun in icm task");
+
+                continue;
+            }
+        }
+    }
+}
+#[embassy_executor::task]
+async fn lsm_task(
+    mut lsm: LSM,
+    mut producer: heapless::spsc::Producer<'static, u8>,
+    buffer: &'static mut [u8],
+) -> ! {
+    //usb.run().await
+    loop {
+        let s = lsm.get_fifo_status().await.unwrap();
+
+        let b = embassy_time::Instant::now();
+        let read_len = s.unread() as usize;
+        lsm.get_fifo(&mut buffer[0..(read_len) * 7]).await.unwrap();
+        // let e = embassy_time::Instant::now();
+        // defmt::info!("s: {:?} took: {} us", s, (e - b).as_micros());
+
+        let relevant_data = &buffer[0..(read_len * 7)];
+        for b in relevant_data.iter() {
+            if producer.enqueue(*b).is_err() {
+                defmt::warn!("buffer overrrun in lsm task");
+                continue;
+            }
+        }
+    }
+}
+
+#[embassy_executor::task]
+async fn data_cdc_task(
+    mut cdc: CdcType,
+    mut icm_consumer: heapless::spsc::Consumer<'static, u8>,
+    mut lsm_consumer: heapless::spsc::Consumer<'static, u8>,
+) -> ! {
+    const BUFFER_LEN: usize = 64;
+    let buffer = {
+        static FIFO_BUFFER: StaticCell<[u8; BUFFER_LEN]> = StaticCell::new();
+        FIFO_BUFFER.init([0u8; BUFFER_LEN])
+    };
+
+    loop {
+        if icm_consumer.len() > 64 {
+            for i in 0..64 {
+                buffer[i] = unsafe { icm_consumer.dequeue_unchecked() };
+            }
+            cdc.write_packet(buffer).await.unwrap();
+            // defmt::println!("packet, in buffer: {}", icm_consumer.len());
+        }
+        if lsm_consumer.len() > 64 {
+            for i in 0..64 {
+                buffer[i] = unsafe { lsm_consumer.dequeue_unchecked() };
+            }
+            cdc.write_packet(buffer).await.unwrap();
+            // defmt::println!("packet, in buffer: {}", icm_consumer.len());
+        }
+        Timer::after_nanos(1).await;
+    }
+}
+
 pub async fn imu_entry(
     spawner: Spawner,
     mut icm: ICM,
@@ -64,16 +136,56 @@ pub async fn imu_entry(
     // _lsm_test(lsm).await.unwrap();
     configure_icm(&mut icm).await.unwrap();
 
-    const BUFFER_LEN: usize = 4096;
-    let buffer = {
+    let icm_buffer = {
+        const BUFFER_LEN: usize = 4096;
         static FIFO_BUFFER: StaticCell<[u8; BUFFER_LEN]> = StaticCell::new();
         FIFO_BUFFER.init([0u8; BUFFER_LEN])
     };
 
+    let icm_queue = {
+        type QueueType = heapless::spsc::Queue<u8, 4096>;
+        static STATIC_BUFFER: StaticCell<QueueType> = StaticCell::new();
+        STATIC_BUFFER.init(QueueType::new())
+    };
+    let (icm_producer, icm_consumer) = icm_queue.split();
+
+    spawner
+        .spawn(icm_task(icm, icm_producer, icm_buffer))
+        .unwrap();
+
+    let lsm_buffer = {
+        const BUFFER_LEN: usize = 4096;
+        static FIFO_BUFFER: StaticCell<[u8; BUFFER_LEN]> = StaticCell::new();
+        FIFO_BUFFER.init([0u8; BUFFER_LEN])
+    };
+
+    let lsm_queue = {
+        type QueueType = heapless::spsc::Queue<u8, 4096>;
+        static STATIC_BUFFER: StaticCell<QueueType> = StaticCell::new();
+        STATIC_BUFFER.init(QueueType::new())
+    };
+    let (lsm_producer, lsm_consumer) = lsm_queue.split();
+
+    spawner
+        .spawn(lsm_task(lsm, lsm_producer, lsm_buffer))
+        .unwrap();
+
+    spawner
+        .spawn(data_cdc_task(cdc, icm_consumer, lsm_consumer))
+        .unwrap();
+
+    /*
+     *
+     for w in relevant_data.chunks(64) {
+         cdc.write_packet(&w).await.unwrap();
+     }
+     Timer::after_millis(1).await;
+    */
+
+    /*
     loop {
         // This is roughly 430 kb/s, but the two of them in sequence results in less throughput.
         if true {
-            /*
             let status = icm.read_status().await.unwrap();
             let f = icm.read_fifo_count().await.unwrap();
             defmt::info!(
@@ -84,27 +196,7 @@ pub async fn imu_entry(
             );
             icm.get_fifo(&mut buffer[0..BUFFER_LEN.min(f as usize)])
                 .await
-                .unwrap();*/
-
-            let (status, fifo_bytes) = icm.get_status_fifo(buffer).await.unwrap();
-            // defmt::info!(
-            //     "status data {:?}, full {},  f: {:?},  ",
-            //     status.data_ready(),
-            //     status.fifo_full(),
-            //     fifo_bytes
-            // );
-            output_pin.set_level(if status.fifo_full() {
-                embassy_rp::gpio::Level::High
-            } else {
-                embassy_rp::gpio::Level::Low
-            });
-            // defmt::info!("b: {:?}", buffer);
-            // If we don't write to serial here, we can keep up... maybe we can barely make it if we push into the serial
-            // port from another task?
-            let relevant_data = &buffer[0..fifo_bytes];
-            for w in relevant_data.chunks(64) {
-                cdc.write_packet(&w).await.unwrap();
-            }
+                .unwrap();
         }
 
         // This keeps up and produces a 159kb/s transfer on the data cdc.
@@ -123,7 +215,7 @@ pub async fn imu_entry(
             }
         }
         // Timer::after_millis(1).await;
-    }
+    }*/
 }
 
 async fn configure_lsm(lsm: &mut LSM) -> Result<(), LSMError> {
@@ -395,10 +487,3 @@ async fn _icm_test<SPI: embedded_hal_async::spi::SpiDevice>(
         defmt::info!("b: {:?}", buffer);
     }
 }
-/*
- * let mut lsm_test = async move || -> Result<(), OurError> {
-
-     Ok(())
- };
- let r = lsm_test().await;
-*/
