@@ -41,29 +41,45 @@ pub async fn imu_entry<IcmSPI: SpiDevice, LsmSPI: SpiDevice>(
     //
     configure_lsm(&mut lsm).await.unwrap();
     // _lsm_test(lsm).await.unwrap();
+    configure_icm(&mut icm).await.unwrap();
 
+    const BUFFER_LEN: usize = 4096;
     let buffer = {
-        const LEN: usize = 1792;
-        static FIFO_BUFFER: StaticCell<[u8; LEN]> = StaticCell::new();
-        FIFO_BUFFER.init([0u8; LEN])
+        static FIFO_BUFFER: StaticCell<[u8; BUFFER_LEN]> = StaticCell::new();
+        FIFO_BUFFER.init([0u8; BUFFER_LEN])
     };
 
-    // This keeps up and produces a 159kb/s transfer on the data cdc.
     loop {
-        let s = lsm.get_fifo_status().await.unwrap();
-
-        let b = embassy_time::Instant::now();
-        let read_len = s.unread() as usize;
-        lsm.get_fifo(&mut buffer[0..(read_len) * 7]).await.unwrap();
-        let e = embassy_time::Instant::now();
-        defmt::info!("s: {:?} took: {} us", s, (e - b).as_micros());
-
-        let relevant_data = &buffer[0..(read_len * 7)];
-        for w in relevant_data.chunks(64) {
-            cdc.write_packet(&w).await.unwrap();
+        // This is roughly 430 kb/s, but the two of them in sequence results in less throughput.
+        if true {
+            let f = icm.read_fifo_count().await.unwrap();
+            defmt::info!("f: {:?},  ", f);
+            icm.get_fifo(&mut buffer[0..BUFFER_LEN.min(f as usize)])
+                .await
+                .unwrap();
+            // defmt::info!("b: {:?}", buffer);
+            let relevant_data = &buffer[0..f as usize];
+            for w in relevant_data.chunks(64) {
+                cdc.write_packet(&w).await.unwrap();
+            }
         }
 
-        Timer::after_millis(1).await;
+        // This keeps up and produces a 159kb/s transfer on the data cdc.
+        if false {
+            let s = lsm.get_fifo_status().await.unwrap();
+
+            let b = embassy_time::Instant::now();
+            let read_len = s.unread() as usize;
+            lsm.get_fifo(&mut buffer[0..(read_len) * 7]).await.unwrap();
+            let e = embassy_time::Instant::now();
+            defmt::info!("s: {:?} took: {} us", s, (e - b).as_micros());
+
+            let relevant_data = &buffer[0..(read_len * 7)];
+            for w in relevant_data.chunks(64) {
+                cdc.write_packet(&w).await.unwrap();
+            }
+        }
+        // Timer::after_millis(1).await;
     }
 }
 
@@ -218,6 +234,58 @@ async fn _lsm_test<LsmSPI: SpiDevice>(
         }
     }
 
+    Ok(())
+}
+
+async fn configure_icm<SPI: embedded_hal_async::spi::SpiDevice>(
+    icm: &mut ICM42688<SPI>,
+) -> Result<(), icm42688::Error<<SPI as embedded_hal_async::spi::ErrorType>::Error>> {
+    defmt::info!("Detected ICM");
+    let _ = icm.reset().await;
+    Timer::after_millis(10).await;
+
+    // set the power register.
+    use icm42688::{PowerConfig, SensorMode};
+    icm.control_power(PowerConfig {
+        gyroscope: SensorMode::LowNoise,
+        acceleration: SensorMode::LowNoise,
+    })
+    .await?;
+
+    // Set the rates.
+    use icm42688::{GyroscopeConfig, GyroscopeOutputDataRate, GyroscopeScale};
+    icm.control_gyro(GyroscopeConfig {
+        scale: GyroscopeScale::Dps2000,
+        rate: GyroscopeOutputDataRate::Hz32k,
+    })
+    .await?;
+
+    use icm42688::{AccelerationConfig, AccelerationOutputDataRate, AccelerationScale};
+    icm.control_accel(AccelerationConfig {
+        scale: AccelerationScale::G2,
+        rate: AccelerationOutputDataRate::Hz32k,
+    })
+    .await?;
+
+    // Wait the required time after enabling the sensors.
+    Timer::after_millis(40).await;
+
+    // Enable the fifo.
+    use icm42688::FifoConfig;
+    icm.control_fifo_config(FifoConfig {
+        resume_partial: true,
+        watermark_gt_persist: true,
+        high_resolution: false,
+        fsync: false,
+        batch_temperature: true,
+        batch_gyro: true,
+        batch_accel: true,
+        watermark: 0,
+    })
+    .await?;
+    //
+    icm.control_fifo_mode(icm42688::FifoMode::StreamToFifo)
+        .await?;
     Ok(())
 }
 
