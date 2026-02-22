@@ -45,23 +45,71 @@ Each writes into a ringbuffer using a non blocking spsc
 We have one task to shovel bytes from both ringbuffers to the data port.
 */
 
+#[derive(Debug, Default)]
+struct AtomicBufferStats {
+    pub queue_pushed: core::sync::atomic::AtomicUsize,
+    pub queue_overrun: core::sync::atomic::AtomicUsize,
+    pub queue_size: core::sync::atomic::AtomicUsize,
+    pub ic_overruns: core::sync::atomic::AtomicUsize,
+}
+impl AtomicBufferStats {
+    pub fn to_read_only(&self) -> BufferStats {
+        let queue_pushed = self
+            .queue_pushed
+            .load(core::sync::atomic::Ordering::Relaxed);
+        let queue_overrun = self
+            .queue_overrun
+            .load(core::sync::atomic::Ordering::Relaxed);
+        BufferStats {
+            queue_pushed,
+            queue_overrun,
+            queue_size: self.queue_size.load(core::sync::atomic::Ordering::Relaxed),
+            ic_overruns: self.ic_overruns.load(core::sync::atomic::Ordering::Relaxed),
+            total_produced: queue_pushed + queue_overrun,
+        }
+    }
+}
+
+#[derive(Debug, defmt::Format)]
+struct BufferStats {
+    pub queue_pushed: usize,
+    pub queue_overrun: usize,
+    pub queue_size: usize,
+    pub ic_overruns: usize,
+    pub total_produced: usize,
+}
 #[embassy_executor::task]
 async fn icm_task(
     mut icm: ICM,
     mut producer: heapless::spsc::Producer<'static, u8>,
     buffer: &'static mut [u8],
+    stats: &'static AtomicBufferStats,
 ) -> ! {
     //usb.run().await
     loop {
         let (status, fifo_bytes) = icm.get_status_fifo(buffer).await.unwrap();
         let relevant_data = &buffer[0..fifo_bytes];
-        for b in relevant_data.iter() {
+        for (i, b) in relevant_data.iter().enumerate() {
             if producer.enqueue(*b).is_err() {
                 // defmt::warn!("buffer overrrun in icm task");
-
+                stats
+                    .queue_overrun
+                    .fetch_add(fifo_bytes - i, core::sync::atomic::Ordering::Relaxed);
                 continue;
+            } else {
+                stats
+                    .queue_pushed
+                    .fetch_add(1, core::sync::atomic::Ordering::Relaxed);
             }
         }
+        if status.fifo_full() {
+            stats
+                .ic_overruns
+                .fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+        }
+        stats
+            .queue_size
+            .store(producer.len(), core::sync::atomic::Ordering::Relaxed);
     }
 }
 #[embassy_executor::task]
@@ -69,24 +117,41 @@ async fn lsm_task(
     mut lsm: LSM,
     mut producer: heapless::spsc::Producer<'static, u8>,
     buffer: &'static mut [u8],
+    stats: &'static AtomicBufferStats,
 ) -> ! {
     //usb.run().await
     loop {
         let s = lsm.get_fifo_status().await.unwrap();
 
-        let b = embassy_time::Instant::now();
+        // let b = embassy_time::Instant::now();
         let read_len = s.unread() as usize;
+        // defmt::info!("s: {:?}  ", read_len);
         lsm.get_fifo(&mut buffer[0..(read_len) * 7]).await.unwrap();
         // let e = embassy_time::Instant::now();
         // defmt::info!("s: {:?} took: {} us", s, (e - b).as_micros());
-
-        let relevant_data = &buffer[0..(read_len * 7)];
-        for b in relevant_data.iter() {
+        let total_bytes = read_len * 7;
+        let relevant_data = &buffer[0..total_bytes];
+        for (i, b) in relevant_data.iter().enumerate() {
             if producer.enqueue(*b).is_err() {
-                defmt::warn!("buffer overrrun in lsm task");
+                // defmt::warn!("buffer overrrun in icm task");
+                stats
+                    .queue_overrun
+                    .fetch_add(total_bytes - i, core::sync::atomic::Ordering::Relaxed);
                 continue;
+            } else {
+                stats
+                    .queue_pushed
+                    .fetch_add(1, core::sync::atomic::Ordering::Relaxed);
             }
         }
+        if s.overrun_latched() {
+            stats
+                .ic_overruns
+                .fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+        }
+        stats
+            .queue_size
+            .store(producer.len(), core::sync::atomic::Ordering::Relaxed);
     }
 }
 
@@ -102,22 +167,21 @@ async fn data_cdc_task(
         FIFO_BUFFER.init([0u8; BUFFER_LEN])
     };
 
+    let mut bool_did_something = false;
     loop {
-        if icm_consumer.len() > 64 {
-            for i in 0..64 {
-                buffer[i] = unsafe { icm_consumer.dequeue_unchecked() };
+        for c in [&mut lsm_consumer, &mut icm_consumer] {
+            while c.len() > 64 {
+                for i in 0..64 {
+                    buffer[i] = unsafe { c.dequeue_unchecked() };
+                }
+                bool_did_something = true;
+                cdc.write_packet(buffer).await.unwrap();
             }
-            cdc.write_packet(buffer).await.unwrap();
-            // defmt::println!("packet, in buffer: {}", icm_consumer.len());
         }
-        if lsm_consumer.len() > 64 {
-            for i in 0..64 {
-                buffer[i] = unsafe { lsm_consumer.dequeue_unchecked() };
-            }
-            cdc.write_packet(buffer).await.unwrap();
-            // defmt::println!("packet, in buffer: {}", icm_consumer.len());
+        if !bool_did_something {
+            Timer::after_nanos(1).await;
         }
-        Timer::after_nanos(1).await;
+        bool_did_something = false;
     }
 }
 
@@ -136,6 +200,15 @@ pub async fn imu_entry(
     // _lsm_test(lsm).await.unwrap();
     configure_icm(&mut icm).await.unwrap();
 
+    let icm_stats: &AtomicBufferStats = {
+        static FIFO_BUFFER: StaticCell<AtomicBufferStats> = StaticCell::new();
+        FIFO_BUFFER.init(AtomicBufferStats::default())
+    };
+    let lsm_stats: &AtomicBufferStats = {
+        static FIFO_BUFFER: StaticCell<AtomicBufferStats> = StaticCell::new();
+        FIFO_BUFFER.init(AtomicBufferStats::default())
+    };
+
     let icm_buffer = {
         const BUFFER_LEN: usize = 4096;
         static FIFO_BUFFER: StaticCell<[u8; BUFFER_LEN]> = StaticCell::new();
@@ -143,14 +216,16 @@ pub async fn imu_entry(
     };
 
     let icm_queue = {
-        type QueueType = heapless::spsc::Queue<u8, 4096>;
+        const BUFFER_LEN: usize = 4096;
+        type QueueType = heapless::spsc::Queue<u8, BUFFER_LEN>;
         static STATIC_BUFFER: StaticCell<QueueType> = StaticCell::new();
         STATIC_BUFFER.init(QueueType::new())
     };
     let (icm_producer, icm_consumer) = icm_queue.split();
 
+    // 247 kb/s at 16kHz
     spawner
-        .spawn(icm_task(icm, icm_producer, icm_buffer))
+        .spawn(icm_task(icm, icm_producer, icm_buffer, icm_stats))
         .unwrap();
 
     let lsm_buffer = {
@@ -160,20 +235,28 @@ pub async fn imu_entry(
     };
 
     let lsm_queue = {
-        type QueueType = heapless::spsc::Queue<u8, 4096>;
+        const BUFFER_LEN: usize = 4096;
+        type QueueType = heapless::spsc::Queue<u8, BUFFER_LEN>;
         static STATIC_BUFFER: StaticCell<QueueType> = StaticCell::new();
         STATIC_BUFFER.init(QueueType::new())
     };
     let (lsm_producer, lsm_consumer) = lsm_queue.split();
 
+    // 159 kb/s at max rate.
     spawner
-        .spawn(lsm_task(lsm, lsm_producer, lsm_buffer))
+        .spawn(lsm_task(lsm, lsm_producer, lsm_buffer, lsm_stats))
         .unwrap();
 
+    // And the USB task.
     spawner
         .spawn(data_cdc_task(cdc, icm_consumer, lsm_consumer))
         .unwrap();
 
+    loop {
+        defmt::println!("icm stats: {:#?}", icm_stats.to_read_only());
+        defmt::println!("lsm stats: {:#?}", lsm_stats.to_read_only());
+        Timer::after_millis(1000).await;
+    }
     /*
      *
      for w in relevant_data.chunks(64) {
@@ -280,96 +363,6 @@ async fn configure_lsm(lsm: &mut LSM) -> Result<(), LSMError> {
     Ok(())
 }
 
-async fn _lsm_test<LsmSPI: SpiDevice>(
-    mut lsm: LSM6DSV320X<LsmSPI>,
-) -> Result<(), lsm6dsv320x::Error<LsmSPI::Error>> {
-    lsm.reset().await?;
-    Timer::after_millis(20).await; // wait a bit after the reset.
-
-    // Low accelerometer setup;
-    use lsm6dsv320x::{AccelerationMode, AccelerationModeDataRate, OutputDataRate};
-    lsm.control_acceleration(AccelerationModeDataRate {
-        mode: AccelerationMode::HighPerformance,
-        rate: OutputDataRate::Hz480,
-    })
-    .await?;
-    use lsm6dsv320x::{AccelerationFilterScale, AccelerationScale};
-    lsm.filter_acceleration(AccelerationFilterScale {
-        scale: AccelerationScale::G2,
-    })
-    .await?;
-
-    // High acceleratometer setup;
-    use lsm6dsv320x::{
-        AccelerationDataRateHigh, AccelerationModeDataRateHigh, AccelerationScaleHigh,
-    };
-    lsm.control_acceleration_high(AccelerationModeDataRateHigh {
-        scale: AccelerationScaleHigh::G320,
-        rate: AccelerationDataRateHigh::Hz480,
-        ..Default::default()
-    })
-    .await?;
-
-    // Gyroscope setup.
-    use lsm6dsv320x::{GyroscopeMode, GyroscopeModeDataRate};
-    lsm.control_gyroscope(GyroscopeModeDataRate {
-        mode: GyroscopeMode::HighPerformance,
-        rate: OutputDataRate::Hz480,
-    })
-    .await?;
-    use lsm6dsv320x::{GyroscopeBandwidthScale, GyroscopeScale};
-    lsm.filter_gyroscope(GyroscopeBandwidthScale {
-        scale: GyroscopeScale::DPS4000,
-    })
-    .await?;
-
-    // Setup fifo.
-    use lsm6dsv320x::{FifoControl, FifoMode, TemperatureBatch};
-    lsm.control_fifo(FifoControl {
-        mode: FifoMode::Continuous,
-        temperature: TemperatureBatch::Hz60,
-    })
-    .await?;
-    use lsm6dsv320x::FifoBatch;
-    lsm.control_fifo_batch(FifoBatch {
-        gyroscope: OutputDataRate::Hz480,
-        acceleration: OutputDataRate::Hz480,
-    })
-    .await?;
-    // And this last one to start collecting high G samples to the fifo.
-    use lsm6dsv320x::{BatchDataRateConfig, TriggerBDRSource};
-    lsm.control_bdr_config(BatchDataRateConfig {
-        trigger_bdr: TriggerBDRSource::Acceleration,
-        batch_acceleration_high: true,
-        threshold: 0,
-    })
-    .await?;
-
-    if false {
-        let buffer = {
-            const LEN: usize = 1792;
-            static FIFO_BUFFER: StaticCell<[u8; LEN]> = StaticCell::new();
-            FIFO_BUFFER.init([0u8; LEN])
-        };
-        loop {
-            let s = lsm.get_fifo_status().await?;
-
-            let b = embassy_time::Instant::now();
-            lsm.get_fifo(&mut buffer[0..(s.unread() as usize) * 7])
-                .await?;
-            let e = embassy_time::Instant::now();
-            defmt::info!("s: {:?} took: {} us", s, (e - b).as_micros());
-            defmt::info!("b: {:?}", buffer[0..6]);
-            // Okay, we can keep up with the data rate, it takes about 240 us to transfer 30 samples of
-            // 7 bytes each. Even with a 1ms delay we can keep up.
-
-            Timer::after_millis(1).await;
-        }
-    }
-
-    Ok(())
-}
-
 async fn configure_icm(icm: &mut ICM) -> Result<(), ICMError> {
     defmt::info!("Detected ICM");
     let _ = icm.reset().await;
@@ -387,14 +380,14 @@ async fn configure_icm(icm: &mut ICM) -> Result<(), ICMError> {
     use icm42688::{GyroscopeConfig, GyroscopeOutputDataRate, GyroscopeScale};
     icm.control_gyro(GyroscopeConfig {
         scale: GyroscopeScale::Dps2000,
-        rate: GyroscopeOutputDataRate::Hz32k,
+        rate: GyroscopeOutputDataRate::Hz8k,
     })
     .await?;
 
     use icm42688::{AccelerationConfig, AccelerationOutputDataRate, AccelerationScale};
     icm.control_accel(AccelerationConfig {
         scale: AccelerationScale::G2,
-        rate: AccelerationOutputDataRate::Hz32k,
+        rate: AccelerationOutputDataRate::Hz8k,
     })
     .await?;
 
@@ -486,4 +479,94 @@ async fn _icm_test<SPI: embedded_hal_async::spi::SpiDevice>(
             .await?;
         defmt::info!("b: {:?}", buffer);
     }
+}
+
+async fn _lsm_test<LsmSPI: SpiDevice>(
+    mut lsm: LSM6DSV320X<LsmSPI>,
+) -> Result<(), lsm6dsv320x::Error<LsmSPI::Error>> {
+    lsm.reset().await?;
+    Timer::after_millis(20).await; // wait a bit after the reset.
+
+    // Low accelerometer setup;
+    use lsm6dsv320x::{AccelerationMode, AccelerationModeDataRate, OutputDataRate};
+    lsm.control_acceleration(AccelerationModeDataRate {
+        mode: AccelerationMode::HighPerformance,
+        rate: OutputDataRate::Hz480,
+    })
+    .await?;
+    use lsm6dsv320x::{AccelerationFilterScale, AccelerationScale};
+    lsm.filter_acceleration(AccelerationFilterScale {
+        scale: AccelerationScale::G2,
+    })
+    .await?;
+
+    // High acceleratometer setup;
+    use lsm6dsv320x::{
+        AccelerationDataRateHigh, AccelerationModeDataRateHigh, AccelerationScaleHigh,
+    };
+    lsm.control_acceleration_high(AccelerationModeDataRateHigh {
+        scale: AccelerationScaleHigh::G320,
+        rate: AccelerationDataRateHigh::Hz3840,
+        ..Default::default()
+    })
+    .await?;
+
+    // Gyroscope setup.
+    use lsm6dsv320x::{GyroscopeMode, GyroscopeModeDataRate};
+    lsm.control_gyroscope(GyroscopeModeDataRate {
+        mode: GyroscopeMode::HighPerformance,
+        rate: OutputDataRate::Hz3840,
+    })
+    .await?;
+    use lsm6dsv320x::{GyroscopeBandwidthScale, GyroscopeScale};
+    lsm.filter_gyroscope(GyroscopeBandwidthScale {
+        scale: GyroscopeScale::DPS4000,
+    })
+    .await?;
+
+    // Setup fifo.
+    use lsm6dsv320x::{FifoControl, FifoMode, TemperatureBatch};
+    lsm.control_fifo(FifoControl {
+        mode: FifoMode::Continuous,
+        temperature: TemperatureBatch::Hz60,
+    })
+    .await?;
+    use lsm6dsv320x::FifoBatch;
+    lsm.control_fifo_batch(FifoBatch {
+        gyroscope: OutputDataRate::Hz3840,
+        acceleration: OutputDataRate::Hz3840,
+    })
+    .await?;
+    // And this last one to start collecting high G samples to the fifo.
+    use lsm6dsv320x::{BatchDataRateConfig, TriggerBDRSource};
+    lsm.control_bdr_config(BatchDataRateConfig {
+        trigger_bdr: TriggerBDRSource::Acceleration,
+        batch_acceleration_high: true,
+        threshold: 0,
+    })
+    .await?;
+
+    if false {
+        let buffer = {
+            const LEN: usize = 1792;
+            static FIFO_BUFFER: StaticCell<[u8; LEN]> = StaticCell::new();
+            FIFO_BUFFER.init([0u8; LEN])
+        };
+        loop {
+            let s = lsm.get_fifo_status().await?;
+
+            let b = embassy_time::Instant::now();
+            lsm.get_fifo(&mut buffer[0..(s.unread() as usize) * 7])
+                .await?;
+            let e = embassy_time::Instant::now();
+            defmt::info!("s: {:?} took: {} us", s, (e - b).as_micros());
+            defmt::info!("b: {:?}", buffer[0..6]);
+            // Okay, we can keep up with the data rate, it takes about 240 us to transfer 30 samples of
+            // 7 bytes each. Even with a 1ms delay we can keep up.
+
+            Timer::after_millis(1).await;
+        }
+    }
+
+    Ok(())
 }
