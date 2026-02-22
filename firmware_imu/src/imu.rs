@@ -52,8 +52,14 @@ pub async fn imu_entry<IcmSPI: SpiDevice, LsmSPI: SpiDevice>(
     loop {
         // This is roughly 430 kb/s, but the two of them in sequence results in less throughput.
         if true {
+            let status = icm.read_status().await.unwrap();
             let f = icm.read_fifo_count().await.unwrap();
-            defmt::info!("f: {:?},  ", f);
+            defmt::info!(
+                "status data {:?}, full {},  f: {:?},  ",
+                status.data_ready(),
+                status.fifo_full(),
+                f
+            );
             icm.get_fifo(&mut buffer[0..BUFFER_LEN.min(f as usize)])
                 .await
                 .unwrap();

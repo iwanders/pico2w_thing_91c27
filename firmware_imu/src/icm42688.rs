@@ -1,5 +1,6 @@
+use bitfield_struct::bitfield;
 use embedded_hal_async::spi::SpiDevice;
-use zerocopy::{FromBytes, IntoBytes};
+use zerocopy::{FromBytes, Immutable, IntoBytes, TryFromBytes};
 
 // See also the notes in the lsm6dsv320x file.
 
@@ -37,6 +38,8 @@ pub mod regs {
     /// Acceleration config.
     pub const ACCEL_CONFIG0: u8 = 0x50;
 
+    /// Status register in front of fifo.
+    pub const INT_STATUS: u8 = 0x2D;
     /// Fifo entry count start
     pub const FIFO_COUNTH: u8 = 0x2E;
 
@@ -219,6 +222,34 @@ impl FifoConfig {
     }
 }
 
+#[bitfield(u8)]
+#[derive(PartialEq, Eq, TryFromBytes, IntoBytes, Immutable, defmt::Format)]
+pub struct RegIntStatus {
+    #[bits(1)] // Bit 0
+    pub agc_rdy: bool,
+
+    #[bits(1)] // bit 1
+    pub fifo_full: bool,
+
+    #[bits(1)] // bit 2
+    pub fifo_threshold: bool,
+
+    #[bits(1)] // bit 3
+    pub data_ready: bool,
+
+    #[bits(1)] // bit 4
+    pub reset_done: bool,
+
+    #[bits(1)] // bit 5
+    pub pll_ready: bool,
+
+    #[bits(1)] // bit 6
+    pub ui_fsync: bool,
+
+    #[bits(1)] // bit 7
+    _pad: bool,
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, defmt::Format)]
 pub enum Error<SpiError: embedded_hal_async::spi::Error> {
     /// Underlying SpiError device error
@@ -356,6 +387,13 @@ where
         self.read(regs::FIFO_COUNTH, output.as_mut_bytes()).await?;
         Ok(output.swap_bytes())
     }
+
+    pub async fn read_status(&mut self) -> Result<RegIntStatus, Error<Spi::Error>> {
+        let mut raw_reg = 0u8;
+        self.read(regs::INT_STATUS, raw_reg.as_mut_bytes()).await?;
+        Ok(RegIntStatus::from_bits(raw_reg))
+    }
+
     /// Read bytes from the fifo.
     pub async fn get_fifo(&mut self, values: &mut [u8]) -> Result<(), Error<Spi::Error>> {
         self.read(regs::FIFO_DATA, values).await
