@@ -70,6 +70,14 @@ impl AtomicBufferStats {
     }
 }
 
+#[derive(Copy, Clone, Debug, defmt::Format, zerocopy::IntoBytes)]
+#[repr(u8)]
+enum DataType {
+    Nop,
+    Icm,
+    Lsm,
+}
+
 #[derive(Debug, defmt::Format)]
 struct BufferStats {
     pub queue_pushed: usize,
@@ -169,10 +177,14 @@ async fn data_cdc_task(
 
     let mut bool_did_something = false;
     loop {
-        for c in [&mut lsm_consumer, &mut icm_consumer] {
-            while c.len() > 64 {
-                for i in 0..64 {
-                    buffer[i] = unsafe { c.dequeue_unchecked() };
+        for (t, c) in [
+            (DataType::Lsm, &mut lsm_consumer),
+            (DataType::Icm, &mut icm_consumer),
+        ] {
+            while c.len() > 60 {
+                buffer[0] = t as u8;
+                for i in 0..60 {
+                    buffer[i + 4] = unsafe { c.dequeue_unchecked() };
                 }
                 bool_did_something = true;
                 cdc.write_packet(buffer).await.unwrap();
@@ -330,7 +342,7 @@ async fn configure_lsm(lsm: &mut LSM) -> Result<(), LSMError> {
     use lsm6dsv320x::{GyroscopeMode, GyroscopeModeDataRate};
     lsm.control_gyroscope(GyroscopeModeDataRate {
         mode: GyroscopeMode::HighPerformance,
-        rate: OutputDataRate::Hz7680,
+        rate: OutputDataRate::Hz3840,
     })
     .await?;
     use lsm6dsv320x::{GyroscopeBandwidthScale, GyroscopeScale};
