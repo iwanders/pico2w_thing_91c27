@@ -1,0 +1,14 @@
+[workspace]
+# Empty workspace to keep it out of the parent workspace.
+[package]
+name = "analysis_imu"
+version = "0.1.0"
+edition = "2024"
+autobins = true
+
+[dependencies]
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+zerocopy = { version = "0.8.26", features = ["derive"] }
+thiserror = {version="2", default-features=false}
+bitfield-struct = "0.11.0"
+firmware_imu = {path="../firmware_imu"}
