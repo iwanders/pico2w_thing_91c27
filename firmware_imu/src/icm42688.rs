@@ -13,6 +13,10 @@ use zerocopy::{FromBytes, Immutable, IntoBytes, TryFromBytes};
 //
 // Data is big endian!
 
+//
+// Fifo has four different package types, see page 37
+// Default timestamp resolution is 1us, see page 82
+
 pub mod regs {
     pub const REGISTER_READ: u8 = 1 << 7;
     pub const WHO_AM_I: u8 = 0x75;

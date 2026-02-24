@@ -26,6 +26,13 @@ use zerocopy::{FromBytes, IntoBytes};
 // #[derive(PartialEq, Eq, TryFromBytes, IntoBytes, Immutable, defmt::Format)] // <- Attributes after `bitfield` are carried over
 // struct MyBitfield {
 
+//
+// The FIFO words are prefixed with a data tag which determines how to interpret them.
+// high level description on page 44, tags on page 114
+//  Where do the actual value-definitions live? are those just the identical register name? so page 85 for the
+//  timestamp? WHich is just a 32 bit wordt in 21.7 uS increments.
+//
+
 pub mod regs {
 
     /// Constant to apply to the register address in order to specify a read.
