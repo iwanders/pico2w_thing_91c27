@@ -7,6 +7,7 @@ use rp2350_support::{defmt_serial, static_files};
 use rp2350_support::{rp2350_util, usb_picotool_reset};
 
 pub mod icm42688;
+#[cfg(target_arch = "arm")]
 pub mod imu;
 pub mod lsm6dsv320x;
 
