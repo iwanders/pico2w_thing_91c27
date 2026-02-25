@@ -1,5 +1,6 @@
+use bitfield_struct::bitfield;
 use embedded_hal_async::spi::SpiDevice;
-use zerocopy::{FromBytes, IntoBytes};
+use zerocopy::{FromBytes, Immutable, IntoBytes, TryFromBytes};
 
 // https://docs.rs/embedded-hal/1.0.0/embedded_hal/spi/index.html#for-driver-authors
 // > If your device has a CS pin, use SpiDevice. Do not manually manage the CS pin, the SpiDevice implementation will
@@ -554,5 +555,141 @@ where
     /// AN6119; Rounding from FIFO_DATA_OUT_Z_H to FIFO_DATA_OUT_TAG is done automatically.
     pub async fn get_fifo(&mut self, values: &mut [u8]) -> Result<(), Error<Spi::Error>> {
         self.read(regs::FIFO_DATA_OUT_TAG, values).await
+    }
+}
+
+#[repr(u8)]
+#[derive(PartialEq, Eq, TryFromBytes, IntoBytes, Immutable, defmt::Format, Debug)]
+pub enum LsmFifoTag {
+    FIFOempty = 0x00,
+    GyroscopeNC = 0x01,
+    AccelerometerNC = 0x02,
+    Temperature = 0x03,
+    Timestamp = 0x04,
+    ConfigChange = 0x05, // CFG_Change
+    AccelerometerNCT2 = 0x06,
+    AccelerometerNCT1 = 0x07,
+    Accelerometer2xC = 0x08,
+    Accelerometer3xC = 0x09,
+    GyroscopeNCT2 = 0x0A,
+    GyroscopeNCT1 = 0x0B,
+    Gyroscope2xC = 0x0C,
+    Gyroscope3xC = 0x0D,
+    SensorHubTarget0 = 0x0E,
+    SensorHubTarget1 = 0x0F,
+    SensorHubTarget2 = 0x10,
+    SensorHubTarget3 = 0x11,
+    StepCounter = 0x12,
+    SFLPGamerotationVector = 0x13,
+    SFLPGyroscopeBias = 0x16,
+    SFLPGravityVector = 0x17,
+    HighGAccelerometerPeakValue = 0x18,
+    SensorhubNack = 0x19,
+    MLCResult = 0x1A,
+    MLCFilter = 0x1B,
+    MLCFeature = 0x1C,
+    HighGAccelerometer = 0x1D,
+    EnhancedEISGyroscope = 0x1E,
+    FSMResults = 0x1F,
+}
+
+/// Error used by the accessory interface
+#[derive(thiserror::Error, Debug, Copy, Clone, PartialEq, Eq, defmt::Format)]
+pub enum LsmFifoError {
+    /// Not enough bytes provided
+    #[error("not enough data, expected {0:?}")]
+    NotEnoughData(u8),
+    /// If the data tag byte could not be interpreted.
+    #[error("first byte did not hold a tag {0:?}")]
+    FirstByteNoTag(u8),
+}
+
+/// Fifo Data Out Tag register value, 9.90, p114.
+#[bitfield(u8)]
+#[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format)]
+pub struct FifoDataOutTag {
+    /// FIFO tag, identifies the sensor in the following registers
+    ///
+    ///  DATA_OUT_X_L, DATA_OUT_X_H
+    ///  DATA_OUT_Y_L, DATA_OUT_Y_H,
+    ///  DATA_OUT_Z_L, DATA_OUT_Z_H,
+    #[bits(5)] // Bit 0-5
+    pub sensor: u8,
+
+    #[bits(2)] // bit 5-6
+    pub count: u8,
+
+    #[bits(1)] // bit 7
+    pub _unused: bool,
+}
+impl FifoDataOutTag {
+    pub fn sensor_type(&self) -> Result<LsmFifoTag, LsmFifoError> {
+        LsmFifoTag::try_read_from_bytes(&[self.sensor()])
+            .map_err(|_e| LsmFifoError::FirstByteNoTag(self.sensor()))
+    }
+}
+
+/// This is a helper to parse data from the fifo.
+#[derive(Debug, Default, Copy, Clone)]
+pub struct LsmFifoProcessor {
+    pub gyro_scale: GyroscopeScale,
+    pub accel_scale: AccelerationScale,
+    pub accel_high_scale: AccelerationScaleHigh,
+}
+impl LsmFifoProcessor {
+    pub fn read_data(&self, data: &[u8]) -> Result<(), LsmFifoError> {
+        // Data tag is always 7 long? One tag + x_{l,h} + y_{l,h} + z_{l,h}
+        // Is it though? it parses poorly at 7 byte steps, regardless of the offset...
+        for v in data.chunks_exact(7) {
+            let tag = FifoDataOutTag::read_from_bytes(&v[0..1])
+                .map_err(|_e| LsmFifoError::NotEnoughData(1))?;
+            let sensor_type = tag.sensor_type()?;
+
+            println!("sensor_type: {sensor_type:?}");
+        }
+
+        todo!()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test_lsm_fifo_processor() {
+        let data = [
+            9, 243, 255, 252, 255, 35, 0, 17, 198, 0, 20, 0, 13, 16, 232, 11, 0, 18, 0, 92, 0, 18,
+            200, 0, 14, 0, 3, 16, 235, 10, 0, 240, 255, 110, 0, 12, 232, 255, 248, 255, 76, 0, 20,
+            187, 0, 13, 0, 2, 16, 237, 248, 255, 239, 255, 101, 0, 23, 196, 0, 17, 0, 4, 16, 238,
+            11, 0, 2, 0, 87, 0, 9, 234, 255, 248, 255, 66, 0, 17, 187, 0, 4, 0, 253, 15, 232, 20,
+            0, 248, 255, 121, 0, 18, 190, 0, 23, 0, 4, 16, 235, 6, 0, 253, 255, 95, 0, 12, 241,
+            255, 249, 255, 38, 0, 20, 174, 0, 8, 0, 6, 16, 237, 4, 0, 251, 255, 90, 0, 23, 189, 0,
+            25, 0, 0, 16, 238, 23, 0, 252, 255, 101, 0, 9, 247, 255, 251, 255, 15, 0, 17, 182, 0,
+            39, 0, 0, 16, 232, 4, 0, 5, 0, 113, 0, 18, 178, 0, 10, 0, 6, 16, 235, 32, 0, 238, 255,
+            99, 0, 12, 249, 255, 251, 255, 4, 0, 20, 190, 0, 14, 0, 17, 16, 237, 9, 0, 12, 0, 88,
+            0, 23, 188, 0, 8, 0, 14, 16, 238, 2, 0, 253, 255, 102, 0, 9, 249, 255, 251, 255, 2, 0,
+            17, 175, 0, 12, 0, 5, 16, 232, 24, 0, 242, 255, 113, 0, 18, 177, 0, 22, 0, 10, 16, 235,
+            4, 0, 247, 255, 99, 0, 12, 250, 255, 252, 255, 3, 0, 20, 193, 0, 24, 0, 26, 16, 237, 5,
+            0, 245, 255, 115, 0, 23, 210, 0, 9, 0, 22, 16, 238, 4, 0, 8, 0, 107, 0, 9, 251, 255,
+            251, 255, 4, 0, 17, 199, 0, 24, 0, 18, 16, 232, 5, 0, 8, 0, 102, 0, 18, 181, 0, 18, 0,
+            7, 16, 235, 14, 0, 255, 255, 113, 0, 12, 252, 255, 251, 255, 3, 0, 20, 190, 0, 15, 0,
+            9, 16, 237, 9, 0, 250, 255, 108, 0, 23, 196, 0, 18, 0, 12, 16, 238, 20, 0, 252, 255,
+            101, 0, 9, 252, 255, 252, 255, 2, 0, 17, 188, 0, 255, 255, 253, 15, 232, 6, 0, 4, 0,
+            86, 0, 18, 174, 0, 13, 0, 252, 15, 235, 4, 0, 0, 0, 112, 0, 12, 251, 255, 255, 255, 3,
+            0, 20, 184, 0, 11, 0, 246, 15, 237, 23, 0, 249, 255, 117, 0, 23, 171, 0, 5, 0, 1, 16,
+            238, 4, 0, 6, 0, 97, 0, 9, 250, 255, 1, 0, 4, 0, 17, 180, 0, 13, 0, 253, 15, 232, 32,
+            0, 246, 255, 107, 0, 18, 200, 0, 16, 0, 2, 16, 235, 0, 0, 254, 255, 111, 0, 12, 250,
+            255, 1, 0, 4, 0, 20, 190, 0, 10, 0, 16, 16, 237, 7, 0, 3, 0, 100, 0, 23, 192, 0, 14, 0,
+            3, 16, 238, 12, 0, 10, 0, 96, 0, 9, 250, 255, 0, 0, 4, 0, 17, 189, 0, 8, 0, 12, 16,
+            232, 247, 255, 253, 255, 107, 0, 18,
+        ];
+        // This capture isn't aligned...
+        let processor = LsmFifoProcessor {
+            accel_scale: AccelerationScale::G8,
+            accel_high_scale: AccelerationScaleHigh::G320,
+            gyro_scale: GyroscopeScale::DPS4000,
+        };
+        processor.read_data(&data).unwrap();
+        panic!();
     }
 }
