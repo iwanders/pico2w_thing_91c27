@@ -113,5 +113,25 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    // Next, we need to actually do the hard work and re-assemble the fifo data into something that is useful.
+    // We want this to be able to run on the imu as well, so lets do something like a sliding window approach
+    // where we get bytes into a buffer, analyse them and then determine how many bytes were consumed by the message
+    // which works for the ICM... but not that well for the LSM which has a way more convenient fifo...
+
+    // For testing, lets just create two buffers of 512 each.
+
+    let mut icm_data = [0u8; 512];
+    icm_data.fill_with(|| icm_rec.0.recv().unwrap());
+    let mut lsm_data = [0u8; 512];
+    lsm_data.fill_with(|| lsm_rec.0.recv().unwrap());
+
+    println!("lsm_data: {lsm_data:?}");
+
+    println!("icm_data: {icm_data:?}");
+    // 255, 182, 31, 92, 56, 24, 0, 62, 0, 4, 0, 3, 249, 171, 68, 104,
+    // 255, 198, 31, 92, 56, 30, 0, 63, 0, 4, 0, 3, 249, 171, 186, 104,
+    // 255, 190, 31, 98, 56, 44, 0, 63, 0, 4, 0, 3, 249, 172, 47, 104,
+    // Currently 16 bytes long? Why isn't this 20 with the 20 bit extension data?
+
     Ok(())
 }

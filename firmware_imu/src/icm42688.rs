@@ -7,7 +7,7 @@ use zerocopy::{FromBytes, Immutable, IntoBytes, TryFromBytes};
 // Okay, so allows external clock... 20 bit fifo, 19 bit gyro & 18 bit accel, some motion processing engine
 // and another temperature sensor.
 //
-// 20 bit data format details are in section 6.
+// 20 bit data format details are in section 6... current data output is not in 20 bit extensions.
 //
 // device powers up in sleep mode.
 //
