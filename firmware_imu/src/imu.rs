@@ -352,8 +352,9 @@ async fn configure_lsm(lsm: &mut LSM) -> Result<(), LSMError> {
     .await?;
 
     // Setup fifo.
-    use lsm6dsv320x::{FifoControl, FifoMode, TemperatureBatch};
+    use lsm6dsv320x::{FifoControl, FifoMode, TemperatureBatch, TimestampBatch};
     lsm.control_fifo(FifoControl {
+        timestamp: TimestampBatch::EveryBatch,
         mode: FifoMode::Continuous,
         temperature: TemperatureBatch::Hz60,
     })
@@ -537,8 +538,9 @@ async fn _lsm_test<LsmSPI: SpiDevice>(
     .await?;
 
     // Setup fifo.
-    use lsm6dsv320x::{FifoControl, FifoMode, TemperatureBatch};
+    use lsm6dsv320x::{FifoControl, FifoMode, TemperatureBatch, TimestampBatch};
     lsm.control_fifo(FifoControl {
+        timestamp: TimestampBatch::Disabled,
         mode: FifoMode::Continuous,
         temperature: TemperatureBatch::Hz60,
     })
