@@ -577,6 +577,7 @@ where
 #[derive(PartialEq, Eq, TryFromBytes, IntoBytes, Immutable, defmt::Format, Debug)]
 pub enum LsmFifoTag {
     FIFOempty = 0x00,
+    // NC is non compressed?
     GyroscopeNC = 0x01,
     AccelerometerNC = 0x02,
     Temperature = 0x03,
@@ -612,8 +613,8 @@ pub enum LsmFifoTag {
 #[derive(thiserror::Error, Debug, Copy, Clone, PartialEq, Eq, defmt::Format)]
 pub enum LsmFifoError {
     /// Not enough bytes provided
-    #[error("not enough data, expected {0:?}")]
-    NotEnoughData(u8),
+    #[error("not enough data")]
+    NotEnoughData,
     /// If the data tag byte could not be interpreted.
     #[error("first byte did not hold a tag {0:?}")]
     FirstByteNoTag(u8),
@@ -657,13 +658,53 @@ impl LsmFifoProcessor {
         // Each fifo word is 7 bytes.
         for v in data.chunks_exact(7) {
             let tag = FifoDataOutTag::read_from_bytes(&v[0..1])
-                .map_err(|_e| LsmFifoError::NotEnoughData(1))?;
+                .map_err(|_e| LsmFifoError::NotEnoughData)?;
             let sensor_type = tag.sensor_type()?;
 
             println!("sensor_type: {sensor_type:?}");
         }
 
         todo!()
+    }
+}
+// Probably make an iterator that returns (DataTag, &[u8])
+pub struct LsmFifoIterator<'d> {
+    data: &'d [u8],
+    position: usize,
+}
+impl<'d> LsmFifoIterator<'d> {
+    pub fn new(data: &'d [u8]) -> Self {
+        println!("data len: {}", data.len());
+        Self { data, position: 0 }
+    }
+}
+impl<'d> Iterator for LsmFifoIterator<'d> {
+    type Item = Result<(LsmFifoTag, &'d [u8]), LsmFifoError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.position == self.data.len() {
+            // Good end, it ends on complete data.
+            return None;
+        }
+        if (self.position + 7) <= self.data.len() {
+            let tag = match FifoDataOutTag::read_from_bytes(&[self.data[self.position]]) {
+                Ok(v) => v,
+                Err(_) => return Some(Err(LsmFifoError::NotEnoughData)),
+            };
+            let data_type = match tag.sensor_type() {
+                Ok(v) => v,
+                Err(_) => return Some(Err(LsmFifoError::FirstByteNoTag(tag.sensor()))),
+            };
+            let res = Some(Ok((
+                data_type,
+                &self.data[self.position + 1..self.position + 7],
+            )));
+            self.position += 7;
+            return res;
+        } else {
+            // incomplete word count.
+            return Some(Err(LsmFifoError::NotEnoughData));
+        }
     }
 }
 
@@ -702,7 +743,12 @@ mod test {
             accel_high_scale: AccelerationScaleHigh::G320,
             gyro_scale: GyroscopeScale::DPS4000,
         };
-        processor.read_data(&data).unwrap();
+        let mut iter = LsmFifoIterator::new(&data[0..(data.len() / 7) * 7]);
+        for v in iter {
+            let (data_type, bytes) = v.unwrap();
+            println!("{data_type:?} {bytes:?}");
+        }
+        // Timestamp looks surprisingly... constant.
         panic!();
     }
 }
