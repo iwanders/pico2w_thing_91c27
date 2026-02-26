@@ -208,7 +208,7 @@ pub mod program {
             let mut config = Config::default();
 
             // Max clock is 10 MHz for SPI.
-            config.frequency = 10_000_000;
+            config.frequency = 4_000_000;
 
             let tx_dma = p.DMA_CH1;
             let rx_dma = p.DMA_CH2;
