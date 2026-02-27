@@ -626,6 +626,11 @@ pub enum LsmFifoError {
 pub struct FifoDataOutTag {
     #[bits(1)] // bit 7
     pub _unused: bool,
+
+    /// 2-bit counter which identifies sensor time slot
+    ///
+    /// What does this mean? What is a sensor time slot? is it time in between the timestamp values?
+    /// Is this an implementation detail? Are individual sensors just retrieved in subslots to avoid interference?
     #[bits(2)] // bit 5-6
     pub count: u8,
     /// FIFO tag, identifies the sensor in the following registers
@@ -693,6 +698,8 @@ impl LsmFifoProcessor {
             LsmFifoTag::Temperature => todo!(),
             LsmFifoTag::Timestamp => FifoEntry::Timestamp(FifoTimestamp {
                 // Is this actually BE? check how timestamp should be.
+                // Yes, it is big endian, see page 85, section 9.42.
+                // Scale is 21.7us typical, but depends on INTERNAL_FREQ_FINE 9.54, p92
                 t: u32::from_be_bytes(data[2..6].try_into().unwrap()),
             }),
 
@@ -724,6 +731,7 @@ struct FifoHighGAccelerometer {
 
 #[derive(Debug, Default, Copy, Clone)]
 struct FifoTimestamp {
+    /// Scale is 21.7us typical, but depends on INTERNAL_FREQ_FINE 9.54, p92
     t: u32,
 }
 
@@ -765,6 +773,7 @@ impl<'d> Iterator for LsmFifoIterator<'d> {
                 Ok(v) => v,
                 Err(_) => return Some(Err(LsmFifoError::FirstByteNoTag(tag.sensor()))),
             };
+            println!("tag: {tag:?}");
             let res = Some(Ok((
                 data_type,
                 &self.data[self.position + 1..self.position + 7],
