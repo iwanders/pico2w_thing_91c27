@@ -666,7 +666,77 @@ impl LsmFifoProcessor {
 
         todo!()
     }
+
+    pub fn interpret(&self, tag: LsmFifoTag, data: &[u8]) -> FifoEntry {
+        match tag {
+            LsmFifoTag::GyroscopeNC => FifoEntry::GyroscopeNC(FifoGyroscopeNc {
+                scale: self.gyro_scale,
+                x: i16::from_le_bytes(data[0..2].try_into().unwrap()),
+                y: i16::from_le_bytes(data[2..4].try_into().unwrap()),
+                z: i16::from_le_bytes(data[4..6].try_into().unwrap()),
+            }),
+            LsmFifoTag::AccelerometerNC => FifoEntry::AccelerometerNC(FifoAccelerometerNC {
+                scale: self.accel_scale,
+                x: i16::from_le_bytes(data[0..2].try_into().unwrap()),
+                y: i16::from_le_bytes(data[2..4].try_into().unwrap()),
+                z: i16::from_le_bytes(data[4..6].try_into().unwrap()),
+            }),
+            LsmFifoTag::HighGAccelerometer => {
+                FifoEntry::HighGAccelerometer(FifoHighGAccelerometer {
+                    scale: self.accel_high_scale,
+                    x: i16::from_le_bytes(data[0..2].try_into().unwrap()),
+                    y: i16::from_le_bytes(data[2..4].try_into().unwrap()),
+                    z: i16::from_le_bytes(data[4..6].try_into().unwrap()),
+                })
+            }
+
+            LsmFifoTag::Temperature => todo!(),
+            LsmFifoTag::Timestamp => FifoEntry::Timestamp(FifoTimestamp {
+                // Is this actually BE? check how timestamp should be.
+                t: u32::from_be_bytes(data[2..6].try_into().unwrap()),
+            }),
+
+            _ => todo!(),
+        }
+    }
 }
+#[derive(Debug, Default, Copy, Clone)]
+struct FifoGyroscopeNc {
+    scale: GyroscopeScale,
+    x: i16,
+    y: i16,
+    z: i16,
+}
+#[derive(Debug, Default, Copy, Clone)]
+struct FifoAccelerometerNC {
+    scale: AccelerationScale,
+    x: i16,
+    y: i16,
+    z: i16,
+}
+#[derive(Debug, Default, Copy, Clone)]
+struct FifoHighGAccelerometer {
+    scale: AccelerationScaleHigh,
+    x: i16,
+    y: i16,
+    z: i16,
+}
+
+#[derive(Debug, Default, Copy, Clone)]
+struct FifoTimestamp {
+    t: u32,
+}
+
+#[derive(Debug, Default, Copy, Clone)]
+pub enum FifoEntry {
+    #[default]
+    Empty,
+    GyroscopeNC(FifoGyroscopeNc),
+    AccelerometerNC(FifoAccelerometerNC),
+    HighGAccelerometer(FifoHighGAccelerometer),
+    Timestamp(FifoTimestamp),
+}
+
 // Probably make an iterator that returns (DataTag, &[u8])
 pub struct LsmFifoIterator<'d> {
     data: &'d [u8],
@@ -747,6 +817,8 @@ mod test {
         for v in iter {
             let (data_type, bytes) = v.unwrap();
             println!("{data_type:?} {bytes:?}");
+            let r = processor.interpret(data_type, bytes);
+            println!(" {r:?}");
         }
         // Timestamp looks surprisingly... constant.
         panic!();
