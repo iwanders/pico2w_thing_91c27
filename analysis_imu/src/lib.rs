@@ -1,10 +1,11 @@
 use std::time::Duration;
 
 use anyhow::Context as _;
-use firmware_imu::icm42688;
 use firmware_imu::icm42688::ICM42688;
-use firmware_imu::lsm6dsv320x;
 use firmware_imu::lsm6dsv320x::LSM6DSV320X;
+use firmware_imu::lsm6dsv320x::{self, AccelerationScaleHigh, LsmFifoProcessor};
+use firmware_imu::lsm6dsv320x::{AccelerationScale, GyroscopeScale};
+use firmware_imu::{icm42688, lsm6dsv320x::LsmFifoIterator};
 use std::sync::mpsc::{Receiver, Sender};
 
 use serialport::SerialPort;
@@ -27,7 +28,7 @@ impl Firehose {
     /// Create a new Lights instance, attaching to the provided serial port.
     pub fn new(port_name: &str) -> anyhow::Result<Firehose> {
         let port = serialport::new(port_name, 9600) // Baud rate is a dummy anyway.
-            .timeout(Duration::from_millis(100))
+            .timeout(Duration::from_millis(10000))
             .open()
             .with_context(|| format!("Port '{}' not available ", &port_name))?;
         Ok(Firehose { port })
@@ -134,14 +135,31 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // For testing, lets just create two buffers of 512 each.
 
+    /*
     let mut icm_data = [0u8; 512];
     icm_data.fill_with(|| icm_rec.0.recv().unwrap());
-    let mut lsm_data = [0u8; 512];
-    lsm_data.fill_with(|| lsm_rec.0.recv().unwrap());
-
-    println!("lsm_data: {lsm_data:?}");
-
     println!("icm_data: {icm_data:?}");
+    */
+
+    let processor = LsmFifoProcessor {
+        accel_scale: AccelerationScale::G8,
+        accel_high_scale: AccelerationScaleHigh::G320,
+        gyro_scale: GyroscopeScale::DPS4000,
+    };
+    for _ in 0..9999999 {
+        let mut lsm_data = [0u8; 70];
+        lsm_data.fill_with(|| lsm_rec.0.recv().unwrap());
+        let mut iter = LsmFifoIterator::new(&lsm_data);
+        for v in iter {
+            let (data_type, bytes) = v.unwrap();
+            println!("{data_type:?} {bytes:?}");
+            let r = processor.interpret(data_type, bytes);
+            println!(" {r:?}");
+        }
+    }
+
+    // println!("lsm_data: {lsm_data:?}");
+
     // 255, 182, 31, 92, 56, 24, 0, 62, 0, 4, 0, 3, 249, 171, 68, 104,
     // 255, 198, 31, 92, 56, 30, 0, 63, 0, 4, 0, 3, 249, 171, 186, 104,
     // 255, 190, 31, 98, 56, 44, 0, 63, 0, 4, 0, 3, 249, 172, 47, 104,

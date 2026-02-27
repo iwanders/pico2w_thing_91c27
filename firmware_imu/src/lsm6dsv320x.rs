@@ -695,7 +695,10 @@ impl LsmFifoProcessor {
                 })
             }
 
-            LsmFifoTag::Temperature => todo!(),
+            // [41, 252, 0, 0, 0, 0] le
+            LsmFifoTag::Temperature => FifoEntry::Temperature(FifoTemperature {
+                t: i16::from_le_bytes([data[0], data[1]]),
+            }),
             LsmFifoTag::Timestamp => FifoEntry::Timestamp(FifoTimestamp {
                 // Is this actually BE? check how timestamp should be.
                 // Yes, it is big endian, see page 85, section 9.42.
@@ -703,7 +706,7 @@ impl LsmFifoProcessor {
                 t: u32::from_be_bytes(data[2..6].try_into().unwrap()),
             }),
 
-            _ => todo!(),
+            v => todo!("unimplemented tag: {v:?}"),
         }
     }
 }
@@ -736,6 +739,12 @@ struct FifoTimestamp {
 }
 
 #[derive(Debug, Default, Copy, Clone)]
+struct FifoTemperature {
+    // In 256 LSB / C,The output of the temperature sensor is 0 LSB (typ.) at 25°C. p16 4.3
+    t: i16,
+}
+
+#[derive(Debug, Default, Copy, Clone)]
 pub enum FifoEntry {
     #[default]
     Empty,
@@ -743,6 +752,7 @@ pub enum FifoEntry {
     AccelerometerNC(FifoAccelerometerNC),
     HighGAccelerometer(FifoHighGAccelerometer),
     Timestamp(FifoTimestamp),
+    Temperature(FifoTemperature),
 }
 
 // Probably make an iterator that returns (DataTag, &[u8])
