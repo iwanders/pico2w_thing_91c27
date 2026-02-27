@@ -141,6 +141,21 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("icm_data: {icm_data:?}");
     */
 
+    // Ugly aligner.
+    'a: for i in 0..7 {
+        let mut lsm_data = [0u8; 70];
+        lsm_data.fill_with(|| lsm_rec.0.recv().unwrap());
+        let mut iter = LsmFifoIterator::new(&lsm_data);
+        for v in iter {
+            if v.is_err() {
+                // drop a byte and advance.
+                _ = lsm_rec.0.recv().unwrap();
+                continue 'a;
+            }
+            let v = v.unwrap();
+        }
+    }
+
     let processor = LsmFifoProcessor {
         accel_scale: AccelerationScale::G8,
         accel_high_scale: AccelerationScaleHigh::G320,

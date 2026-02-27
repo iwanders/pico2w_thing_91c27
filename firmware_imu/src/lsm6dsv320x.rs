@@ -2,6 +2,9 @@ use bitfield_struct::bitfield;
 use embedded_hal_async::spi::SpiDevice;
 use zerocopy::{FromBytes, Immutable, IntoBytes, TryFromBytes};
 
+#[cfg(target_arch = "arm")]
+use defmt::println;
+
 // https://docs.rs/embedded-hal/1.0.0/embedded_hal/spi/index.html#for-driver-authors
 // > If your device has a CS pin, use SpiDevice. Do not manually manage the CS pin, the SpiDevice implementation will
 // > do it for you. By using SpiDevice, your driver will cooperate nicely with other drivers for other devices in the same shared SPI bus.
@@ -666,7 +669,7 @@ impl LsmFifoProcessor {
                 .map_err(|_e| LsmFifoError::NotEnoughData)?;
             let sensor_type = tag.sensor_type()?;
 
-            println!("sensor_type: {sensor_type:?}");
+            println!("sensor_type: {:?}", sensor_type);
         }
 
         todo!()
@@ -783,7 +786,7 @@ impl<'d> Iterator for LsmFifoIterator<'d> {
                 Ok(v) => v,
                 Err(_) => return Some(Err(LsmFifoError::FirstByteNoTag(tag.sensor()))),
             };
-            println!("tag: {tag:?}");
+            println!("tag: {:?}", tag);
             let res = Some(Ok((
                 data_type,
                 &self.data[self.position + 1..self.position + 7],
