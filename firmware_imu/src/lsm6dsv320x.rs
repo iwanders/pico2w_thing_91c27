@@ -827,13 +827,13 @@ impl LsmFifoProcessor {
 
                 let r = if data[0] == 0 {
                     GameRotationVectorRaw::First {
-                        w: u16::from_le_bytes(data[2..4].try_into().unwrap()),
-                        x: u16::from_le_bytes(data[4..6].try_into().unwrap()),
+                        w: S1E5F10::from_bits(u16::from_le_bytes(data[2..4].try_into().unwrap())),
+                        x: S1E5F10::from_bits(u16::from_le_bytes(data[4..6].try_into().unwrap())),
                     }
                 } else {
                     GameRotationVectorRaw::Second {
-                        y: u16::from_le_bytes(data[2..4].try_into().unwrap()),
-                        z: u16::from_le_bytes(data[4..6].try_into().unwrap()),
+                        y: S1E5F10::from_bits(u16::from_le_bytes(data[2..4].try_into().unwrap())),
+                        z: S1E5F10::from_bits(u16::from_le_bytes(data[4..6].try_into().unwrap())),
                     }
                 };
 
@@ -883,15 +883,58 @@ pub struct FifoTemperature {
     pub t: i16,
 }
 
+#[bitfield(u16)]
+#[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format)]
+pub struct S1E5F10 {
+    #[bits(10)]
+    pub fraction: u16,
+
+    #[bits(5)]
+    pub exponent: u8,
+    #[bits(1)]
+    pub sign: bool,
+}
+impl S1E5F10 {
+    // after https://github.com/iwanders/cbor/blob/8273ced6972ece28b09cc726058b0f8586e9b544/include/cbor/pod.h#L902
+    // which in itself is based on
+    //  > From "Fast Half Float Conversions" by Jeroen van der Zijp, November 2008, (Revised September 2010)
+    //  > fasthalffloatconversion.pdf
+    pub fn to_f32(self) -> f32 {
+        if self.exponent() == 0b11111 {
+            // infinity and nan, set exponent to 0xFF, copy shifted frac and sign.
+            let z = ((self.sign() as u32) << (16 + 15))
+                | (0xFF << 23)
+                | ((self.fraction() as u32) << 13);
+            return f32::from_bits(z);
+        } else if self.exponent() == 0 {
+            // subnormal case; val = std::ldexp(mant, -24);
+            // The ldexp expression can be written in one float multiplication because each short float can be exactly
+            // represented in a float. The subsequent arithmetic does not cause loss of precision.
+            // Hardcode 2**-14 / (1 << 10); hex(struct.unpack("!I", struct.pack("!f", (2**-14)/(1 <<10)))[0])
+            let two_power_minus_twentyfour_signed: u32 =
+                0x33800000u32 | ((self.sign() as u32) << 16);
+            return (self.fraction() as f32) * f32::from_bits(two_power_minus_twentyfour_signed);
+        }
+        // normal case
+        let z: u32 = ((self.sign() as u32) << (16 + 15))
+            | ((((self.exponent() as u32) << 10) + 0x1C000u32) << 13)
+            | ((self.fraction() as u32) << 13);
+        return f32::from_bits(z);
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub enum GameRotationVectorRaw {
     // This spans two fifo words and is a bit of a problem with current setup, ignoring for now.
-    First { w: u16, x: u16 },
-    Second { y: u16, z: u16 },
+    First { w: S1E5F10, x: S1E5F10 },
+    Second { y: S1E5F10, z: S1E5F10 },
 }
 impl Default for GameRotationVectorRaw {
     fn default() -> Self {
-        GameRotationVectorRaw::First { w: 0, x: 0 }
+        GameRotationVectorRaw::First {
+            w: S1E5F10::from_bits(0),
+            x: S1E5F10::from_bits(0),
+        }
     }
 }
 
@@ -999,6 +1042,18 @@ mod test {
             println!(" {r:?}");
         }
         // Timestamp looks surprisingly... constant.
-        panic!();
+        // panic!();
+    }
+
+    #[test]
+    fn test_shortfloat_decode() {
+        assert_eq!(S1E5F10::from_bits(0x0000).to_f32(), 0.0);
+        assert_eq!(S1E5F10::from_bits(0x0001).to_f32(), 2.0f32.powi(-24));
+        assert_eq!(S1E5F10::from_bits(0x8000).to_f32(), -0.0);
+        assert_eq!(S1E5F10::from_bits(0x3c00).to_f32(), 1.0);
+        assert_eq!(S1E5F10::from_bits(0xc000).to_f32(), -2.0);
+        assert_eq!(S1E5F10::from_bits(0x7c00).to_f32(), f32::INFINITY);
+        assert_eq!(S1E5F10::from_bits(0xfc00).to_f32(), f32::NEG_INFINITY);
+        assert!(S1E5F10::from_bits(0x7e00).to_f32().is_nan());
     }
 }

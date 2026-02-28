@@ -2,9 +2,9 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use firmware_imu::icm42688::ICM42688;
-use firmware_imu::lsm6dsv320x::LSM6DSV320X;
-use firmware_imu::lsm6dsv320x::{self, AccelerationScaleHigh, LsmFifoProcessor};
+use firmware_imu::lsm6dsv320x::{self, AccelerationScaleHigh, FifoEntry, LsmFifoProcessor};
 use firmware_imu::lsm6dsv320x::{AccelerationScale, GyroscopeScale};
+use firmware_imu::lsm6dsv320x::{GameRotationVectorRaw, LSM6DSV320X};
 use firmware_imu::{icm42688, lsm6dsv320x::LsmFifoIterator};
 use std::sync::mpsc::{Receiver, Sender};
 
@@ -170,6 +170,21 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("{data_type:?} {bytes:?}");
             let r = processor.interpret(data_type, bytes);
             println!(" {r:?}");
+            match r {
+                FifoEntry::GameRotationVector(game_rotation_vector_raw) => {
+                    match game_rotation_vector_raw {
+                        GameRotationVectorRaw::First { w, x } => {
+                            println!("GameRotationVector {: <15} {: <15}", w.to_f32(), x.to_f32())
+                        }
+                        GameRotationVectorRaw::Second { y, z } => println!(
+                            "GameRotationVector                              {: <15} {: <15}",
+                            y.to_f32(),
+                            z.to_f32()
+                        ),
+                    }
+                }
+                _ => {}
+            }
         }
     }
 
