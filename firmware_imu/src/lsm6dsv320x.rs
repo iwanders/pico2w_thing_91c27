@@ -828,48 +828,61 @@ impl LsmFifoProcessor {
 
                 FifoEntry::GameRotationVector(GameRotationVector {})
             }
+            LsmFifoTag::SFLPGravityVector => FifoEntry::GameGravityVector(GameGravityVector {
+                x: i16::from_le_bytes(data[0..2].try_into().unwrap()),
+                y: i16::from_le_bytes(data[2..4].try_into().unwrap()),
+                z: i16::from_le_bytes(data[4..6].try_into().unwrap()),
+            }),
 
             v => todo!("unimplemented tag: {v:?}"),
         }
     }
 }
 #[derive(Debug, Default, Copy, Clone)]
-struct FifoGyroscopeNc {
-    scale: GyroscopeScale,
-    x: i16,
-    y: i16,
-    z: i16,
+pub struct FifoGyroscopeNc {
+    pub scale: GyroscopeScale,
+    pub x: i16,
+    pub y: i16,
+    pub z: i16,
 }
 #[derive(Debug, Default, Copy, Clone)]
-struct FifoAccelerometerNC {
-    scale: AccelerationScale,
-    x: i16,
-    y: i16,
-    z: i16,
+pub struct FifoAccelerometerNC {
+    pub scale: AccelerationScale,
+    pub x: i16,
+    pub y: i16,
+    pub z: i16,
 }
 #[derive(Debug, Default, Copy, Clone)]
-struct FifoHighGAccelerometer {
-    scale: AccelerationScaleHigh,
-    x: i16,
-    y: i16,
-    z: i16,
+pub struct FifoHighGAccelerometer {
+    pub scale: AccelerationScaleHigh,
+    pub x: i16,
+    pub y: i16,
+    pub z: i16,
 }
 
 #[derive(Debug, Default, Copy, Clone)]
-struct FifoTimestamp {
+pub struct FifoTimestamp {
     /// Scale is 21.7us typical, but depends on INTERNAL_FREQ_FINE 9.54, p92
-    t: u32,
+    pub t: u32,
 }
 
 #[derive(Debug, Default, Copy, Clone)]
-struct FifoTemperature {
+pub struct FifoTemperature {
     // In 256 LSB / C,The output of the temperature sensor is 0 LSB (typ.) at 25°C. p16 4.3
-    t: i16,
+    pub t: i16,
 }
 
 #[derive(Debug, Default, Copy, Clone)]
-struct GameRotationVector {}
+pub struct GameRotationVector {
+    // This spans two fifo words and is a bit of a problem with current setup, ignoring for now.
+}
 
+#[derive(Debug, Default, Copy, Clone)]
+pub struct GameGravityVector {
+    pub x: i16,
+    pub y: i16,
+    pub z: i16,
+}
 #[derive(Debug, Default, Copy, Clone)]
 pub enum FifoEntry {
     #[default]
@@ -880,6 +893,7 @@ pub enum FifoEntry {
     Timestamp(FifoTimestamp),
     Temperature(FifoTemperature),
     GameRotationVector(GameRotationVector),
+    GameGravityVector(GameGravityVector),
 }
 
 // Probably make an iterator that returns (DataTag, &[u8])
