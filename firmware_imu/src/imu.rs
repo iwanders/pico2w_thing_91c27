@@ -11,7 +11,7 @@ use crate::icm42688;
 use crate::icm42688::ICM42688;
 use crate::lsm6dsv320x;
 use crate::lsm6dsv320x::LSM6DSV320X;
-use defmt::{info, warn};
+use defmt::{info, println, warn};
 use static_cell::StaticCell;
 
 type CdcType = CdcAcmClass<'static, Driver<'static, USB>>;
@@ -139,7 +139,16 @@ async fn lsm_task(
         // defmt::info!("s: {:?} took: {} us", s, (e - b).as_micros());
         let total_bytes = read_len * 7;
         let relevant_data = &buffer[0..total_bytes];
-        for (i, b) in relevant_data.iter().enumerate() {
+
+        // Lets write to the pipe in multiples of 7, that way we ensure that can can correctly parse the stream of
+        // data.
+        let available_in_pipe = producer.capacity() - producer.len();
+        // println!("available_in_pipe: {}", available_in_pipe);
+        let available_in_multiples = (available_in_pipe / 7) * 7;
+        // println!("available_in_multiples: {}", available_in_multiples);
+        // Timer::after_millis(1000).await;
+        let use_data = relevant_data.len().min(available_in_multiples);
+        for (i, b) in relevant_data[0..use_data].iter().enumerate() {
             if producer.enqueue(*b).is_err() {
                 // defmt::warn!("buffer overrrun in icm task");
                 stats
