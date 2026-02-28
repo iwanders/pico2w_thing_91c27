@@ -1,3 +1,10 @@
+// ====================================================================================================================
+//
+// Looks like STM started an official driver: https://github.com/STMicroelectronics/lsm6dsv320x-rs
+// This file predates that repo, but it's probably better for people to use their code instead of my code.
+//
+// ====================================================================================================================
+
 use bitfield_struct::bitfield;
 use embedded_hal_async::spi::SpiDevice;
 use zerocopy::{FromBytes, Immutable, IntoBytes, TryFromBytes};
@@ -810,6 +817,17 @@ impl LsmFifoProcessor {
                 // Scale is 21.7us typical, but depends on INTERNAL_FREQ_FINE 9.54, p92
                 t: u32::from_be_bytes(data[2..6].try_into().unwrap()),
             }),
+            LsmFifoTag::SFLPGamerotationVector => {
+                println!("d: {:?}", data);
+                // Ugh, this is a different format, it spans two words!
+                // SFLPGamerotationVector [0, 0, 234, 165, 4, 177]
+                // d: [0, 0, 234, 165, 4, 177]
+                //  GameRotationVector(GameRotationVector)
+                // SFLPGamerotationVector [1, 0, 230, 187, 148, 23]
+                // d: [1, 0, 230, 187, 148, 23]
+
+                FifoEntry::GameRotationVector(GameRotationVector {})
+            }
 
             v => todo!("unimplemented tag: {v:?}"),
         }
@@ -850,6 +868,9 @@ struct FifoTemperature {
 }
 
 #[derive(Debug, Default, Copy, Clone)]
+struct GameRotationVector {}
+
+#[derive(Debug, Default, Copy, Clone)]
 pub enum FifoEntry {
     #[default]
     Empty,
@@ -858,6 +879,7 @@ pub enum FifoEntry {
     HighGAccelerometer(FifoHighGAccelerometer),
     Timestamp(FifoTimestamp),
     Temperature(FifoTemperature),
+    GameRotationVector(GameRotationVector),
 }
 
 // Probably make an iterator that returns (DataTag, &[u8])
@@ -888,7 +910,7 @@ impl<'d> Iterator for LsmFifoIterator<'d> {
                 Ok(v) => v,
                 Err(_) => return Some(Err(LsmFifoError::FirstByteNoTag(tag.sensor()))),
             };
-            println!("tag: {:?}", tag);
+            //println!("tag: {:?}", tag);
             let res = Some(Ok((
                 data_type,
                 &self.data[self.position + 1..self.position + 7],
