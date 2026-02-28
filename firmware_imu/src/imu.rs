@@ -386,7 +386,7 @@ async fn configure_lsm(lsm: &mut LSM) -> Result<(), LSMError> {
     })
     .await?;
 
-    const ENABLE_SFLP_QUATERNION: bool = true;
+    const ENABLE_SFLP_QUATERNION: bool = false;
     if ENABLE_SFLP_QUATERNION {
         use lsm6dsv320x::EmbeddedFunctionEnableA;
         lsm.embedded_functions_enable(EmbeddedFunctionEnableA::new().with_sflp_game_enable(true))
