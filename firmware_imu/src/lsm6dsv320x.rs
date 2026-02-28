@@ -39,8 +39,17 @@ use defmt::println;
 
 pub mod regs {
 
+    #[derive(Copy, Clone, Debug, defmt::Format)]
+    pub enum Category {
+        Normal,
+        EmbeddedFunctions,
+    }
+
     /// Constant to apply to the register address in order to specify a read.
     pub const REGISTER_READ: u8 = 1 << 7;
+
+    /// Embedded function, SHUB, FSM register access.
+    pub const FUNC_CFG_ACCESS: u8 = 0x01;
 
     /// The whoami register that always returns a constant value.
     pub const WHO_AM_I: u8 = 0x0F;
@@ -93,6 +102,11 @@ pub mod regs {
 
     /// Counter batch data rate
     pub const COUNTER_BDR_REG1: u8 = 0x0b;
+
+    /// Embedded function enable register (A)
+    pub const EMB_FUNC_EN_A: (Category, u8) = (Category::EmbeddedFunctions, 0x04);
+    /// Embedded function fifo register (A)
+    pub const EMB_FUNC_FIFO_EN_A: (Category, u8) = (Category::EmbeddedFunctions, 0x44);
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, defmt::Format)]
@@ -433,6 +447,28 @@ where
             .await?;
         Ok(())
     }
+
+    async fn write_category(
+        &mut self,
+        register: &(regs::Category, u8),
+        data: &[u8],
+    ) -> Result<(), Error<Spi::Error>> {
+        match register.0 {
+            regs::Category::Normal => self.write(register.1, data).await,
+            regs::Category::EmbeddedFunctions => {
+                self.write(
+                    regs::FUNC_CFG_ACCESS,
+                    &[FunctionConfigAccess::new().with_emb_func_reg_access(true).0],
+                )
+                .await?;
+                let r = self.write(register.1, data).await;
+                self.write(regs::FUNC_CFG_ACCESS, &[FunctionConfigAccess::new().0])
+                    .await?;
+                r
+            }
+        }
+    }
+
     async fn read(&mut self, register: u8, data: &mut [u8]) -> Result<(), Error<Spi::Error>> {
         use embedded_hal_async::spi::Operation;
         self.spi
@@ -459,7 +495,7 @@ where
         }
     }
 
-    pub async fn reset(&mut self) -> Result<(), Error<Spi::Error>> {
+    pub async fn reset_old(&mut self) -> Result<(), Error<Spi::Error>> {
         // Write to contr CTRL3, p67
         const BOOT: u8 = 1 << 7;
         const BDU: u8 = 1 << 6;
@@ -468,6 +504,15 @@ where
 
         self.write(regs::CTRL3, &[BOOT | BDU | IF_INC | SW_RESET])
             .await
+    }
+
+    // Or should reset be this:
+    pub async fn reset(&mut self) -> Result<(), Error<Spi::Error>> {
+        self.write(
+            regs::FUNC_CFG_ACCESS,
+            &[FunctionConfigAccess::new().with_sw_por(true).0],
+        )
+        .await
     }
 
     pub async fn control_acceleration(
@@ -574,6 +619,63 @@ where
     pub async fn get_fifo(&mut self, values: &mut [u8]) -> Result<(), Error<Spi::Error>> {
         self.read(regs::FIFO_DATA_OUT_TAG, values).await
     }
+
+    /// Configures the embedded function enable register A.
+    pub async fn embedded_functions_enable(
+        &mut self,
+        function_enable: EmbeddedFunctionEnableA,
+    ) -> Result<(), Error<Spi::Error>> {
+        self.write_category(&regs::EMB_FUNC_EN_A, &[function_enable.0])
+            .await
+    }
+    /// Configures embedded function fifo register.
+    pub async fn embedded_functions_fifo(
+        &mut self,
+        fifo_cfg: EmbeddedFunctionFifoA,
+    ) -> Result<(), Error<Spi::Error>> {
+        self.write_category(&regs::EMB_FUNC_FIFO_EN_A, &[fifo_cfg.0])
+            .await
+    }
+}
+
+/// FUNC_CFG_ACCESS register value, 9.1, p56.
+#[bitfield(u8)]
+#[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format)]
+pub struct FunctionConfigAccess {
+    pub ois_ctrl_from_ui: bool,
+    pub if2_reset: bool,
+    pub sw_por: bool,
+    pub fsm_wr_ctrl_en: bool,
+    #[bits(2)]
+    pub _unused: u8,
+    pub shub_reg_access: bool,
+    pub emb_func_reg_access: bool,
+}
+
+#[bitfield(u8)]
+#[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format)]
+pub struct EmbeddedFunctionEnableA {
+    pub unused: bool,
+    pub sflp_game_enable: bool,
+    pub unused2: bool,
+    pub pedo_enable: bool,
+    pub tilt_enable: bool,
+    pub sign_motion_enable: bool,
+    pub unused3: bool,
+    pub mlc_before_fsm_enable: bool,
+}
+
+#[bitfield(u8)]
+#[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format)]
+pub struct EmbeddedFunctionFifoA {
+    pub unused: bool,
+    pub sflp_game_fifo_enable: bool,
+    pub unused2: bool,
+    pub unused3: bool,
+    pub sflp_gravity_fifo_enable: bool,
+    pub sflp_gyroscope_bias_fifo_enable: bool,
+    pub step_counter_fifo_enable: bool,
+    pub mlc_fifo_enable: bool,
 }
 
 #[repr(u8)]
@@ -627,21 +729,21 @@ pub enum LsmFifoError {
 #[bitfield(u8)]
 #[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format)]
 pub struct FifoDataOutTag {
-    #[bits(1)] // bit 7
+    #[bits(1)] // bit 0
     pub _unused: bool,
 
     /// 2-bit counter which identifies sensor time slot
     ///
     /// What does this mean? What is a sensor time slot? is it time in between the timestamp values?
     /// Is this an implementation detail? Are individual sensors just retrieved in subslots to avoid interference?
-    #[bits(2)] // bit 5-6
+    #[bits(2)] // bit 1-2
     pub count: u8,
     /// FIFO tag, identifies the sensor in the following registers
     ///
     ///  DATA_OUT_X_L, DATA_OUT_X_H
     ///  DATA_OUT_Y_L, DATA_OUT_Y_H,
     ///  DATA_OUT_Z_L, DATA_OUT_Z_H,
-    #[bits(5)] // Bit 0-5
+    #[bits(5)] // Bit 2-7
     pub sensor: u8,
 }
 impl FifoDataOutTag {
