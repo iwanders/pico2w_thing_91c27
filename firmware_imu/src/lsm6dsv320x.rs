@@ -114,6 +114,8 @@ pub mod regs {
     pub const EMB_FUNC_EN_A: (Category, u8) = (Category::EmbeddedFunctions, 0x04);
     /// Embedded function fifo register (A)
     pub const EMB_FUNC_FIFO_EN_A: (Category, u8) = (Category::EmbeddedFunctions, 0x44);
+    /// SFLP output data rate configuration register
+    pub const SFLP_ODR: (Category, u8) = (Category::EmbeddedFunctions, 0x5E);
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, defmt::Format)]
@@ -643,6 +645,16 @@ where
         self.write_category(&regs::EMB_FUNC_FIFO_EN_A, &[fifo_cfg.0])
             .await
     }
+    /// Sets the sensor fusion game output data rate.
+    pub async fn embedded_functions_game_odr(
+        &mut self,
+        data_rate: GameDataRate,
+    ) -> Result<(), Error<Spi::Error>> {
+        let mut value = (data_rate as u8) << 3;
+        value |= 0b0100_0011;
+
+        self.write_category(&regs::SFLP_ODR, &[value]).await
+    }
 }
 
 /// FUNC_CFG_ACCESS register value, 9.1, p56.
@@ -683,6 +695,17 @@ pub struct EmbeddedFunctionFifoA {
     pub sflp_gyroscope_bias_fifo_enable: bool,
     pub step_counter_fifo_enable: bool,
     pub mlc_fifo_enable: bool,
+}
+
+#[derive(PartialEq, Eq, defmt::Format)]
+#[repr(u8)]
+pub enum GameDataRate {
+    Hz15 = 0b000,
+    Hz30 = 0b001,
+    Hz60 = 0b010,
+    Hz120 = 0b011,
+    Hz240 = 0b100,
+    Hz480 = 0b101,
 }
 
 #[repr(u8)]
@@ -925,7 +948,6 @@ impl S1E5F10 {
 
 #[derive(Debug, Copy, Clone)]
 pub enum GameRotationVectorRaw {
-    // This spans two fifo words and is a bit of a problem with current setup, ignoring for now.
     First { w: S1E5F10, x: S1E5F10 },
     Second { y: S1E5F10, z: S1E5F10 },
 }
