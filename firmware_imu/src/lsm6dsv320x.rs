@@ -818,7 +818,6 @@ impl LsmFifoProcessor {
                 t: u32::from_be_bytes(data[2..6].try_into().unwrap()),
             }),
             LsmFifoTag::SFLPGamerotationVector => {
-                println!("d: {:?}", data);
                 // Ugh, this is a different format, it spans two words!
                 // SFLPGamerotationVector [0, 0, 234, 165, 4, 177]
                 // d: [0, 0, 234, 165, 4, 177]
@@ -826,7 +825,19 @@ impl LsmFifoProcessor {
                 // SFLPGamerotationVector [1, 0, 230, 187, 148, 23]
                 // d: [1, 0, 230, 187, 148, 23]
 
-                FifoEntry::GameRotationVector(GameRotationVector {})
+                let r = if data[0] == 0 {
+                    GameRotationVectorRaw::First {
+                        w: u16::from_le_bytes(data[2..4].try_into().unwrap()),
+                        x: u16::from_le_bytes(data[4..6].try_into().unwrap()),
+                    }
+                } else {
+                    GameRotationVectorRaw::Second {
+                        y: u16::from_le_bytes(data[2..4].try_into().unwrap()),
+                        z: u16::from_le_bytes(data[4..6].try_into().unwrap()),
+                    }
+                };
+
+                FifoEntry::GameRotationVector(r)
             }
             LsmFifoTag::SFLPGravityVector => FifoEntry::GameGravityVector(GameGravityVector {
                 x: i16::from_le_bytes(data[0..2].try_into().unwrap()),
@@ -872,9 +883,16 @@ pub struct FifoTemperature {
     pub t: i16,
 }
 
-#[derive(Debug, Default, Copy, Clone)]
-pub struct GameRotationVector {
+#[derive(Debug, Copy, Clone)]
+pub enum GameRotationVectorRaw {
     // This spans two fifo words and is a bit of a problem with current setup, ignoring for now.
+    First { w: u16, x: u16 },
+    Second { y: u16, z: u16 },
+}
+impl Default for GameRotationVectorRaw {
+    fn default() -> Self {
+        GameRotationVectorRaw::First { w: 0, x: 0 }
+    }
 }
 
 #[derive(Debug, Default, Copy, Clone)]
@@ -892,7 +910,7 @@ pub enum FifoEntry {
     HighGAccelerometer(FifoHighGAccelerometer),
     Timestamp(FifoTimestamp),
     Temperature(FifoTemperature),
-    GameRotationVector(GameRotationVector),
+    GameRotationVector(GameRotationVectorRaw),
     GameGravityVector(GameGravityVector),
 }
 

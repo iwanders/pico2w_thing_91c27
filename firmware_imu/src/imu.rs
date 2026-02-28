@@ -398,8 +398,16 @@ async fn configure_lsm(lsm: &mut LSM) -> Result<(), LSMError> {
         //     .await?;
 
         // This the gravity vector which is just three values long :)
+        // lsm.embedded_functions_fifo(
+        //     EmbeddedFunctionFifoA::new().with_sflp_gravity_fifo_enable(true),
+        // )
+        // .await?;
+
+        // Both quaternion and gravity
         lsm.embedded_functions_fifo(
-            EmbeddedFunctionFifoA::new().with_sflp_gravity_fifo_enable(true),
+            EmbeddedFunctionFifoA::new()
+                .with_sflp_gravity_fifo_enable(true)
+                .with_sflp_game_fifo_enable(true),
         )
         .await?;
     }
