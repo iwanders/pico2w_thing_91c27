@@ -16,6 +16,7 @@ use zerocopy::{FromBytes, Immutable, IntoBytes, TryFromBytes};
 //
 // Fifo has four different package types, see page 37
 // Default timestamp resolution is 1us, see page 82
+//
 
 pub mod regs {
     pub const REGISTER_READ: u8 = 1 << 7;
@@ -252,6 +253,69 @@ pub struct RegIntStatus {
 
     #[bits(1)] // bit 7
     _pad: bool,
+}
+use bitfield_struct::bitenum;
+
+#[bitenum]
+#[repr(u8)]
+#[derive(PartialEq, Eq, defmt::Format, Debug)]
+pub enum FifoHeaderTimestamp {
+    /// Packet does not contain timestamp
+    #[fallback]
+    None = 0b00,
+    /// Packet contains ODR timestamp.
+    ODRTimestamp = 0b10,
+    /// Packet contains FSYNC time and packet is first ODR after FSYNC.
+    FsyncTime = 0b11,
+}
+/// Fifo Header field, p40, 6.2
+#[bitfield(u8)]
+#[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format)]
+pub struct FifoHeader {
+    /// if ODR of gyro changes.
+    #[bits(1)] // bit 0
+    pub odr_gyro: bool,
+
+    /// if ODR of accel changes.
+    #[bits(1)] // bit 1
+    pub odr_accel: bool,
+
+    /// Timestamp field.
+    #[bits(2)] // Bit 2-3
+    pub timestamp: FifoHeaderTimestamp,
+
+    /// Packet has 20 bit data for gyro and accel.
+    #[bits(1)] // bit 4
+    pub data_20bit: bool,
+
+    /// Packet thas gyroscope data
+    #[bits(1)] // bit 5
+    pub gyro: bool,
+
+    /// Packet has acceleration data
+    #[bits(1)] // bit 6
+    pub accel: bool,
+
+    /// Packet has data
+    #[bits(1)] // bit 7
+    pub data: bool,
+}
+impl FifoHeader {
+    /// Packet length, including the header!
+    pub fn packet_len(&self) -> usize {
+        let mut len = 0;
+        len += 1; // header
+        len += self.accel() as usize * 6;
+        len += self.gyro() as usize * 6;
+        len += 1; // temperature
+        len += if self.timestamp() != FifoHeaderTimestamp::None {
+            2
+        } else {
+            0
+        }; // timestamp.
+        len += self.data_20bit() as usize * 3;
+        len
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, defmt::Format)]

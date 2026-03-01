@@ -28,7 +28,7 @@ name = "analysis_imu"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bitfield-struct",
+ "bitfield-struct 0.11.0",
  "firmware_imu",
  "serde",
  "serialport",
@@ -119,6 +119,17 @@ name = "bitfield-struct"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3ca019570363e800b05ad4fd890734f28ac7b72f563ad8a35079efb793616f8"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
+name = "bitfield-struct"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8769c4854c5ada2852ddf6fd09d15cf43d4c2aaeccb4de6432f5402f08a6003b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -786,7 +797,7 @@ checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 name = "firmware_imu"
 version = "0.1.0"
 dependencies = [
- "bitfield-struct",
+ "bitfield-struct 0.12.1",
  "cortex-m",
  "cortex-m-rt",
  "critical-section",
