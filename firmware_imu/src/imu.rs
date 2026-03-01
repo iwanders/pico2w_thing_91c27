@@ -35,7 +35,7 @@ type LsmDeviceSPI = embassy_embedded_hal::shared_bus::asynch::spi::SpiDevice<
 >;
 type LSM = LSM6DSV320X<LsmDeviceSPI>;
 type LSMError = lsm6dsv320x::Error<<LsmDeviceSPI as embedded_hal_async::spi::ErrorType>::Error>;
-
+type LSMPayload = [u8; 7];
 /*
 
 Okay, so one task for each imu.
@@ -123,7 +123,7 @@ async fn icm_task(
 #[embassy_executor::task]
 async fn lsm_task(
     mut lsm: LSM,
-    mut producer: heapless::spsc::Producer<'static, u8>,
+    mut producer: heapless::spsc::Producer<'static, LSMPayload>,
     buffer: &'static mut [u8],
     stats: &'static AtomicBufferStats,
 ) -> ! {
@@ -148,8 +148,8 @@ async fn lsm_task(
         // println!("available_in_multiples: {}", available_in_multiples);
         // Timer::after_millis(1000).await;
         let use_data = relevant_data.len().min(available_in_multiples);
-        for (i, b) in relevant_data[0..use_data].iter().enumerate() {
-            if producer.enqueue(*b).is_err() {
+        for (i, b) in relevant_data[0..use_data].chunks(7).enumerate() {
+            if producer.enqueue(b.try_into().unwrap()).is_err() {
                 // defmt::warn!("buffer overrrun in icm task");
                 stats
                     .queue_overrun
@@ -176,28 +176,39 @@ async fn lsm_task(
 async fn data_cdc_task(
     mut cdc: CdcType,
     mut icm_consumer: heapless::spsc::Consumer<'static, u8>,
-    mut lsm_consumer: heapless::spsc::Consumer<'static, u8>,
+    mut lsm_consumer: heapless::spsc::Consumer<'static, LSMPayload>,
 ) -> ! {
     const BUFFER_LEN: usize = 64;
     let buffer = {
         static FIFO_BUFFER: StaticCell<[u8; BUFFER_LEN]> = StaticCell::new();
         FIFO_BUFFER.init([0u8; BUFFER_LEN])
     };
+    const PAYLOAD_LEN: usize = 64 - 1;
+    const LSM_WORD_LEN: usize = 7;
 
     let mut bool_did_something = false;
+
     loop {
-        for (t, c) in [
-            (DataType::Lsm, &mut lsm_consumer),
-            (DataType::Icm, &mut icm_consumer),
-        ] {
-            while c.len() > 60 {
-                buffer[0] = t as u8;
-                for i in 0..60 {
-                    buffer[i + 4] = unsafe { c.dequeue_unchecked() };
-                }
-                bool_did_something = true;
-                cdc.write_packet(buffer).await.unwrap();
+        let c = &mut icm_consumer;
+        while c.len() > PAYLOAD_LEN {
+            buffer[0] = DataType::Icm as u8;
+            for i in 0..PAYLOAD_LEN {
+                buffer[i + 1] = unsafe { c.dequeue_unchecked() };
             }
+            bool_did_something = true;
+            cdc.write_packet(buffer).await.unwrap();
+        }
+
+        let c = &mut lsm_consumer;
+        while c.len() > 9 {
+            buffer[0] = DataType::Lsm as u8;
+            // Can fit 9 * 7 = 63 bytes.
+            for i in 0..(PAYLOAD_LEN / LSM_WORD_LEN) {
+                buffer[i * LSM_WORD_LEN + 1..(i + 1) * LSM_WORD_LEN + 1]
+                    .copy_from_slice(&unsafe { c.dequeue_unchecked() });
+            }
+            bool_did_something = true;
+            cdc.write_packet(buffer).await.unwrap();
         }
         if !bool_did_something {
             Timer::after_nanos(1).await;
@@ -256,8 +267,8 @@ pub async fn imu_entry(
     };
 
     let lsm_queue = {
-        const BUFFER_LEN: usize = 4096;
-        type QueueType = heapless::spsc::Queue<u8, BUFFER_LEN>;
+        const BUFFER_LEN: usize = 700;
+        type QueueType = heapless::spsc::Queue<LSMPayload, BUFFER_LEN>;
         static STATIC_BUFFER: StaticCell<QueueType> = StaticCell::new();
         STATIC_BUFFER.init(QueueType::new())
     };

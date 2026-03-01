@@ -64,13 +64,10 @@ impl ImuSplitter {
     }
 
     pub fn segment_chunk(data: &[u8]) -> (DataType, &[u8]) {
-        if &data[1..4] != &[0, 0, 0] {
-            println!("alignment problem 😱")
-        }
         if data[0] == DataType::Icm as u8 {
-            return (DataType::Icm, &data[4..]);
+            return (DataType::Icm, &data[1..]);
         } else if data[0] == DataType::Lsm as u8 {
-            return (DataType::Lsm, &data[4..]);
+            return (DataType::Lsm, &data[1..]);
         } else {
             println!("payload type problem!");
             return (DataType::Nop, &[]);
