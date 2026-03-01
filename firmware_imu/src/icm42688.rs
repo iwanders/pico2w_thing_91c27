@@ -303,17 +303,24 @@ pub struct FifoHeader {
 impl FifoHeader {
     /// Packet length, including the header!
     pub fn packet_len(&self) -> usize {
+        // Length options are;
+        // packet 1: 8
+        // packet 2: 8
+        // packet 3: 16
+        // packet 4: 20
         let mut len = 0;
-        len += 1; // header
-        len += self.accel() as usize * 6;
-        len += self.gyro() as usize * 6;
-        len += 1; // temperature
-        len += if self.timestamp() != FifoHeaderTimestamp::None {
-            2
-        } else {
-            0
-        }; // timestamp.
-        len += self.data_20bit() as usize * 3;
+        if self.data() {
+            len += 1; // header
+            len += self.accel() as usize * 6;
+            len += self.gyro() as usize * 6;
+            len += 1; // temperature
+            len += if self.timestamp() != FifoHeaderTimestamp::None {
+                2
+            } else {
+                0
+            }; // timestamp.
+            len += self.data_20bit() as usize * (3 + 1); // temperature also goes from 1 to two bytes.
+        }
         len
     }
 }
@@ -489,5 +496,38 @@ where
         config: AccelerationConfig,
     ) -> Result<(), Error<Spi::Error>> {
         self.write(regs::ACCEL_CONFIG0, &[config.to_reg()]).await
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_icm_fifo_header() {
+        const DATA_PRESENT: u8 = 1 << 7;
+
+        let row1_header = 0b0111_1011 | DATA_PRESENT;
+        let header = FifoHeader::from_bits(row1_header);
+        assert_eq!(header.packet_len(), 20);
+        assert_eq!(header.accel(), true);
+        assert_eq!(header.gyro(), true);
+        assert_eq!(header.data_20bit(), true);
+        assert_eq!(header.timestamp(), FifoHeaderTimestamp::ODRTimestamp);
+
+        let row3_header = 0b0110_1011 | DATA_PRESENT;
+        let header = FifoHeader::from_bits(row3_header);
+        assert_eq!(header.packet_len(), 16);
+        assert_eq!(header.accel(), true);
+        assert_eq!(header.gyro(), true);
+        assert_eq!(header.data_20bit(), false);
+        assert_eq!(header.timestamp(), FifoHeaderTimestamp::ODRTimestamp);
+        let row5_header = 0b0100_0011 | DATA_PRESENT;
+        let header = FifoHeader::from_bits(row5_header);
+        assert_eq!(header.packet_len(), 8);
+        assert_eq!(header.accel(), true);
+        assert_eq!(header.gyro(), false);
+        assert_eq!(header.data_20bit(), false);
+        assert_eq!(header.timestamp(), FifoHeaderTimestamp::None);
     }
 }

@@ -93,27 +93,39 @@ async fn icm_task(
     buffer: &'static mut [u8],
     stats: &'static AtomicBufferStats,
 ) -> ! {
+    use icm42688::FifoHeader;
     //usb.run().await
     loop {
         let (status, fifo_bytes) = icm.get_status_fifo(buffer).await.unwrap();
-        let relevant_data = &buffer[0..fifo_bytes];
-        for (i, b) in relevant_data.iter().enumerate() {
-            if producer.enqueue(*b).is_err() {
-                // defmt::warn!("buffer overrrun in icm task");
-                stats
-                    .queue_overrun
-                    .fetch_add(fifo_bytes - i, core::sync::atomic::Ordering::Relaxed);
-                continue;
-            } else {
-                stats
-                    .queue_pushed
-                    .fetch_add(1, core::sync::atomic::Ordering::Relaxed);
-            }
-        }
         if status.fifo_full() {
             stats
                 .ic_overruns
                 .fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+        }
+
+        let mut relevant_data = &buffer[0..fifo_bytes];
+        while !relevant_data.is_empty() && fifo_bytes != 0 {
+            let chunk_header = FifoHeader::from_bits(relevant_data[0]);
+            println!("relevant_data.len(): {:?}", relevant_data.len());
+            println!("chunk_header: {:?}", chunk_header);
+            println!("chunk_header.packet_len(): {:?}", chunk_header.packet_len());
+            Timer::after_millis(1000).await;
+            let packet = &relevant_data[0..chunk_header.packet_len()];
+            let available_bytes = producer.capacity() - producer.len();
+            if packet.len() < available_bytes {
+                for b in packet.iter() {
+                    let _ = producer.enqueue(*b);
+                }
+                stats
+                    .queue_pushed
+                    .fetch_add(packet.len(), core::sync::atomic::Ordering::Relaxed);
+                relevant_data = &relevant_data[chunk_header.packet_len()..];
+            } else {
+                stats
+                    .queue_overrun
+                    .fetch_add(packet.len(), core::sync::atomic::Ordering::Relaxed);
+                break;
+            }
         }
         stats
             .queue_size
