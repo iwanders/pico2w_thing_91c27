@@ -104,12 +104,22 @@ async fn icm_task(
         }
 
         let mut relevant_data = &buffer[0..fifo_bytes];
+        // println!("fifo_bytes: {:?}", fifo_bytes);
+        // println!("relevant_data: {:?}", relevant_data);
         while !relevant_data.is_empty() && fifo_bytes != 0 {
             let chunk_header = FifoHeader::from_bits(relevant_data[0]);
-            println!("relevant_data.len(): {:?}", relevant_data.len());
-            println!("chunk_header: {:?}", chunk_header);
-            println!("chunk_header.packet_len(): {:?}", chunk_header.packet_len());
-            Timer::after_millis(1000).await;
+            if !chunk_header.data() {
+                // println!("no data");
+                // break;
+            }
+            // println!("relevant_data.len(): {:?}", relevant_data.len());
+            // println!("chunk_header: {:?}", chunk_header);
+            // println!("chunk_header.packet_len(): {:?}", chunk_header.packet_len());
+            Timer::after_millis(1).await;
+            if relevant_data.len() < chunk_header.packet_len() {
+                // println!("booo");
+                // break;
+            }
             let packet = &relevant_data[0..chunk_header.packet_len()];
             let available_bytes = producer.capacity() - producer.len();
             if packet.len() < available_bytes {

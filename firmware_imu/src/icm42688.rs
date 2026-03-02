@@ -296,11 +296,14 @@ pub struct FifoHeader {
     #[bits(1)] // bit 6
     pub accel: bool,
 
-    /// Packet has data
+    /// Fifo is empty.
     #[bits(1)] // bit 7
-    pub data: bool,
+    pub is_empty: bool,
 }
 impl FifoHeader {
+    pub fn data(&self) -> bool {
+        !self.is_empty()
+    }
     /// Packet length, including the header!
     pub fn packet_len(&self) -> usize {
         // Length options are;
@@ -505,9 +508,9 @@ mod test {
 
     #[test]
     fn test_icm_fifo_header() {
-        const DATA_PRESENT: u8 = 1 << 7;
+        // const DATA_PRESENT: u8 = 1 << 7;
 
-        let row1_header = 0b0111_1011 | DATA_PRESENT;
+        let row1_header = 0b0111_1011;
         let header = FifoHeader::from_bits(row1_header);
         assert_eq!(header.packet_len(), 20);
         assert_eq!(header.accel(), true);
@@ -515,14 +518,14 @@ mod test {
         assert_eq!(header.data_20bit(), true);
         assert_eq!(header.timestamp(), FifoHeaderTimestamp::ODRTimestamp);
 
-        let row3_header = 0b0110_1011 | DATA_PRESENT;
+        let row3_header = 0b0110_1011;
         let header = FifoHeader::from_bits(row3_header);
         assert_eq!(header.packet_len(), 16);
         assert_eq!(header.accel(), true);
         assert_eq!(header.gyro(), true);
         assert_eq!(header.data_20bit(), false);
         assert_eq!(header.timestamp(), FifoHeaderTimestamp::ODRTimestamp);
-        let row5_header = 0b0100_0011 | DATA_PRESENT;
+        let row5_header = 0b0100_0011;
         let header = FifoHeader::from_bits(row5_header);
         assert_eq!(header.packet_len(), 8);
         assert_eq!(header.accel(), true);
