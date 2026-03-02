@@ -213,9 +213,19 @@ async fn data_cdc_task(
     loop {
         let c = &mut icm_consumer;
         while c.len() > PAYLOAD_LEN {
+            use icm42688::FifoHeader;
             buffer[0] = DataType::Icm as u8;
-            for i in 0..PAYLOAD_LEN {
-                buffer[i + 1] = unsafe { c.dequeue_unchecked() };
+            // Obtain the first byte to identify the length.
+            let f = unsafe { c.dequeue_unchecked() };
+            let chunk_header = FifoHeader::from_bits(f);
+            let packet_len = chunk_header.packet_len();
+            const PAYLOAD_LEN_WITHOUT_LEN_BYTE: usize = PAYLOAD_LEN - 1;
+            let full_packet_count = PAYLOAD_LEN_WITHOUT_LEN_BYTE / packet_len;
+            let full_byte_count = full_packet_count * packet_len;
+            buffer[1] = full_byte_count as u8;
+            buffer[2] = f;
+            for i in 1..full_byte_count {
+                buffer[i + 2] = unsafe { c.dequeue_unchecked() };
             }
             bool_did_something = true;
             cdc.write_packet(buffer).await.unwrap();
