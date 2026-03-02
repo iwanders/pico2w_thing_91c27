@@ -138,53 +138,74 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("icm_data: {icm_data:?}");
     */
 
-    // Ugly aligner.
-    'a: for i in 0..7 {
-        let mut lsm_data = [0u8; 70];
-        lsm_data.fill_with(|| lsm_rec.0.recv().unwrap());
-        let mut iter = LsmFifoIterator::new(&lsm_data);
-        for v in iter {
-            if v.is_err() {
-                // drop a byte and advance.
-                _ = lsm_rec.0.recv().unwrap();
-                continue 'a;
-            }
-            let v = v.unwrap();
-        }
-    }
+    const LSM_HANDLER: bool = false;
 
-    let processor = LsmFifoProcessor {
-        accel_scale: AccelerationScale::G8,
-        accel_high_scale: AccelerationScaleHigh::G320,
-        gyro_scale: GyroscopeScale::DPS4000,
-    };
-    for _ in 0..9999999 {
-        let mut lsm_data = [0u8; 70];
-        lsm_data.fill_with(|| lsm_rec.0.recv().unwrap());
-        let mut iter = LsmFifoIterator::new(&lsm_data);
-        for v in iter {
-            let (data_type, bytes) = v.unwrap();
-            println!("{data_type:?} {bytes:?}");
-            let r = processor.interpret(data_type, bytes);
-            println!(" {r:?}");
-            match r {
-                FifoEntry::GameRotationVector(game_rotation_vector_raw) => {
-                    match game_rotation_vector_raw {
-                        GameRotationVectorRaw::First { w, x } => {
-                            println!("GameRotationVector {: <15} {: <15}", w.to_f32(), x.to_f32())
-                        }
-                        GameRotationVectorRaw::Second { y, z } => println!(
-                            "GameRotationVector                              {: <15} {: <15}",
-                            y.to_f32(),
-                            z.to_f32()
-                        ),
-                    }
+    if LSM_HANDLER {
+        // Ugly aligner.
+        'a: for i in 0..7 {
+            let mut lsm_data = [0u8; 70];
+            lsm_data.fill_with(|| lsm_rec.0.recv().unwrap());
+            let mut iter = LsmFifoIterator::new(&lsm_data);
+            for v in iter {
+                if v.is_err() {
+                    // drop a byte and advance.
+                    _ = lsm_rec.0.recv().unwrap();
+                    continue 'a;
                 }
-                _ => {}
+                let v = v.unwrap();
+            }
+        }
+
+        let processor = LsmFifoProcessor {
+            accel_scale: AccelerationScale::G8,
+            accel_high_scale: AccelerationScaleHigh::G320,
+            gyro_scale: GyroscopeScale::DPS4000,
+        };
+        for _ in 0..9999999 {
+            let mut lsm_data = [0u8; 70];
+            lsm_data.fill_with(|| lsm_rec.0.recv().unwrap());
+            let mut iter = LsmFifoIterator::new(&lsm_data);
+            for v in iter {
+                let (data_type, bytes) = v.unwrap();
+                println!("{data_type:?} {bytes:?}");
+                let r = processor.interpret(data_type, bytes);
+                println!(" {r:?}");
+                match r {
+                    FifoEntry::GameRotationVector(game_rotation_vector_raw) => {
+                        match game_rotation_vector_raw {
+                            GameRotationVectorRaw::First { w, x } => {
+                                println!(
+                                    "GameRotationVector {: <15} {: <15}",
+                                    w.to_f32(),
+                                    x.to_f32()
+                                )
+                            }
+                            GameRotationVectorRaw::Second { y, z } => println!(
+                                "GameRotationVector                              {: <15} {: <15}",
+                                y.to_f32(),
+                                z.to_f32()
+                            ),
+                        }
+                    }
+                    _ => {}
+                }
             }
         }
     }
 
+    const ICM_HANDLER: bool = true;
+    if ICM_HANDLER {
+        use icm42688::FifoHeader;
+        for _ in 0..9999999 {
+            let hdr = FifoHeader::from_bits(icm_rec.0.recv().unwrap());
+            let mut data = [0u8; 20];
+            data[0] = hdr.into_bits();
+            let data = &mut data[1..hdr.packet_len()];
+            data.fill_with(|| icm_rec.0.recv().unwrap());
+
+            println!("{:?}: {:?}", hdr, data);
+        }
+    }
     // println!("lsm_data: {lsm_data:?}");
 
     // 255, 182, 31, 92, 56, 24, 0, 62, 0, 4, 0, 3, 249, 171, 68, 104,

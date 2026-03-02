@@ -115,11 +115,11 @@ async fn icm_task(
             // println!("relevant_data.len(): {:?}", relevant_data.len());
             // println!("chunk_header: {:?}", chunk_header);
             // println!("chunk_header.packet_len(): {:?}", chunk_header.packet_len());
-            Timer::after_millis(1).await;
-            if relevant_data.len() < chunk_header.packet_len() {
-                // println!("booo");
-                // break;
-            }
+            // Timer::after_millis(1).await;
+            // if relevant_data.len() < chunk_header.packet_len() {
+            // println!("booo");
+            // break;
+            // }
             let packet = &relevant_data[0..chunk_header.packet_len()];
             let available_bytes = producer.capacity() - producer.len();
             if packet.len() < available_bytes {
