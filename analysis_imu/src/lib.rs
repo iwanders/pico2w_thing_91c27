@@ -65,7 +65,9 @@ impl ImuSplitter {
 
     pub fn segment_chunk(data: &[u8]) -> (DataType, &[u8]) {
         if data[0] == DataType::Icm as u8 {
-            return (DataType::Icm, &data[1..]);
+            let len = data[1] as usize;
+
+            return (DataType::Icm, &data[2..(2 + len)]);
         } else if data[0] == DataType::Lsm as u8 {
             return (DataType::Lsm, &data[1..]);
         } else {
