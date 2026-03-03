@@ -1,11 +1,13 @@
 use std::time::Duration;
 
 use anyhow::Context as _;
-use firmware_imu::icm42688::ICM42688;
-use firmware_imu::lsm6dsv320x::{self, AccelerationScaleHigh, FifoEntry, LsmFifoProcessor};
+use firmware_imu::icm42688::{self, ICM42688, IcmFifoIterator};
+use firmware_imu::lsm6dsv320x::{
+    self, AccelerationScaleHigh, FifoEntry, LsmFifoIterator, LsmFifoProcessor,
+};
 use firmware_imu::lsm6dsv320x::{AccelerationScale, GyroscopeScale};
 use firmware_imu::lsm6dsv320x::{GameRotationVectorRaw, LSM6DSV320X};
-use firmware_imu::{icm42688, lsm6dsv320x::LsmFifoIterator};
+
 use std::sync::mpsc::{Receiver, Sender};
 
 use serialport::SerialPort;
@@ -197,15 +199,14 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     const ICM_HANDLER: bool = true;
     if ICM_HANDLER {
-        use icm42688::FifoHeader;
         for _ in 0..9999999 {
-            let hdr = FifoHeader::from_bits(icm_rec.0.recv().unwrap());
-            let mut data = [0u8; 20];
-            data[0] = hdr.into_bits();
-            let data = &mut data[1..hdr.packet_len()];
-            data.fill_with(|| icm_rec.0.recv().unwrap());
-
-            println!("{:?}: {:?}", hdr, data);
+            let mut lsm_data = [0u8; 20 * 10];
+            lsm_data.fill_with(|| icm_rec.0.recv().unwrap());
+            let mut iter = IcmFifoIterator::new(&lsm_data);
+            for v in iter {
+                let (hdr, data) = v.unwrap();
+                println!("{:?}: {:?}", hdr, data);
+            }
         }
     }
     // println!("lsm_data: {lsm_data:?}");

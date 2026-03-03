@@ -328,6 +328,45 @@ impl FifoHeader {
     }
 }
 
+/// Error used by the accessory interface
+#[derive(thiserror::Error, Debug, Copy, Clone, PartialEq, Eq, defmt::Format)]
+pub enum IcmFifoError {
+    /// Not enough bytes provided
+    #[error("not enough data")]
+    NotEnoughData,
+}
+
+// Probably make an iterator that returns (DataTag, &[u8])
+pub struct IcmFifoIterator<'d> {
+    data: &'d [u8],
+    position: usize,
+}
+impl<'d> IcmFifoIterator<'d> {
+    pub fn new(data: &'d [u8]) -> Self {
+        println!("data len: {}", data.len());
+        Self { data, position: 0 }
+    }
+}
+impl<'d> Iterator for IcmFifoIterator<'d> {
+    type Item = Result<(FifoHeader, &'d [u8]), IcmFifoError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.position == self.data.len() {
+            // Good end, it ends on complete data.
+            return None;
+        }
+        let header = FifoHeader::from_bits(self.data[self.position]);
+        let packet_len = header.packet_len();
+        if (self.position + packet_len) > self.data.len() {
+            Some(Err(IcmFifoError::NotEnoughData))
+        } else {
+            let packet_data = &self.data[self.position..(self.position + packet_len)];
+            self.position += packet_len;
+            Some(Ok((header, packet_data)))
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, defmt::Format)]
 pub enum Error<SpiError: embedded_hal_async::spi::Error> {
     /// Underlying SpiError device error
