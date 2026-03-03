@@ -496,7 +496,7 @@ async fn configure_icm(icm: &mut ICM) -> Result<(), ICMError> {
     icm.control_fifo_config(FifoConfig {
         resume_partial: true,
         watermark_gt_persist: true,
-        high_resolution: false,
+        high_resolution: true,
         fsync: false,
         batch_temperature: true,
         batch_gyro: true,
