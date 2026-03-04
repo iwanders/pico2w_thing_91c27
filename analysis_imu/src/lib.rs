@@ -203,9 +203,12 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             gyro_scale: icm42688::GyroscopeScale::Dps2000,
             accel_scale: icm42688::AccelerationScale::G2,
         };
-        for _ in 0..9999999 {
+        for i in 0..9999999 {
             let mut lsm_data = [0u8; 20 * 10];
             lsm_data.fill_with(|| icm_rec.0.recv().unwrap());
+            if i % 100 != 0 {
+                continue;
+            }
             let mut iter = IcmFifoIterator::new(&lsm_data);
             for v in iter {
                 let (hdr, data) = v.unwrap();
@@ -214,7 +217,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let r = processor.interpret(hdr, data);
                     println!("  {:#?}", r);
                     if let Some(accel) = r.acceleration {
-                        println!("  {:?}", accel.xyz_f32());
+                        println!("  {: >5.3?}", accel.xyz_f32());
                     }
                 }
             }

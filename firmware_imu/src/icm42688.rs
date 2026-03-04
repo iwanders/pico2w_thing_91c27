@@ -11,6 +11,9 @@ use zerocopy::{FromBytes, Immutable, IntoBytes, TryFromBytes};
 // and another temperature sensor.
 //
 // 20 bit data format details are in section 6... current data output is not in 20 bit extensions.
+// The 20 bit.... is 20 bit data format in the fifo, but that's NOT how many bits we get data for;
+//  > When 20-bits data format is used, gyroscope data consists of 19-bits of actual data and the LSB is always set to 0, accelerometer data consists of 18-bits of actual data and the two lowest order bits are always set to 0
+//  p37, 6.1
 //
 // device powers up in sleep mode.
 //
@@ -372,7 +375,7 @@ impl<'d> Iterator for IcmFifoIterator<'d> {
 }
 
 #[derive(Debug, Copy, Clone)]
-enum FifoTemperature {
+pub enum FifoTemperature {
     OneByte(u8),
     TwoByte(u16),
 }
@@ -434,7 +437,9 @@ impl FifoAccelerometer {
     fn i16_to_f32_extra(&self, v: i16, extra: u8) -> f32 {
         let v = v as i32;
         let v = v << 4;
-        let v = v | (extra as i32);
+        let v = (v | (extra as i32)) >> 2;
+        // > accelerometer data consists of 18-bits of actual data and the two lowest order bits are always set to 0
+        // p37, section 6.1
         // When extra, scale is always +/- 16G, p37, so 8192 LSB per g.
         v as f32 / 8192.0
     }
