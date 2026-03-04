@@ -94,6 +94,21 @@ pub enum GyroscopeScale {
     /// +/- 15.625 degrees
     Dps15_625 = 0b111,
 }
+impl GyroscopeScale {
+    pub fn lsb_per_dps_f32(&self) -> f32 {
+        match self {
+            GyroscopeScale::Dps2000 => i16::MAX as f32 / 2000.0,
+            GyroscopeScale::Dps1000 => i16::MAX as f32 / 1000.0,
+            GyroscopeScale::Dps500 => i16::MAX as f32 / 500.0,
+            GyroscopeScale::Dps250 => i16::MAX as f32 / 250.0,
+            GyroscopeScale::Dps125 => i16::MAX as f32 / 125.0,
+            GyroscopeScale::Dps62_5 => i16::MAX as f32 / 62.5,
+            GyroscopeScale::Dps31_25 => i16::MAX as f32 / 31.25,
+            GyroscopeScale::Dps15_625 => i16::MAX as f32 / 15.625,
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
 pub struct GyroscopeConfig {
     pub scale: GyroscopeScale,
@@ -113,6 +128,16 @@ pub enum AccelerationScale {
     G8 = 0b001,
     G4 = 0b010,
     G2 = 0b011,
+}
+impl AccelerationScale {
+    const fn lsb_per_g_f32(&self) -> f32 {
+        match self {
+            AccelerationScale::G16 => i16::MAX as f32 / 16.0,
+            AccelerationScale::G8 => i16::MAX as f32 / 8.0,
+            AccelerationScale::G4 => i16::MAX as f32 / 4.0,
+            AccelerationScale::G2 => i16::MAX as f32 / 2.0,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
@@ -423,6 +448,18 @@ impl GyroscopeExtraBits {
 
         Self(v)
     }
+    pub fn x(&self) -> u8 {
+        (self.0 >> 8) as u8
+    }
+    pub fn y(&self) -> u8 {
+        ((self.0 >> 4) as u8) & 0b1111
+    }
+    pub fn z(&self) -> u8 {
+        (self.0 as u8) & 0b1111
+    }
+    pub fn xyz(&self) -> (u8, u8, u8) {
+        (self.x(), self.y(), self.z())
+    }
 }
 
 #[derive(Debug, Default, Copy, Clone)]
@@ -453,7 +490,11 @@ impl FifoAccelerometer {
                 self.i16_to_f32_extra(self.z, extra.2),
             )
         } else {
-            todo!()
+            (
+                self.x as f32 / self.scale.lsb_per_g_f32(),
+                self.y as f32 / self.scale.lsb_per_g_f32(),
+                self.z as f32 / self.scale.lsb_per_g_f32(),
+            )
         }
     }
 }
@@ -466,6 +507,35 @@ pub struct FifoGyroscope {
     pub z: i16,
     pub extra_bits: Option<GyroscopeExtraBits>,
 }
+impl FifoGyroscope {
+    fn i16_to_f32_extra(&self, v: i16, extra: u8) -> f32 {
+        let v = v as i32;
+        let v = v << 4;
+        let v = (v | (extra as i32)) >> 1;
+        // > gyroscope data consists of 19-bits of actual data and the LSB is always set to 0
+        // p37, section 6.1
+        // When extra, scale is always +/- 16G, p37, so 8192 LSB per g.
+        v as f32 / 131.0
+    }
+
+    pub fn xyz_f32(&self) -> (f32, f32, f32) {
+        if let Some(extra) = self.extra_bits {
+            let extra = extra.xyz();
+            (
+                self.i16_to_f32_extra(self.x, extra.0),
+                self.i16_to_f32_extra(self.y, extra.1),
+                self.i16_to_f32_extra(self.z, extra.2),
+            )
+        } else {
+            (
+                self.x as f32 / self.scale.lsb_per_dps_f32(),
+                self.y as f32 / self.scale.lsb_per_dps_f32(),
+                self.z as f32 / self.scale.lsb_per_dps_f32(),
+            )
+        }
+    }
+}
+
 #[derive(Debug, Default, Copy, Clone)]
 pub struct FifoTimestamp {
     pub x: u16,

@@ -200,24 +200,30 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     const ICM_HANDLER: bool = true;
     if ICM_HANDLER {
         let processor = IcmFifoProcessor {
-            gyro_scale: icm42688::GyroscopeScale::Dps2000,
-            accel_scale: icm42688::AccelerationScale::G2,
+            gyro_scale: icm42688::GyroscopeScale::Dps250,
+            accel_scale: icm42688::AccelerationScale::G16,
         };
         for i in 0..9999999 {
-            let mut lsm_data = [0u8; 20 * 10];
+            // const PACKET_SIZE: usize = 20;
+            const PACKET_SIZE: usize = 20 - 4;
+            let mut lsm_data = [0u8; PACKET_SIZE * 10];
             lsm_data.fill_with(|| icm_rec.0.recv().unwrap());
             if i % 100 != 0 {
-                continue;
+                // continue;
             }
             let mut iter = IcmFifoIterator::new(&lsm_data);
             for v in iter {
-                let (hdr, data) = v.unwrap();
-                println!("{:?}: {:?}", hdr, data);
-                if hdr.data() {
-                    let r = processor.interpret(hdr, data);
-                    println!("  {:#?}", r);
-                    if let Some(accel) = r.acceleration {
-                        println!("  {: >5.3?}", accel.xyz_f32());
+                if let Ok((hdr, data)) = v {
+                    println!("{:?}: {:?}", hdr, data);
+                    if hdr.data() {
+                        let r = processor.interpret(hdr, data);
+                        //println!("  {:#?}", r);
+                        if let Some(accel) = r.acceleration {
+                            println!("  {: >8.3?}", accel.xyz_f32());
+                        }
+                        if let Some(gyro) = r.gyroscope {
+                            println!("  {: >8.3?}", gyro.xyz_f32());
+                        }
                     }
                 }
             }

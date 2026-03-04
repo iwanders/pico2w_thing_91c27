@@ -476,14 +476,14 @@ async fn configure_icm(icm: &mut ICM) -> Result<(), ICMError> {
     // Set the rates.
     use icm42688::{GyroscopeConfig, GyroscopeOutputDataRate, GyroscopeScale};
     icm.control_gyro(GyroscopeConfig {
-        scale: GyroscopeScale::Dps2000,
+        scale: GyroscopeScale::Dps250,
         rate: GyroscopeOutputDataRate::Hz8k,
     })
     .await?;
 
     use icm42688::{AccelerationConfig, AccelerationOutputDataRate, AccelerationScale};
     icm.control_accel(AccelerationConfig {
-        scale: AccelerationScale::G2,
+        scale: AccelerationScale::G16,
         rate: AccelerationOutputDataRate::Hz8k,
     })
     .await?;
