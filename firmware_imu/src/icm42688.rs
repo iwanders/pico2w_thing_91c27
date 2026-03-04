@@ -1,4 +1,7 @@
 use bitfield_struct::bitfield;
+
+#[cfg(target_arch = "arm")]
+use defmt::{info, println, warn};
 use embedded_hal_async::spi::SpiDevice;
 use zerocopy::{FromBytes, Immutable, IntoBytes, TryFromBytes};
 
@@ -360,10 +363,160 @@ impl<'d> Iterator for IcmFifoIterator<'d> {
         if (self.position + packet_len) > self.data.len() {
             Some(Err(IcmFifoError::NotEnoughData))
         } else {
-            let packet_data = &self.data[self.position..(self.position + packet_len)];
+            // The actual data after the header.
+            let packet_data = &self.data[self.position + 1..(self.position + 1 + packet_len - 1)];
             self.position += packet_len;
             Some(Ok((header, packet_data)))
         }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+enum FifoTemperature {
+    OneByte(u8),
+    TwoByte(u16),
+}
+impl Default for FifoTemperature {
+    fn default() -> Self {
+        FifoTemperature::OneByte(0)
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct AccelerationExtraBits(u16);
+impl AccelerationExtraBits {
+    pub fn from_extra(data: &[u8]) -> Self {
+        let x = data[0] >> 4;
+        let y = data[1] >> 4;
+        let z = data[2] >> 4;
+
+        let v = (x as u16) << 8 | (y as u16) << 4 | (z as u16);
+
+        Self(v)
+    }
+    pub fn x(&self) -> u8 {
+        (self.0 >> 8) as u8
+    }
+    pub fn y(&self) -> u8 {
+        ((self.0 >> 4) as u8) & 0b1111
+    }
+    pub fn z(&self) -> u8 {
+        (self.0 as u8) & 0b1111
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct GyroscopeExtraBits(u16);
+impl GyroscopeExtraBits {
+    pub fn from_extra(data: &[u8]) -> Self {
+        let x = data[0] & 0b1111;
+        let y = data[1] & 0b1111;
+        let z = data[2] & 0b1111;
+
+        let v = (x as u16) << 8 | (y as u16) << 4 | (z as u16);
+
+        Self(v)
+    }
+}
+
+#[derive(Debug, Default, Copy, Clone)]
+pub struct FifoAccelerometer {
+    pub scale: AccelerationScale,
+    pub x: i16,
+    pub y: i16,
+    pub z: i16,
+    pub extra_bits: Option<AccelerationExtraBits>,
+}
+#[derive(Debug, Default, Copy, Clone)]
+pub struct FifoGyroscope {
+    pub scale: GyroscopeScale,
+    pub x: i16,
+    pub y: i16,
+    pub z: i16,
+    pub extra_bits: Option<GyroscopeExtraBits>,
+}
+#[derive(Debug, Default, Copy, Clone)]
+pub struct FifoTimestamp {
+    pub x: u16,
+}
+
+#[derive(Debug, Default, Copy, Clone)]
+pub struct FifoEntry {
+    header: FifoHeader,
+    acceleration: Option<FifoAccelerometer>,
+    gyroscope: Option<FifoGyroscope>,
+    temperature: FifoTemperature,
+    timestamp: FifoTimestamp,
+}
+
+/// This is a helper to parse data from the fifo.
+#[derive(Debug, Default, Copy, Clone)]
+pub struct IcmFifoProcessor {
+    pub gyro_scale: GyroscopeScale,
+    pub accel_scale: AccelerationScale,
+}
+impl IcmFifoProcessor {
+    pub fn interpret(&self, header: FifoHeader, data: &[u8]) -> FifoEntry {
+        let mut r = FifoEntry::default();
+        if data.len() != header.packet_len() - 1 {
+            panic!();
+        }
+        r.header = header;
+        if header.is_empty() {
+            return r;
+        }
+        let mut p = 0usize;
+        let start_20bit = (header.accel() as usize * 6) + (header.gyro() as usize * 6) + 2 + 2;
+        // Accel is always first.
+        if header.accel() {
+            r.acceleration = Some(FifoAccelerometer {
+                scale: self.accel_scale,
+                x: i16::from_be_bytes(data[p..p + 2].try_into().unwrap()),
+                y: i16::from_be_bytes(data[p + 2..p + 4].try_into().unwrap()),
+                z: i16::from_be_bytes(data[p + 4..p + 6].try_into().unwrap()),
+
+                extra_bits: if header.data_20bit() {
+                    let v = AccelerationExtraBits::from_extra(&data[start_20bit..start_20bit + 3]);
+                    Some(v)
+                } else {
+                    None
+                },
+            });
+            p += 6;
+        }
+        if header.gyro() {
+            r.gyroscope = Some(FifoGyroscope {
+                scale: self.gyro_scale,
+                x: i16::from_be_bytes(data[p..p + 2].try_into().unwrap()),
+                y: i16::from_be_bytes(data[p + 2..p + 4].try_into().unwrap()),
+                z: i16::from_be_bytes(data[p + 4..p + 6].try_into().unwrap()),
+                extra_bits: if header.data_20bit() {
+                    let v = GyroscopeExtraBits::from_extra(&data[start_20bit..start_20bit + 3]);
+                    Some(v)
+                } else {
+                    None
+                },
+            });
+            p += 6;
+        }
+        // Next is temperature.
+        if header.data_20bit() {
+            // two byte
+            r.temperature =
+                FifoTemperature::TwoByte(u16::from_be_bytes(data[p..p + 2].try_into().unwrap()));
+            p += 2;
+        } else {
+            // one byte.
+            r.temperature = FifoTemperature::OneByte(data[p]);
+            p += 1;
+        }
+        if header.timestamp() != FifoHeaderTimestamp::None {
+            r.timestamp = FifoTimestamp {
+                x: u16::from_be_bytes(data[p..p + 2].try_into().unwrap()),
+            }
+        }
+
+        r
     }
 }
 

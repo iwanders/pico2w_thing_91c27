@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use anyhow::Context as _;
-use firmware_imu::icm42688::{self, ICM42688, IcmFifoIterator};
+use firmware_imu::icm42688::{self, ICM42688, IcmFifoIterator, IcmFifoProcessor};
 use firmware_imu::lsm6dsv320x::{
     self, AccelerationScaleHigh, FifoEntry, LsmFifoIterator, LsmFifoProcessor,
 };
@@ -199,6 +199,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     const ICM_HANDLER: bool = true;
     if ICM_HANDLER {
+        let processor = IcmFifoProcessor {
+            gyro_scale: icm42688::GyroscopeScale::Dps2000,
+            accel_scale: icm42688::AccelerationScale::G2,
+        };
         for _ in 0..9999999 {
             let mut lsm_data = [0u8; 20 * 10];
             lsm_data.fill_with(|| icm_rec.0.recv().unwrap());
@@ -206,6 +210,10 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             for v in iter {
                 let (hdr, data) = v.unwrap();
                 println!("{:?}: {:?}", hdr, data);
+                if hdr.data() {
+                    let r = processor.interpret(hdr, data);
+                    println!("  {:#?}", r);
+                }
             }
         }
     }
