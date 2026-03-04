@@ -213,6 +213,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if hdr.data() {
                     let r = processor.interpret(hdr, data);
                     println!("  {:#?}", r);
+                    if let Some(accel) = r.acceleration {
+                        println!("  {:?}", accel.xyz_f32());
+                    }
                 }
             }
         }

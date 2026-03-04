@@ -403,6 +403,9 @@ impl AccelerationExtraBits {
     pub fn z(&self) -> u8 {
         (self.0 as u8) & 0b1111
     }
+    pub fn xyz(&self) -> (u8, u8, u8) {
+        (self.x(), self.y(), self.z())
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -427,6 +430,29 @@ pub struct FifoAccelerometer {
     pub z: i16,
     pub extra_bits: Option<AccelerationExtraBits>,
 }
+impl FifoAccelerometer {
+    fn i16_to_f32_extra(&self, v: i16, extra: u8) -> f32 {
+        let v = v as i32;
+        let v = v << 4;
+        let v = v | (extra as i32);
+        // When extra, scale is always +/- 16G, p37, so 8192 LSB per g.
+        v as f32 / 8192.0
+    }
+
+    pub fn xyz_f32(&self) -> (f32, f32, f32) {
+        if let Some(extra) = self.extra_bits {
+            let extra = extra.xyz();
+            (
+                self.i16_to_f32_extra(self.x, extra.0),
+                self.i16_to_f32_extra(self.y, extra.1),
+                self.i16_to_f32_extra(self.z, extra.2),
+            )
+        } else {
+            todo!()
+        }
+    }
+}
+
 #[derive(Debug, Default, Copy, Clone)]
 pub struct FifoGyroscope {
     pub scale: GyroscopeScale,
@@ -442,11 +468,11 @@ pub struct FifoTimestamp {
 
 #[derive(Debug, Default, Copy, Clone)]
 pub struct FifoEntry {
-    header: FifoHeader,
-    acceleration: Option<FifoAccelerometer>,
-    gyroscope: Option<FifoGyroscope>,
-    temperature: FifoTemperature,
-    timestamp: FifoTimestamp,
+    pub header: FifoHeader,
+    pub acceleration: Option<FifoAccelerometer>,
+    pub gyroscope: Option<FifoGyroscope>,
+    pub temperature: FifoTemperature,
+    pub timestamp: FifoTimestamp,
 }
 
 /// This is a helper to parse data from the fifo.
