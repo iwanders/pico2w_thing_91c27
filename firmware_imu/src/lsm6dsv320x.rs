@@ -85,6 +85,12 @@ pub mod regs {
     /// Timestamp data in, 4 bytes, u32, 1LSB is 21.7 us typical.
     pub const TIMESTAMP0: u8 = 0x40;
 
+    /// Internal frequency fine tune register (read only)
+    pub const INTERNAL_FREQ_FINE: u8 = 0x4F;
+
+    /// Function enable register
+    pub const FUNCTIONS_ENABLE: u8 = 0x50;
+
     /// Control register for high g accelerometer.
     pub const CTRL1_XL_HG: u8 = 0x4e;
 
@@ -569,6 +575,14 @@ where
         Ok(output)
     }
 
+    pub async fn function_enable(
+        &mut self,
+        timestamp_enable: bool,
+    ) -> Result<(), Error<Spi::Error>> {
+        self.write(regs::FUNCTIONS_ENABLE, &[(timestamp_enable as u8) << 6])
+            .await
+    }
+
     pub async fn control_acceleration_high(
         &mut self,
         config: AccelerationModeDataRateHigh,
@@ -592,6 +606,13 @@ where
     pub async fn read_gyroscope(&mut self) -> Result<XYZVectorI16, Error<Spi::Error>> {
         let mut output = XYZVectorI16::default();
         self.read(regs::OUTX_L_G, output.as_mut_bytes()).await?;
+        Ok(output)
+    }
+
+    pub async fn read_freq_fine(&mut self) -> Result<i8, Error<Spi::Error>> {
+        let mut output = 0i8;
+        self.read(regs::INTERNAL_FREQ_FINE, output.as_mut_bytes())
+            .await?;
         Ok(output)
     }
 
@@ -709,7 +730,7 @@ pub enum GameDataRate {
 }
 
 #[repr(u8)]
-#[derive(PartialEq, Eq, TryFromBytes, IntoBytes, Immutable, defmt::Format, Debug)]
+#[derive(PartialEq, Eq, TryFromBytes, IntoBytes, Immutable, defmt::Format, Debug, Copy, Clone)]
 pub enum LsmFifoTag {
     FIFOempty = 0x00,
     // NC is non compressed?
@@ -834,12 +855,18 @@ impl LsmFifoProcessor {
             LsmFifoTag::Temperature => FifoEntry::Temperature(FifoTemperature {
                 t: i16::from_le_bytes([data[0], data[1]]),
             }),
-            LsmFifoTag::Timestamp => FifoEntry::Timestamp(FifoTimestamp {
-                // Is this actually BE? check how timestamp should be.
-                // Yes, it is big endian, see page 85, section 9.42.
-                // Scale is 21.7us typical, but depends on INTERNAL_FREQ_FINE 9.54, p92
-                t: u32::from_be_bytes(data[2..6].try_into().unwrap()),
-            }),
+            LsmFifoTag::Timestamp => {
+                // let mut full_data = [0u8; 8];
+                // full_data[0..6].copy_from_slice(&data);
+                // last two bytes are pretty much full of... junk.
+                FifoEntry::Timestamp(FifoTimestamp {
+                    // Is this actually BE? check how timestamp should be.
+                    // Yes, it is big endian, see page 85, section 9.42.
+                    // Pretty sure its not... this makes a nice counter, last two bytes seem unused. 32 188
+                    // Scale is 21.7us typical, but depends on INTERNAL_FREQ_FINE 9.54, p92
+                    t: u32::from_le_bytes(data[0..4].try_into().unwrap()),
+                })
+            }
             LsmFifoTag::SFLPGamerotationVector => {
                 // Ugh, this is a different format, it spans two words!
                 // SFLPGamerotationVector [0, 0, 234, 165, 4, 177]

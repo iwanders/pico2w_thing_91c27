@@ -369,6 +369,14 @@ async fn configure_lsm(lsm: &mut LSM) -> Result<(), LSMError> {
     lsm.reset().await?;
     Timer::after_millis(10).await;
 
+    lsm.function_enable(true).await?;
+
+    let read_freq_fine = lsm.read_freq_fine().await?;
+    info!(
+        "read_freq_fine: {} {:x}",
+        read_freq_fine, read_freq_fine as u8
+    );
+
     // Low accelerometer setup;
     use lsm6dsv320x::{AccelerationMode, AccelerationModeDataRate, OutputDataRate};
     lsm.control_acceleration(AccelerationModeDataRate {

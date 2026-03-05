@@ -3,7 +3,7 @@ use std::time::Duration;
 use anyhow::Context as _;
 use firmware_imu::icm42688::{self, ICM42688, IcmFifoIterator, IcmFifoProcessor, TimeTracker};
 use firmware_imu::lsm6dsv320x::{
-    self, AccelerationScaleHigh, FifoEntry, LsmFifoIterator, LsmFifoProcessor,
+    self, AccelerationScaleHigh, FifoEntry, LsmFifoIterator, LsmFifoProcessor, LsmFifoTag,
 };
 use firmware_imu::lsm6dsv320x::{AccelerationScale, GyroscopeScale};
 use firmware_imu::lsm6dsv320x::{GameRotationVectorRaw, LSM6DSV320X};
@@ -142,7 +142,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("icm_data: {icm_data:?}");
     */
 
-    const LSM_HANDLER: bool = false;
+    const LSM_HANDLER: bool = true;
 
     if LSM_HANDLER {
         // Ugly aligner.
@@ -171,9 +171,13 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut iter = LsmFifoIterator::new(&lsm_data);
             for v in iter {
                 let (data_type, bytes) = v.unwrap();
-                println!("{data_type:?} {bytes:?}");
+                //println!("{data_type:?} {bytes:?}");
                 let r = processor.interpret(data_type, bytes);
-                println!(" {r:?}");
+                //println!(" {r:?}");
+                if data_type == LsmFifoTag::Timestamp {
+                    println!("{data_type:?} {bytes:?}");
+                    println!(" {r:?}");
+                }
                 match r {
                     FifoEntry::GameRotationVector(game_rotation_vector_raw) => {
                         match game_rotation_vector_raw {
@@ -197,7 +201,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    const ICM_HANDLER: bool = true;
+    const ICM_HANDLER: bool = false;
     if ICM_HANDLER {
         let processor = IcmFifoProcessor {
             gyro_scale: icm42688::GyroscopeScale::Dps250,
