@@ -209,6 +209,17 @@ pub enum AccelerationScale {
     G8 = 0b10,
     G16 = 0b11,
 }
+impl AccelerationScale {
+    pub const fn lsb_per_g_f32(&self) -> f32 {
+        match self {
+            AccelerationScale::G16 => i16::MAX as f32 / 16.0,
+            AccelerationScale::G8 => i16::MAX as f32 / 8.0,
+            AccelerationScale::G4 => i16::MAX as f32 / 4.0,
+            AccelerationScale::G2 => i16::MAX as f32 / 2.0,
+        }
+    }
+}
+
 pub struct AccelerationFilterScale {
     pub scale: AccelerationScale,
     // Skip filter stuff for now, it is spread out over ctrl8 and ctrl0.
@@ -230,6 +241,17 @@ pub enum AccelerationScaleHigh {
     G128 = 0b010,
     G256 = 0b011,
     G320 = 0b100,
+}
+impl AccelerationScaleHigh {
+    pub const fn lsb_per_g_f32(&self) -> f32 {
+        match self {
+            AccelerationScaleHigh::G32 => i16::MAX as f32 / 32.0,
+            AccelerationScaleHigh::G64 => i16::MAX as f32 / 64.0,
+            AccelerationScaleHigh::G128 => i16::MAX as f32 / 128.0,
+            AccelerationScaleHigh::G256 => i16::MAX as f32 / 256.0,
+            AccelerationScaleHigh::G320 => i16::MAX as f32 / 320.0,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
@@ -269,11 +291,22 @@ impl AccelerationModeDataRateHigh {
 #[repr(u8)]
 pub enum GyroscopeScale {
     #[default]
-    DPS250 = 0b001,
-    DPS500 = 0b010,
-    DPS1000 = 0b011,
-    DPS2000 = 0b100,
-    DPS4000 = 0b101,
+    Dps250 = 0b001,
+    Dps500 = 0b010,
+    Dps1000 = 0b011,
+    Dps2000 = 0b100,
+    Dps4000 = 0b101,
+}
+impl GyroscopeScale {
+    pub const fn lsb_per_dps_f32(&self) -> f32 {
+        match self {
+            GyroscopeScale::Dps4000 => i16::MAX as f32 / 4000.0,
+            GyroscopeScale::Dps2000 => i16::MAX as f32 / 2000.0,
+            GyroscopeScale::Dps1000 => i16::MAX as f32 / 1000.0,
+            GyroscopeScale::Dps500 => i16::MAX as f32 / 500.0,
+            GyroscopeScale::Dps250 => i16::MAX as f32 / 250.0,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default, defmt::Format)]
@@ -906,6 +939,15 @@ pub struct FifoGyroscopeNc {
     pub y: i16,
     pub z: i16,
 }
+impl FifoGyroscopeNc {
+    pub fn xyz_f32(&self) -> (f32, f32, f32) {
+        (
+            self.x as f32 / self.scale.lsb_per_dps_f32(),
+            self.y as f32 / self.scale.lsb_per_dps_f32(),
+            self.z as f32 / self.scale.lsb_per_dps_f32(),
+        )
+    }
+}
 #[derive(Debug, Default, Copy, Clone)]
 pub struct FifoAccelerometerNC {
     pub scale: AccelerationScale,
@@ -913,12 +955,31 @@ pub struct FifoAccelerometerNC {
     pub y: i16,
     pub z: i16,
 }
+impl FifoAccelerometerNC {
+    pub fn xyz_f32(&self) -> (f32, f32, f32) {
+        (
+            self.x as f32 / self.scale.lsb_per_g_f32(),
+            self.y as f32 / self.scale.lsb_per_g_f32(),
+            self.z as f32 / self.scale.lsb_per_g_f32(),
+        )
+    }
+}
+
 #[derive(Debug, Default, Copy, Clone)]
 pub struct FifoHighGAccelerometer {
     pub scale: AccelerationScaleHigh,
     pub x: i16,
     pub y: i16,
     pub z: i16,
+}
+impl FifoHighGAccelerometer {
+    pub fn xyz_f32(&self) -> (f32, f32, f32) {
+        (
+            self.x as f32 / self.scale.lsb_per_g_f32(),
+            self.y as f32 / self.scale.lsb_per_g_f32(),
+            self.z as f32 / self.scale.lsb_per_g_f32(),
+        )
+    }
 }
 
 #[derive(Debug, Default, Copy, Clone)]
@@ -1013,7 +1074,6 @@ pub struct LsmFifoIterator<'d> {
 }
 impl<'d> LsmFifoIterator<'d> {
     pub fn new(data: &'d [u8]) -> Self {
-        println!("data len: {}", data.len());
         Self { data, position: 0 }
     }
 }
@@ -1081,7 +1141,7 @@ mod test {
         let processor = LsmFifoProcessor {
             accel_scale: AccelerationScale::G8,
             accel_high_scale: AccelerationScaleHigh::G320,
-            gyro_scale: GyroscopeScale::DPS4000,
+            gyro_scale: GyroscopeScale::Dps4000,
         };
         let mut iter = LsmFifoIterator::new(&data[0..(data.len() / 7) * 7]);
         for v in iter {

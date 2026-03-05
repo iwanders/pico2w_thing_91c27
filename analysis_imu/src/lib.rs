@@ -163,7 +163,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         let processor = LsmFifoProcessor {
             accel_scale: AccelerationScale::G8,
             accel_high_scale: AccelerationScaleHigh::G320,
-            gyro_scale: GyroscopeScale::DPS4000,
+            gyro_scale: GyroscopeScale::Dps4000,
         };
         for _ in 0..9999999 {
             let mut lsm_data = [0u8; 70];
@@ -174,9 +174,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 //println!("{data_type:?} {bytes:?}");
                 let r = processor.interpret(data_type, bytes);
                 //println!(" {r:?}");
-                if data_type == LsmFifoTag::Timestamp {
-                    println!("{data_type:?} {bytes:?}");
-                    println!(" {r:?}");
+                if data_type == LsmFifoTag::AccelerometerNC {
+                    // println!("{data_type:?} {bytes:?}");
+                    // println!(" {r:?}");
                 }
                 match r {
                     FifoEntry::GameRotationVector(game_rotation_vector_raw) => {
@@ -195,6 +195,13 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                             ),
                         }
                     }
+                    FifoEntry::AccelerometerNC(a) => {
+                        println!("a{: >0}  {: >6.3?}", "", a.xyz_f32())
+                    }
+                    FifoEntry::HighGAccelerometer(a) => {
+                        println!("a+{: >30}{: >6.3?}", "", a.xyz_f32())
+                    }
+                    FifoEntry::GyroscopeNC(g) => println!("g{: >60}{: >6.3?}", "", g.xyz_f32()),
                     _ => {}
                 }
             }

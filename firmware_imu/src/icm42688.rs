@@ -102,7 +102,7 @@ pub enum GyroscopeScale {
     Dps15_625 = 0b111,
 }
 impl GyroscopeScale {
-    pub fn lsb_per_dps_f32(&self) -> f32 {
+    pub const fn lsb_per_dps_f32(&self) -> f32 {
         match self {
             GyroscopeScale::Dps2000 => i16::MAX as f32 / 2000.0,
             GyroscopeScale::Dps1000 => i16::MAX as f32 / 1000.0,
@@ -137,7 +137,7 @@ pub enum AccelerationScale {
     G2 = 0b011,
 }
 impl AccelerationScale {
-    const fn lsb_per_g_f32(&self) -> f32 {
+    pub const fn lsb_per_g_f32(&self) -> f32 {
         match self {
             AccelerationScale::G16 => i16::MAX as f32 / 16.0,
             AccelerationScale::G8 => i16::MAX as f32 / 8.0,
