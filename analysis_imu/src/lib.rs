@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use anyhow::Context as _;
-use firmware_imu::icm42688::{self, ICM42688, IcmFifoIterator, IcmFifoProcessor};
+use firmware_imu::icm42688::{self, ICM42688, IcmFifoIterator, IcmFifoProcessor, TimeTracker};
 use firmware_imu::lsm6dsv320x::{
     self, AccelerationScaleHigh, FifoEntry, LsmFifoIterator, LsmFifoProcessor,
 };
@@ -203,6 +203,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             gyro_scale: icm42688::GyroscopeScale::Dps250,
             accel_scale: icm42688::AccelerationScale::G16,
         };
+        let mut time_tracker = TimeTracker::new();
         for i in 0..9999999 {
             // const PACKET_SIZE: usize = 20;
             const PACKET_SIZE: usize = 20 - 4;
@@ -217,7 +218,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("{:?}: {:?}", hdr, data);
                     if hdr.data() {
                         let r = processor.interpret(hdr, data);
-                        //println!("  {:#?}", r);
+                        time_tracker.update(r.timestamp);
+                        println!("  {:?} {:#?}", time_tracker.time_us(), r);
                         if let Some(accel) = r.acceleration {
                             println!("  {: >8.3?}", accel.xyz_f32());
                         }

@@ -12,7 +12,8 @@ use zerocopy::{FromBytes, Immutable, IntoBytes, TryFromBytes};
 //
 // 20 bit data format details are in section 6... current data output is not in 20 bit extensions.
 // The 20 bit.... is 20 bit data format in the fifo, but that's NOT how many bits we get data for;
-//  > When 20-bits data format is used, gyroscope data consists of 19-bits of actual data and the LSB is always set to 0, accelerometer data consists of 18-bits of actual data and the two lowest order bits are always set to 0
+//  > When 20-bits data format is used, gyroscope data consists of 19-bits of actual data and the LSB is always set to 0,
+//  > accelerometer data consists of 18-bits of actual data and the two lowest order bits are always set to 0
 //  p37, 6.1
 //
 // device powers up in sleep mode.
@@ -22,6 +23,12 @@ use zerocopy::{FromBytes, Immutable, IntoBytes, TryFromBytes};
 //
 // Fifo has four different package types, see page 37
 // Default timestamp resolution is 1us, see page 82
+//
+//
+// > The only register settings that user can modify during sensor operation are for ODR selection, FSR selection, and sensor mode
+// > changes (register parameters GYRO_ODR, ACCEL_ODR, GYRO_FS_SEL, ACCEL_FS_SEL, GYRO_MODE, ACCEL_MODE). User must not
+// > modify any other register values during sensor operation.
+// p60
 //
 
 pub mod regs {
@@ -537,8 +544,29 @@ impl FifoGyroscope {
 }
 
 #[derive(Debug, Default, Copy, Clone)]
-pub struct FifoTimestamp {
-    pub x: u16,
+pub struct FifoTimestamp(pub u16);
+
+#[derive(Debug, Default, Copy, Clone)]
+pub struct TimeTracker {
+    pub rollovers: u64,
+    pub previous: FifoTimestamp,
+}
+impl TimeTracker {
+    pub fn new() -> Self {
+        TimeTracker {
+            rollovers: 0,
+            previous: Default::default(),
+        }
+    }
+    pub fn update(&mut self, timestamp: FifoTimestamp) {
+        if timestamp.0 < self.previous.0 {
+            self.rollovers += 1;
+        }
+        self.previous = timestamp;
+    }
+    pub fn time_us(&self) -> u64 {
+        self.rollovers * 0x1_00_00 + self.previous.0 as u64
+    }
 }
 
 #[derive(Debug, Default, Copy, Clone)]
@@ -612,9 +640,7 @@ impl IcmFifoProcessor {
             p += 1;
         }
         if header.timestamp() != FifoHeaderTimestamp::None {
-            r.timestamp = FifoTimestamp {
-                x: u16::from_be_bytes(data[p..p + 2].try_into().unwrap()),
-            }
+            r.timestamp = FifoTimestamp(u16::from_be_bytes(data[p..p + 2].try_into().unwrap()))
         }
 
         r
