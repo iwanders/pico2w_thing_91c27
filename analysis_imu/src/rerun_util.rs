@@ -14,7 +14,7 @@ pub fn lsm_pump(
     let processor = LsmFifoProcessor {
         accel_scale: AccelerationScale::G8,
         accel_high_scale: AccelerationScaleHigh::G32,
-        gyro_scale: GyroscopeScale::Dps4000,
+        gyro_scale: GyroscopeScale::Dps2000,
     };
     //  should chunk this with https://docs.rs/rerun/latest/rerun/log/struct.Chunk.html
     loop {
