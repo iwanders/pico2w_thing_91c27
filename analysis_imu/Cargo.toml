@@ -11,7 +11,18 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 zerocopy = { version = "0.8.26", features = ["derive"] }
 thiserror = {version="2", default-features=false}
 bitfield-struct = "0.11.0"
-firmware_imu = {path="../firmware_imu"}
+firmware_imu = {path="../firmware_imu", features=["std"]}
 anyhow="1.0"
 
 serialport = "4.8.1"
+
+rerun = {version="0.30.1", optional=true}
+
+[features]
+# We use this feature here, that's set to opt into the host binaries.
+std = []
+
+# pull in https://gitlab.com/robigalia/ssmarshal/-/merge_requests/2
+#https://gitlab.com/de-vri-es/ssmarshal/-/tree/fix-std-error
+[patch.crates-io]
+ssmarshal = { path = '../../3rdparty/ssmarshal/' }
