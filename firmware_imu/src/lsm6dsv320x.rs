@@ -987,6 +987,11 @@ pub struct FifoTimestamp {
     /// Scale is 21.7us typical, but depends on INTERNAL_FREQ_FINE 9.54, p92
     pub t: u32,
 }
+impl FifoTimestamp {
+    pub fn as_secs_f32(&self) ->  f32{
+        self.t as f32 * 21.7e-6
+    }
+}
 
 #[derive(Debug, Default, Copy, Clone)]
 pub struct FifoTemperature {

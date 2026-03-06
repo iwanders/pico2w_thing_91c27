@@ -12,6 +12,9 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use serialport::SerialPort;
 
+#[cfg(feature = "rerun")]
+mod rerun_util;
+
 // Manual copy, boo.
 #[derive(Copy, Clone, Debug, zerocopy::IntoBytes)]
 #[repr(u8)]
@@ -128,6 +131,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
+
+    #[cfg(feature = "rerun")]
+    return Ok(rerun_util::things(lsm_rec, icm_rec)?);
 
     // Next, we need to actually do the hard work and re-assemble the fifo data into something that is useful.
     // We want this to be able to run on the imu as well, so lets do something like a sliding window approach
