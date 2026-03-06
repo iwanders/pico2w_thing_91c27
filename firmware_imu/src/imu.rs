@@ -406,7 +406,7 @@ async fn configure_lsm(lsm: &mut LSM) -> Result<(), LSMError> {
     };
     lsm.control_acceleration_high(AccelerationModeDataRateHigh {
         scale: AccelerationScaleHigh::G32,
-        rate: AccelerationDataRateHigh::Hz3840,
+        rate: AccelerationDataRateHigh::Hz7680,
         ..Default::default()
     })
     .await?;
@@ -415,7 +415,7 @@ async fn configure_lsm(lsm: &mut LSM) -> Result<(), LSMError> {
     use lsm6dsv320x::{GyroscopeMode, GyroscopeModeDataRate};
     lsm.control_gyroscope(GyroscopeModeDataRate {
         mode: GyroscopeMode::HighPerformance,
-        rate: OutputDataRate::Hz3840,
+        rate: OutputDataRate::Hz7680,
     })
     .await?;
     use lsm6dsv320x::{GyroscopeBandwidthScale, GyroscopeScale};
@@ -434,8 +434,8 @@ async fn configure_lsm(lsm: &mut LSM) -> Result<(), LSMError> {
     .await?;
     use lsm6dsv320x::FifoBatch;
     lsm.control_fifo_batch(FifoBatch {
-        gyroscope: OutputDataRate::Hz3840,
-        acceleration: OutputDataRate::Hz3840,
+        gyroscope: OutputDataRate::Hz7680,
+        acceleration: OutputDataRate::Hz7680,
     })
     .await?;
     // And this last one to start collecting high G samples to the fifo.
@@ -497,14 +497,14 @@ async fn configure_icm(icm: &mut ICM) -> Result<(), ICMError> {
     use icm42688::{GyroscopeConfig, GyroscopeOutputDataRate, GyroscopeScale};
     icm.control_gyro(GyroscopeConfig {
         scale: GyroscopeScale::Dps250,
-        rate: GyroscopeOutputDataRate::Hz4k,
+        rate: GyroscopeOutputDataRate::Hz8k,
     })
     .await?;
 
     use icm42688::{AccelerationConfig, AccelerationOutputDataRate, AccelerationScale};
     icm.control_accel(AccelerationConfig {
         scale: AccelerationScale::G16,
-        rate: AccelerationOutputDataRate::Hz4k,
+        rate: AccelerationOutputDataRate::Hz8k,
     })
     .await?;
 
@@ -516,7 +516,7 @@ async fn configure_icm(icm: &mut ICM) -> Result<(), ICMError> {
     icm.control_fifo_config(FifoConfig {
         resume_partial: true,
         watermark_gt_persist: true,
-        high_resolution: false,
+        high_resolution: true,
         fsync: false,
         batch_temperature: true,
         batch_gyro: true,
