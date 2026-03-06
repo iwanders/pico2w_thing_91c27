@@ -384,7 +384,6 @@ pub struct IcmFifoIterator<'d> {
 }
 impl<'d> IcmFifoIterator<'d> {
     pub fn new(data: &'d [u8]) -> Self {
-        println!("data len: {}", data.len());
         Self { data, position: 0 }
     }
 }
