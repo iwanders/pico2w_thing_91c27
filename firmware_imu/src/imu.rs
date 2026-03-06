@@ -111,6 +111,7 @@ async fn icm_task(
             if !chunk_header.data() {
                 // println!("no data");
                 // break;
+                continue;
             }
             // println!("relevant_data.len(): {:?}", relevant_data.len());
             // println!("chunk_header: {:?}", chunk_header);
@@ -175,12 +176,12 @@ async fn lsm_task(
                 // defmt::warn!("buffer overrrun in icm task");
                 stats
                     .queue_overrun
-                    .fetch_add(total_bytes - i, core::sync::atomic::Ordering::Relaxed);
+                    .fetch_add(total_bytes - (i * 7), core::sync::atomic::Ordering::Relaxed);
                 continue;
             } else {
                 stats
                     .queue_pushed
-                    .fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+                    .fetch_add(1 * 7, core::sync::atomic::Ordering::Relaxed);
             }
         }
         if s.overrun_latched() {
@@ -316,10 +317,19 @@ pub async fn imu_entry(
         .spawn(data_cdc_task(cdc, icm_consumer, lsm_consumer))
         .unwrap();
 
+    let start_time = embassy_time::Instant::now();
     loop {
-        defmt::println!("icm stats: {:#?}", icm_stats.to_read_only());
-        defmt::println!("lsm stats: {:#?}", lsm_stats.to_read_only());
         Timer::after_millis(1000).await;
+        let elapsed = (embassy_time::Instant::now() - start_time).as_millis();
+        let icm_read_only = icm_stats.to_read_only();
+        let lsm_read_only = lsm_stats.to_read_only();
+        defmt::println!("icm stats: {:#?}", icm_read_only);
+        defmt::println!("lsm stats: {:#?}", lsm_read_only);
+        defmt::println!(
+            "icm b/ms: {:?}   lsm b/ms: {:?}",
+            icm_read_only.total_produced as u64 / elapsed,
+            lsm_read_only.total_produced as u64 / elapsed
+        );
     }
     /*
      *
@@ -381,7 +391,7 @@ async fn configure_lsm(lsm: &mut LSM) -> Result<(), LSMError> {
     use lsm6dsv320x::{AccelerationMode, AccelerationModeDataRate, OutputDataRate};
     lsm.control_acceleration(AccelerationModeDataRate {
         mode: AccelerationMode::HighPerformance,
-        rate: OutputDataRate::Hz7680,
+        rate: OutputDataRate::Hz3840,
     })
     .await?;
     use lsm6dsv320x::{AccelerationFilterScale, AccelerationScale};
@@ -395,8 +405,8 @@ async fn configure_lsm(lsm: &mut LSM) -> Result<(), LSMError> {
         AccelerationDataRateHigh, AccelerationModeDataRateHigh, AccelerationScaleHigh,
     };
     lsm.control_acceleration_high(AccelerationModeDataRateHigh {
-        scale: AccelerationScaleHigh::G320,
-        rate: AccelerationDataRateHigh::Hz7680,
+        scale: AccelerationScaleHigh::G32,
+        rate: AccelerationDataRateHigh::Hz3840,
         ..Default::default()
     })
     .await?;
@@ -410,7 +420,7 @@ async fn configure_lsm(lsm: &mut LSM) -> Result<(), LSMError> {
     .await?;
     use lsm6dsv320x::{GyroscopeBandwidthScale, GyroscopeScale};
     lsm.filter_gyroscope(GyroscopeBandwidthScale {
-        scale: GyroscopeScale::DPS4000,
+        scale: GyroscopeScale::Dps2000,
     })
     .await?;
 
@@ -424,8 +434,8 @@ async fn configure_lsm(lsm: &mut LSM) -> Result<(), LSMError> {
     .await?;
     use lsm6dsv320x::FifoBatch;
     lsm.control_fifo_batch(FifoBatch {
-        gyroscope: OutputDataRate::Hz7680,
-        acceleration: OutputDataRate::Hz7680,
+        gyroscope: OutputDataRate::Hz3840,
+        acceleration: OutputDataRate::Hz3840,
     })
     .await?;
     // And this last one to start collecting high G samples to the fifo.
@@ -473,6 +483,8 @@ async fn configure_icm(icm: &mut ICM) -> Result<(), ICMError> {
     let _ = icm.reset().await;
     Timer::after_millis(10).await;
 
+    // icm.interface_config_fifo_count_bytes().await?;
+
     // set the power register.
     use icm42688::{PowerConfig, SensorMode};
     icm.control_power(PowerConfig {
@@ -485,14 +497,14 @@ async fn configure_icm(icm: &mut ICM) -> Result<(), ICMError> {
     use icm42688::{GyroscopeConfig, GyroscopeOutputDataRate, GyroscopeScale};
     icm.control_gyro(GyroscopeConfig {
         scale: GyroscopeScale::Dps250,
-        rate: GyroscopeOutputDataRate::Hz8k,
+        rate: GyroscopeOutputDataRate::Hz4k,
     })
     .await?;
 
     use icm42688::{AccelerationConfig, AccelerationOutputDataRate, AccelerationScale};
     icm.control_accel(AccelerationConfig {
         scale: AccelerationScale::G16,
-        rate: AccelerationOutputDataRate::Hz8k,
+        rate: AccelerationOutputDataRate::Hz4k,
     })
     .await?;
 
@@ -504,7 +516,7 @@ async fn configure_icm(icm: &mut ICM) -> Result<(), ICMError> {
     icm.control_fifo_config(FifoConfig {
         resume_partial: true,
         watermark_gt_persist: true,
-        high_resolution: true,
+        high_resolution: false,
         fsync: false,
         batch_temperature: true,
         batch_gyro: true,
@@ -625,7 +637,7 @@ async fn _lsm_test<LsmSPI: SpiDevice>(
     .await?;
     use lsm6dsv320x::{GyroscopeBandwidthScale, GyroscopeScale};
     lsm.filter_gyroscope(GyroscopeBandwidthScale {
-        scale: GyroscopeScale::DPS4000,
+        scale: GyroscopeScale::Dps4000,
     })
     .await?;
 

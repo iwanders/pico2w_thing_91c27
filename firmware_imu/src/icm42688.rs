@@ -51,6 +51,9 @@ pub mod regs {
     /// First gyroscope data register.
     pub const GYRO_DATA_X1: u8 = 0x25;
 
+    /// Data interface config?
+    pub const INTF_CONFIG0: u8 = 0x4c;
+
     /// Gyroscope config
     pub const GYRO_CONFIG0: u8 = 0x4f;
     /// Acceleration config.
@@ -771,6 +774,11 @@ where
         self.write(regs::FIFO_CONFIG, &[config.to_reg()]).await
     }
 
+    /// Sets the interface config register to report the fifo in bytes instead of packets.
+    pub async fn interface_config_fifo_count_bytes(&mut self) -> Result<(), Error<Spi::Error>> {
+        self.write(regs::INTF_CONFIG0, &[0b0011_0011]).await
+    }
+
     pub async fn control_fifo_config(
         &mut self,
         config: FifoConfig,
@@ -807,7 +815,7 @@ where
         let mut raw_data = [0u8; 3];
         self.read(regs::INT_STATUS, raw_data.as_mut_bytes()).await?;
         let status = RegIntStatus::from_bits(raw_data[0]);
-        let count = u16::from_le_bytes([raw_data[2], raw_data[1]]);
+        let count = u16::from_be_bytes([raw_data[1], raw_data[2]]);
         let up_to = values.len().min(count as usize);
         self.read(regs::FIFO_DATA, &mut values[0..up_to]).await?;
         Ok((status, count as usize))

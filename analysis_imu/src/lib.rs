@@ -162,7 +162,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let processor = LsmFifoProcessor {
             accel_scale: AccelerationScale::G8,
-            accel_high_scale: AccelerationScaleHigh::G320,
+            accel_high_scale: AccelerationScaleHigh::G32,
             gyro_scale: GyroscopeScale::Dps4000,
         };
         for _ in 0..9999999 {
