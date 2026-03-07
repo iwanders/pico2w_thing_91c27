@@ -111,9 +111,14 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create a new Firehose instance.
     let mut firehose = Firehose::new(&port_name)?;
 
-    let mut data = [0u8; 512];
-    firehose.read_exact(&mut data)?;
-    println!("z: {data:?}");
+    // let mut data = [0u8; 512];
+    // firehose.read_exact(&mut data)?;
+    // println!("z: {data:?}");
+    const FLUSH_BUFFERS: bool = true;
+    if FLUSH_BUFFERS {
+        let mut data = [0u8; 8192];
+        firehose.read_exact(&mut data)?;
+    }
 
     let (mut splitter, lsm_rec, icm_rec) = ImuSplitter::new(firehose);
 
