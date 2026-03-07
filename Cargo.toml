@@ -24,7 +24,7 @@ embassy-time = { version = "0.5", features = [
     "defmt",
     "defmt-timestamp-uptime",
 ] }
-embassy-usb = { version = "0.5.0", features = ["defmt"] }
+embassy-usb = { version = "0.5.1", features = ["defmt"], default-features=false}
 # embassy-net = { version = "0.7.0", features = [
 #   "defmt",
 #   "icmp",
