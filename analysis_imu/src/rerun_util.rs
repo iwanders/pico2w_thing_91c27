@@ -54,6 +54,7 @@ pub struct SyncData {
     icm_start: std::sync::atomic::AtomicU64,
     /// ICM clock - start + creation.
     icm_current: std::sync::atomic::AtomicU64,
+    icm_corrected: std::sync::atomic::AtomicU64,
 }
 impl SyncData {
     pub fn new() -> Self {
@@ -66,6 +67,7 @@ impl SyncData {
             lsm_current: 0.into(),
             icm_start: 0.into(),
             icm_current: 0.into(),
+            icm_corrected: 0.into(),
         }
     }
 }
@@ -182,8 +184,17 @@ pub fn lsm_pump(
                         + sync.creation_timestamp) as f64
                         * 1e-9)
                         - t_as_secs_f64;
+                    let icm_corrected = (sync
+                        .icm_corrected
+                        .load(std::sync::atomic::Ordering::Relaxed)
+                        as f64
+                        * 1e-9)
+                        - t_as_secs_f64;
 
-                    if lsm_diff.abs() > 1000.0 || icm_diff.abs() > 1000.0 {
+                    if lsm_diff.abs() > 1000.0
+                        || icm_diff.abs() > 1000.0
+                        || icm_corrected.abs() > 1000.0
+                    {
                         continue;
                     }
                     rec.log("time/system", &rerun::Scalars::single(t_as_secs_f64))?;
@@ -191,6 +202,7 @@ pub fn lsm_pump(
                     rec.log("time/lsm_min_system", &rerun::Scalars::single(lsm_diff))?;
                     rec.log("time/lsm_corrected", &rerun::Scalars::single(lsm_corrected))?;
                     rec.log("time/icm_min_system", &rerun::Scalars::single(icm_diff))?;
+                    rec.log("time/icm_corrected", &rerun::Scalars::single(icm_corrected))?;
                 }
                 _ => {}
             }
@@ -208,6 +220,7 @@ pub fn icm_pump(
         accel_scale: icm42688::AccelerationScale::G16,
     };
     let mut time_tracker = TimeTracker::new();
+    let mut clock_correct: Option<ClockSkewCorrector> = None;
     loop {
         // const PACKET_SIZE: usize = 20;
         const PACKET_SIZE: usize = 20 - 4;
@@ -227,11 +240,16 @@ pub fn icm_pump(
                         let val = time_tracker.time_ns();
                         sync.icm_start
                             .store(val, std::sync::atomic::Ordering::Relaxed);
+                        clock_correct = Some(ClockSkewCorrector::new(sync.creation_timestamp, val));
                         val
                     } else {
                         current_value
                     };
-                    let offset = time_tracker.time_ns() - icm_start;
+                    let clock_correct = clock_correct.as_mut().unwrap();
+                    clock_correct.update(time_tracker.time_ns());
+                    let offset = clock_correct.clock_correct(time_tracker.time_ns() - icm_start);
+                    let t_corrected = sync.creation_timestamp + offset;
+
                     let t_cycle = sync.creation_instant + std::time::Duration::from_nanos(offset);
                     rec.set_time("imu_time", t_cycle);
 
@@ -239,6 +257,8 @@ pub fn icm_pump(
                         (time_tracker.time_ns() - icm_start) + sync.creation_timestamp;
                     sync.icm_current
                         .store(icm_current, std::sync::atomic::Ordering::Relaxed);
+                    sync.icm_corrected
+                        .store(t_corrected, std::sync::atomic::Ordering::Relaxed);
                     let lsm_t_sec = (icm_current / 1000) as f64 * 1e-6;
                     rec.log("icm/t_current", &rerun::Scalars::single(lsm_t_sec))?;
                     rec.log(
