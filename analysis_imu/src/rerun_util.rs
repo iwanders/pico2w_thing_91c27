@@ -14,7 +14,11 @@ pub struct SyncData {
     creation_instant: std::time::SystemTime,
     creation_timestamp: u64,
     lsm_start: std::sync::atomic::AtomicU64,
+    lsm_current: std::sync::atomic::AtomicU64,
+    /// ICM clock first data.
     icm_start: std::sync::atomic::AtomicU64,
+    /// ICM clock - start + creation.
+    icm_current: std::sync::atomic::AtomicU64,
 }
 impl SyncData {
     pub fn new() -> Self {
@@ -24,7 +28,9 @@ impl SyncData {
             creation_instant: std::time::SystemTime::now(),
             creation_timestamp: t_as_nsec,
             lsm_start: 0.into(),
+            lsm_current: 0.into(),
             icm_start: 0.into(),
+            icm_current: 0.into(),
         }
     }
 }
@@ -51,8 +57,7 @@ pub fn lsm_pump(
             //println!("{data_type:?} {bytes:?}");
             let r = processor.interpret(data_type, bytes);
 
-            let current_value = sync.lsm_start.load(std::sync::atomic::Ordering::Relaxed);
-            let lsm_start = current_value;
+            let lsm_start = sync.lsm_start.load(std::sync::atomic::Ordering::Relaxed);
             let offset = current_t - lsm_start;
             let t_cycle = sync.creation_instant + std::time::Duration::from_nanos(offset);
             match r {
@@ -94,14 +99,31 @@ pub fn lsm_pump(
                 }
                 FifoEntry::Timestamp(t) => {
                     // println!("t {: >60}{: >6.3?}  {: >6.3?}", "", t, tf32);
-                    if current_value == 0 {
+                    let start = if sync.lsm_start.load(std::sync::atomic::Ordering::Relaxed) == 0 {
                         let val = t.as_nsec_u64();
                         sync.lsm_start
                             .store(val, std::sync::atomic::Ordering::Relaxed);
-                    }
+                        val
+                    } else {
+                        sync.lsm_start.load(std::sync::atomic::Ordering::Relaxed)
+                    };
                     current_t = t.as_nsec_u64();
+
+                    let lsm_current = (current_t - start) + sync.creation_timestamp;
+                    sync.lsm_current
+                        .store(lsm_current, std::sync::atomic::Ordering::Relaxed);
+                    let lsm_t_sec = (lsm_current / 1000) as f64 * 1e-6;
+                    rec.log("lsm/t_current", &rerun::Scalars::single(lsm_t_sec))?;
                     let tf32 = t.as_secs_f32();
                     rec.log("lsm/t", &rerun::Scalars::single(tf32))?;
+
+                    // Do the current difference here.
+                    let current_icm = sync.icm_current.load(std::sync::atomic::Ordering::Relaxed);
+                    let difference_s =
+                        ((current_icm / 1000) as f64 - (lsm_current / 1000) as f64) * 1e-6;
+                    if difference_s.abs() < 1000000000.0 {
+                        rec.log("time/diff_s", &rerun::Scalars::single(difference_s))?;
+                    }
                 }
                 _ => {}
             }
@@ -135,7 +157,7 @@ pub fn icm_pump(
                     //println!("  {:?} {:#?}", time_tracker.time_us(), r);
                     let current_value = sync.icm_start.load(std::sync::atomic::Ordering::Relaxed);
                     let icm_start = if current_value == 0 {
-                        let val = time_tracker.time_us() * 1000;
+                        let val = time_tracker.time_ns();
                         sync.icm_start
                             .store(val, std::sync::atomic::Ordering::Relaxed);
                         val
@@ -145,6 +167,13 @@ pub fn icm_pump(
                     let offset = time_tracker.time_ns() - icm_start;
                     let t_cycle = sync.creation_instant + std::time::Duration::from_nanos(offset);
                     rec.set_time("imu_time", t_cycle);
+
+                    let icm_current =
+                        (time_tracker.time_ns() - icm_start) + sync.creation_timestamp;
+                    sync.icm_current
+                        .store(icm_current, std::sync::atomic::Ordering::Relaxed);
+                    let lsm_t_sec = (icm_current / 1000) as f64 * 1e-6;
+                    rec.log("icm/t_current", &rerun::Scalars::single(lsm_t_sec))?;
                     rec.log(
                         "icm/t",
                         &rerun::Scalars::single(time_tracker.time_us() as f64 * 1e-6),
