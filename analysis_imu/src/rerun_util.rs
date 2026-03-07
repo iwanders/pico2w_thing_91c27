@@ -10,6 +10,41 @@ use firmware_imu::lsm6dsv320x::{
 use firmware_imu::lsm6dsv320x::{AccelerationScale, GyroscopeScale};
 use firmware_imu::lsm6dsv320x::{GameRotationVectorRaw, LSM6DSV320X};
 
+pub struct ClockSkewCorrector {
+    scale: f64,
+    system_start: u64,
+    clock_start: u64,
+    discard_counter: usize,
+}
+impl ClockSkewCorrector {
+    pub fn new(system_start: u64, clock_start: u64) -> Self {
+        Self {
+            scale: 1.0,
+            system_start,
+            clock_start,
+            discard_counter: 1000,
+        }
+    }
+    pub fn update(&mut self, value_other_ns: u64) {
+        // do smart things.
+        if self.discard_counter > 0 {
+            self.discard_counter -= 1;
+            return;
+        }
+        let system_clock = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos() as u64;
+        let system_duration = system_clock - self.system_start;
+        let clock_duration = value_other_ns - self.clock_start;
+        self.scale = system_duration as f64 / clock_duration as f64;
+        // println!("scale: {:?}", self.scale);
+    }
+    pub fn clock_correct(&self, value: u64) -> u64 {
+        (value as f64 * self.scale) as u64
+    }
+}
+
 pub struct SyncData {
     creation_instant: std::time::SystemTime,
     creation_timestamp: u64,
@@ -49,6 +84,7 @@ pub fn lsm_pump(
     // Or not, a chunk is for a single entity only...
 
     let mut current_t = 0;
+    let mut clock_correct: Option<ClockSkewCorrector> = None;
     loop {
         let mut lsm_data = [0u8; 70];
         lsm_data.fill_with(|| lsm_rec.0.recv().unwrap());
@@ -58,7 +94,11 @@ pub fn lsm_pump(
             let r = processor.interpret(data_type, bytes);
 
             let lsm_start = sync.lsm_start.load(std::sync::atomic::Ordering::Relaxed);
-            let offset = current_t - lsm_start;
+            let offset = if let Some(c) = &clock_correct {
+                c.clock_correct(current_t - lsm_start)
+            } else {
+                current_t - lsm_start
+            };
             let t_cycle = sync.creation_instant + std::time::Duration::from_nanos(offset);
             match r {
                 FifoEntry::GameRotationVector(game_rotation_vector_raw) => {
@@ -98,18 +138,23 @@ pub fn lsm_pump(
                     rec.log("lsm/gyro/z", &rerun::Scalars::single(z))?;
                 }
                 FifoEntry::Timestamp(t) => {
+                    let system_clock = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap();
                     // println!("t {: >60}{: >6.3?}  {: >6.3?}", "", t, tf32);
                     let start = if sync.lsm_start.load(std::sync::atomic::Ordering::Relaxed) == 0 {
                         let val = t.as_nsec_u64();
                         sync.lsm_start
                             .store(val, std::sync::atomic::Ordering::Relaxed);
+                        clock_correct = Some(ClockSkewCorrector::new(sync.creation_timestamp, val));
                         val
                     } else {
                         sync.lsm_start.load(std::sync::atomic::Ordering::Relaxed)
                     };
                     current_t = t.as_nsec_u64();
 
-                    let lsm_current = (current_t - start) + sync.creation_timestamp;
+                    let offset = current_t - start;
+                    let lsm_current = offset + sync.creation_timestamp;
                     sync.lsm_current
                         .store(lsm_current, std::sync::atomic::Ordering::Relaxed);
                     let lsm_t_sec = (lsm_current / 1000) as f64 * 1e-6;
@@ -124,6 +169,28 @@ pub fn lsm_pump(
                     if difference_s.abs() < 1000000000.0 {
                         rec.log("time/diff_s", &rerun::Scalars::single(difference_s))?;
                     }
+                    let t_as_secs_f64 = system_clock.as_secs_f64();
+                    let lsm_current_s_f64 = lsm_current as f64 * 1e-9;
+                    let icm_current_s_f64 = current_icm as f64 * 1e-9;
+                    let lsm_diff = lsm_current_s_f64 - t_as_secs_f64;
+                    let icm_diff = icm_current_s_f64 - t_as_secs_f64;
+
+                    let clock_correct = clock_correct.as_mut().unwrap();
+                    clock_correct.update(current_t);
+
+                    let lsm_corrected = ((clock_correct.clock_correct(offset)
+                        + sync.creation_timestamp) as f64
+                        * 1e-9)
+                        - t_as_secs_f64;
+
+                    if lsm_diff.abs() > 1000.0 || icm_diff.abs() > 1000.0 {
+                        continue;
+                    }
+                    rec.log("time/system", &rerun::Scalars::single(t_as_secs_f64))?;
+
+                    rec.log("time/lsm_min_system", &rerun::Scalars::single(lsm_diff))?;
+                    rec.log("time/lsm_corrected", &rerun::Scalars::single(lsm_corrected))?;
+                    rec.log("time/icm_min_system", &rerun::Scalars::single(icm_diff))?;
                 }
                 _ => {}
             }

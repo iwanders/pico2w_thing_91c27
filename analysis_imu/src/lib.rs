@@ -116,7 +116,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     // println!("z: {data:?}");
     const FLUSH_BUFFERS: bool = true;
     if FLUSH_BUFFERS {
-        let mut data = [0u8; 8192];
+        let mut data = [0u8; 8192 * 2];
         firehose.read_exact(&mut data)?;
     }
 
