@@ -43,6 +43,9 @@ impl ClockSkewCorrector {
     pub fn clock_correct(&self, value: u64) -> u64 {
         (value as f64 * self.scale) as u64
     }
+    pub fn clock_scale(&self) -> f64 {
+        self.scale
+    }
 }
 
 pub struct SyncData {
@@ -168,9 +171,6 @@ pub fn lsm_pump(
                     let current_icm = sync.icm_current.load(std::sync::atomic::Ordering::Relaxed);
                     let difference_s =
                         ((current_icm / 1000) as f64 - (lsm_current / 1000) as f64) * 1e-6;
-                    if difference_s.abs() < 1000000000.0 {
-                        rec.log("time/diff_s", &rerun::Scalars::single(difference_s))?;
-                    }
                     let t_as_secs_f64 = system_clock.as_secs_f64();
                     let lsm_current_s_f64 = lsm_current as f64 * 1e-9;
                     let icm_current_s_f64 = current_icm as f64 * 1e-9;
@@ -179,6 +179,10 @@ pub fn lsm_pump(
 
                     let clock_correct = clock_correct.as_mut().unwrap();
                     clock_correct.update(current_t);
+                    rec.log(
+                        "time/lsm_skew",
+                        &rerun::Scalars::single(clock_correct.clock_scale()),
+                    )?;
 
                     let lsm_corrected = ((clock_correct.clock_correct(offset)
                         + sync.creation_timestamp) as f64
@@ -194,9 +198,11 @@ pub fn lsm_pump(
                     if lsm_diff.abs() > 1000.0
                         || icm_diff.abs() > 1000.0
                         || icm_corrected.abs() > 1000.0
+                        || difference_s.abs() > 1000.0
                     {
                         continue;
                     }
+                    rec.log("time/diff_s", &rerun::Scalars::single(difference_s))?;
                     rec.log("time/system", &rerun::Scalars::single(t_as_secs_f64))?;
 
                     rec.log("time/lsm_min_system", &rerun::Scalars::single(lsm_diff))?;
@@ -249,6 +255,10 @@ pub fn icm_pump(
                     clock_correct.update(time_tracker.time_ns());
                     let offset = clock_correct.clock_correct(time_tracker.time_ns() - icm_start);
                     let t_corrected = sync.creation_timestamp + offset;
+                    rec.log(
+                        "time/icm_skew",
+                        &rerun::Scalars::single(clock_correct.clock_scale()),
+                    )?;
 
                     let t_cycle = sync.creation_instant + std::time::Duration::from_nanos(offset);
                     rec.set_time("imu_time", t_cycle);
