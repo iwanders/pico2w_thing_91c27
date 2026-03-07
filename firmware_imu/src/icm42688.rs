@@ -569,6 +569,9 @@ impl TimeTracker {
     pub fn time_us(&self) -> u64 {
         self.rollovers * 0x1_00_00 + self.previous.0 as u64
     }
+    pub fn time_ns(&self) -> u64 {
+        self.time_us() * 1000
+    }
 }
 
 #[derive(Debug, Default, Copy, Clone)]

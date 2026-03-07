@@ -994,6 +994,9 @@ impl FifoTimestamp {
     pub fn as_secs_f64(&self) -> f64 {
         self.t as f64 * 21.7e-6
     }
+    pub fn as_nsec_u64(&self) -> u64 {
+        self.t as u64 * 21700
+    }
 }
 
 #[derive(Debug, Default, Copy, Clone)]

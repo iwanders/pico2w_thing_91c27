@@ -12,7 +12,7 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use serialport::SerialPort;
 
-#[cfg(feature = "rerun")]
+//#[cfg(feature = "rerun")]
 mod rerun_util;
 
 // Manual copy, boo.
