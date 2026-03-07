@@ -988,8 +988,11 @@ pub struct FifoTimestamp {
     pub t: u32,
 }
 impl FifoTimestamp {
-    pub fn as_secs_f32(&self) ->  f32{
+    pub fn as_secs_f32(&self) -> f32 {
         self.t as f32 * 21.7e-6
+    }
+    pub fn as_secs_f64(&self) -> f64 {
+        self.t as f64 * 21.7e-6
     }
 }
 

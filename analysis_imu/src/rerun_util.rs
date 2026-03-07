@@ -16,7 +16,10 @@ pub fn lsm_pump(
         accel_high_scale: AccelerationScaleHigh::G32,
         gyro_scale: GyroscopeScale::Dps2000,
     };
-    //  should chunk this with https://docs.rs/rerun/latest/rerun/log/struct.Chunk.html
+    // should chunk this with https://docs.rs/rerun/latest/rerun/log/struct.Chunk.html
+    // Or not, a chunk is for a single entity only...
+    let mut start_time = None;
+    let mut recent_time = 1.0f32;
     loop {
         let mut lsm_data = [0u8; 70];
         lsm_data.fill_with(|| lsm_rec.0.recv().unwrap());
@@ -26,6 +29,8 @@ pub fn lsm_pump(
             //println!("{data_type:?} {bytes:?}");
             let r = processor.interpret(data_type, bytes);
 
+            let t_cycle = std::time::SystemTime::now()
+                + std::time::Duration::from_secs_f32(recent_time - start_time.unwrap_or(0.0));
             match r {
                 FifoEntry::GameRotationVector(game_rotation_vector_raw) => {
                     match game_rotation_vector_raw {
@@ -40,6 +45,7 @@ pub fn lsm_pump(
                     }
                 }
                 FifoEntry::AccelerometerNC(a) => {
+                    rec.set_time("imu_time", t_cycle);
                     // println!("a{: >0}  {: >6.3?}", "", a.xyz_f32());
                     let (x, y, z) = a.xyz_f32();
                     rec.log("lsm/accel/x", &rerun::Scalars::single(x))?;
@@ -47,6 +53,7 @@ pub fn lsm_pump(
                     rec.log("lsm/accel/z", &rerun::Scalars::single(z))?;
                 }
                 FifoEntry::HighGAccelerometer(a) => {
+                    rec.set_time("imu_time", t_cycle);
                     // println!("a+{: >30}{: >6.3?}", "", a.xyz_f32());
                     let (x, y, z) = a.xyz_f32();
                     rec.log("lsm/accel_high/x", &rerun::Scalars::single(x))?;
@@ -54,6 +61,7 @@ pub fn lsm_pump(
                     rec.log("lsm/accel_high/z", &rerun::Scalars::single(z))?;
                 }
                 FifoEntry::GyroscopeNC(g) => {
+                    rec.set_time("imu_time", t_cycle);
                     // println!("g{: >60}{: >6.3?}", "", g.xyz_f32());
                     let (x, y, z) = g.xyz_f32();
                     rec.log("lsm/gyro/x", &rerun::Scalars::single(x))?;
@@ -61,8 +69,12 @@ pub fn lsm_pump(
                     rec.log("lsm/gyro/z", &rerun::Scalars::single(z))?;
                 }
                 FifoEntry::Timestamp(t) => {
-                    // println!("t {: >60}{: >6.3?}", "", t);
                     let tf32 = t.as_secs_f32();
+                    // println!("t {: >60}{: >6.3?}  {: >6.3?}", "", t, tf32);
+                    if start_time.is_none() {
+                        start_time = Some(tf32);
+                    }
+                    recent_time = tf32;
                     rec.log("lsm/t", &rerun::Scalars::single(tf32))?;
                 }
                 _ => {}
@@ -82,6 +94,7 @@ pub fn icm_pump(
         accel_scale: icm42688::AccelerationScale::G16,
     };
     let mut time_tracker = TimeTracker::new();
+    let mut start_time = None;
     loop {
         // const PACKET_SIZE: usize = 20;
         const PACKET_SIZE: usize = 20 - 4;
@@ -89,6 +102,7 @@ pub fn icm_pump(
         lsm_data.fill_with(|| icm_rec.0.recv().unwrap());
 
         let mut iter = IcmFifoIterator::new(&lsm_data);
+
         for v in iter {
             if let Ok((hdr, data)) = v {
                 //println!("{:?}: {:?}", hdr, data);
@@ -97,8 +111,15 @@ pub fn icm_pump(
                     time_tracker.update(r.timestamp);
                     //println!("  {:?} {:#?}", time_tracker.time_us(), r);
                     let tf32 = time_tracker.time_us() as f32 * 1e-6;
+                    if start_time.is_none() {
+                        start_time = Some(tf32);
+                    }
+                    let t_cycle = std::time::SystemTime::now()
+                        + std::time::Duration::from_secs_f32(tf32 - start_time.unwrap_or(0.0));
+                    rec.set_time("imu_time", t_cycle);
                     rec.log("icm/t", &rerun::Scalars::single(tf32))?;
                     if let Some(accel) = r.acceleration {
+                        rec.set_time("imu_time", t_cycle);
                         // println!("  {: >8.3?}", accel.xyz_f32());
                         let (x, y, z) = accel.xyz_f32();
                         rec.log("icm/accel/x", &rerun::Scalars::single(x))?;
@@ -106,6 +127,7 @@ pub fn icm_pump(
                         rec.log("icm/accel/z", &rerun::Scalars::single(z))?;
                     }
                     if let Some(gyro) = r.gyroscope {
+                        rec.set_time("imu_time", t_cycle);
                         // println!("  {: >8.3?}", gyro.xyz_f32());
                         let (x, y, z) = gyro.xyz_f32();
                         rec.log("icm/gyro/x", &rerun::Scalars::single(x))?;
