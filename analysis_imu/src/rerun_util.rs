@@ -81,7 +81,7 @@ pub fn lsm_pump(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let processor = LsmFifoProcessor {
         accel_scale: AccelerationScale::G8,
-        accel_high_scale: AccelerationScaleHigh::G32,
+        accel_high_scale: AccelerationScaleHigh::G128,
         gyro_scale: GyroscopeScale::Dps2000,
     };
     // should chunk this with https://docs.rs/rerun/latest/rerun/log/struct.Chunk.html

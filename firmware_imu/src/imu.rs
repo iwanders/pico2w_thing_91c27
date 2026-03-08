@@ -405,7 +405,7 @@ async fn configure_lsm(lsm: &mut LSM) -> Result<(), LSMError> {
         AccelerationDataRateHigh, AccelerationModeDataRateHigh, AccelerationScaleHigh,
     };
     lsm.control_acceleration_high(AccelerationModeDataRateHigh {
-        scale: AccelerationScaleHigh::G32,
+        scale: AccelerationScaleHigh::G128,
         rate: AccelerationDataRateHigh::Hz3840,
         ..Default::default()
     })
