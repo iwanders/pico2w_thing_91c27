@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use super::{IcmReceiver, LsmReceiver};
-use rerun::TimeColumn;
 
 use firmware_imu::icm42688::{self, ICM42688, IcmFifoIterator, IcmFifoProcessor, TimeTracker};
 use firmware_imu::lsm6dsv320x::{
@@ -210,6 +209,9 @@ pub fn lsm_pump(
                     rec.log("time/icm_min_system", &rerun::Scalars::single(icm_diff))?;
                     rec.log("time/icm_corrected", &rerun::Scalars::single(icm_corrected))?;
                 }
+                FifoEntry::Temperature(t) => {
+                    rec.log("lsm/temperature_c", &rerun::Scalars::single(t.to_c_f32()))?;
+                }
                 _ => {}
             }
         }
@@ -290,6 +292,12 @@ pub fn icm_pump(
                         rec.log("icm/gyro/x", &rerun::Scalars::single(x))?;
                         rec.log("icm/gyro/y", &rerun::Scalars::single(y))?;
                         rec.log("icm/gyro/z", &rerun::Scalars::single(z))?;
+                    }
+
+                    // Temperature
+                    {
+                        let v = r.temperature;
+                        rec.log("icm/temperature_c", &rerun::Scalars::single(v.to_c_f32()))?;
                     }
                 }
             }

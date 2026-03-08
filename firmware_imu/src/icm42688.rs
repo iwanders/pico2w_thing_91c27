@@ -410,12 +410,25 @@ impl<'d> Iterator for IcmFifoIterator<'d> {
 
 #[derive(Debug, Copy, Clone)]
 pub enum FifoTemperature {
-    OneByte(u8),
-    TwoByte(u16),
+    OneByte(i8),
+    TwoByte(i16),
 }
 impl Default for FifoTemperature {
     fn default() -> Self {
         FifoTemperature::OneByte(0)
+    }
+}
+impl FifoTemperature {
+    pub fn to_c_f32(&self) -> f32 {
+        match self {
+            // 16 bit:
+            // Temperature in Degrees Centigrade = (TEMP_DATA / 132.48) + 25
+            // 8 bit:
+            // Temperature in Degrees Centigrade = (FIFO_TEMP_DATA / 2.07) + 25
+            // p67
+            FifoTemperature::OneByte(t) => (*t as f32 / 2.07) + 25.0,
+            FifoTemperature::TwoByte(t) => (*t as f32 / 132.48) + 25.0,
+        }
     }
 }
 
@@ -638,11 +651,11 @@ impl IcmFifoProcessor {
         if header.data_20bit() {
             // two byte
             r.temperature =
-                FifoTemperature::TwoByte(u16::from_be_bytes(data[p..p + 2].try_into().unwrap()));
+                FifoTemperature::TwoByte(i16::from_be_bytes(data[p..p + 2].try_into().unwrap()));
             p += 2;
         } else {
             // one byte.
-            r.temperature = FifoTemperature::OneByte(data[p]);
+            r.temperature = FifoTemperature::OneByte(data[p] as i8);
             p += 1;
         }
         if header.timestamp() != FifoHeaderTimestamp::None {

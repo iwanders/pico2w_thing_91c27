@@ -1004,6 +1004,11 @@ pub struct FifoTemperature {
     // In 256 LSB / C,The output of the temperature sensor is 0 LSB (typ.) at 25°C. p16 4.3
     pub t: i16,
 }
+impl FifoTemperature {
+    pub fn to_c_f32(&self) -> f32 {
+        (self.t as f32 / 256.0) + 25.0
+    }
+}
 
 #[bitfield(u16)]
 #[derive(PartialEq, Eq, FromBytes, IntoBytes, Immutable, defmt::Format)]
