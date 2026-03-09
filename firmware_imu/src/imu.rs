@@ -391,7 +391,7 @@ async fn configure_lsm(lsm: &mut LSM) -> Result<(), LSMError> {
     use lsm6dsv320x::{AccelerationMode, AccelerationModeDataRate, OutputDataRate};
     lsm.control_acceleration(AccelerationModeDataRate {
         mode: AccelerationMode::HighPerformance,
-        rate: OutputDataRate::Hz1920,
+        rate: OutputDataRate::Hz960,
     })
     .await?;
     use lsm6dsv320x::{AccelerationFilterScale, AccelerationScale};
@@ -406,7 +406,7 @@ async fn configure_lsm(lsm: &mut LSM) -> Result<(), LSMError> {
     };
     lsm.control_acceleration_high(AccelerationModeDataRateHigh {
         scale: AccelerationScaleHigh::G128,
-        rate: AccelerationDataRateHigh::Hz1920,
+        rate: AccelerationDataRateHigh::Hz960,
         ..Default::default()
     })
     .await?;
@@ -415,7 +415,7 @@ async fn configure_lsm(lsm: &mut LSM) -> Result<(), LSMError> {
     use lsm6dsv320x::{GyroscopeMode, GyroscopeModeDataRate};
     lsm.control_gyroscope(GyroscopeModeDataRate {
         mode: GyroscopeMode::HighPerformance,
-        rate: OutputDataRate::Hz1920,
+        rate: OutputDataRate::Hz960,
     })
     .await?;
     use lsm6dsv320x::{GyroscopeBandwidthScale, GyroscopeScale};
@@ -434,8 +434,8 @@ async fn configure_lsm(lsm: &mut LSM) -> Result<(), LSMError> {
     .await?;
     use lsm6dsv320x::FifoBatch;
     lsm.control_fifo_batch(FifoBatch {
-        gyroscope: OutputDataRate::Hz3840,
-        acceleration: OutputDataRate::Hz1920,
+        gyroscope: OutputDataRate::Hz960,
+        acceleration: OutputDataRate::Hz960,
     })
     .await?;
     // And this last one to start collecting high G samples to the fifo.
@@ -497,14 +497,14 @@ async fn configure_icm(icm: &mut ICM) -> Result<(), ICMError> {
     use icm42688::{GyroscopeConfig, GyroscopeOutputDataRate, GyroscopeScale};
     icm.control_gyro(GyroscopeConfig {
         scale: GyroscopeScale::Dps250,
-        rate: GyroscopeOutputDataRate::Hz2k,
+        rate: GyroscopeOutputDataRate::Hz1k,
     })
     .await?;
 
     use icm42688::{AccelerationConfig, AccelerationOutputDataRate, AccelerationScale};
     icm.control_accel(AccelerationConfig {
         scale: AccelerationScale::G16,
-        rate: AccelerationOutputDataRate::Hz2k,
+        rate: AccelerationOutputDataRate::Hz1k,
     })
     .await?;
 
