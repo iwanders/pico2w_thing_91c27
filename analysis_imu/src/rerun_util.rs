@@ -89,6 +89,7 @@ pub fn lsm_pump(
 
     let mut current_t = 0;
     let mut clock_correct: Option<ClockSkewCorrector> = None;
+    let mut previous_lsm_time = 0;
     loop {
         let mut lsm_data = [0u8; 70];
         lsm_data.fill_with(|| lsm_rec.0.recv().unwrap());
@@ -201,6 +202,14 @@ pub fn lsm_pump(
                     {
                         continue;
                     }
+
+                    if previous_lsm_time != 0 {
+                        let current_t = offset;
+                        let dt = current_t - previous_lsm_time;
+                        rec.log("time/lsm_dt", &rerun::Scalars::single(dt as f64 * 1.0e-9))?;
+                    }
+                    previous_lsm_time = offset;
+
                     rec.log("time/diff_s", &rerun::Scalars::single(difference_s))?;
                     rec.log("time/system", &rerun::Scalars::single(t_as_secs_f64))?;
 
@@ -229,6 +238,7 @@ pub fn icm_pump(
     };
     let mut time_tracker = TimeTracker::new();
     let mut clock_correct: Option<ClockSkewCorrector> = None;
+    let mut previous_icm_time = 0;
     loop {
         // const PACKET_SIZE: usize = 20;
         const PACKET_SIZE: usize = 20 - 4;
@@ -277,6 +287,14 @@ pub fn icm_pump(
                         "icm/t",
                         &rerun::Scalars::single(time_tracker.time_us() as f64 * 1e-6),
                     )?;
+
+                    if previous_icm_time != 0 {
+                        let current_t = time_tracker.time_ns();
+                        let dt = current_t - previous_icm_time;
+                        rec.log("time/icm_dt", &rerun::Scalars::single(dt as f64 * 1.0e-9))?;
+                    }
+                    previous_icm_time = time_tracker.time_ns();
+
                     if let Some(accel) = r.acceleration {
                         rec.set_time("imu_time", t_cycle);
                         // println!("  {: >8.3?}", accel.xyz_f32());
