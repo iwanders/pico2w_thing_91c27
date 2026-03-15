@@ -58,11 +58,16 @@ impl<'a> FileEntry<'a> {
     }
     /// Return the file name for this entry.
     pub fn file_name(&self) -> &str {
-        &self.file.filename
+        self.file.filename
     }
     /// Return the length of this file, this is equal to the length of the data slice.
     pub fn len(&self) -> usize {
         self.file.size as usize
+    }
+
+    /// Return whether the file is empty
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 

@@ -1,8 +1,6 @@
 #![cfg_attr(target_arch = "arm", no_std)]
 #![cfg_attr(not(test), no_main)]
 
-use rp2350_support::{defmt_serial, static_files};
-
 #[cfg(target_arch = "arm")]
 use rp2350_support::{rp2350_util, usb_picotool_reset};
 
@@ -17,6 +15,7 @@ pub mod program {
     #![allow(unused_mut)]
 
     use super::*;
+    use rp2350_support::defmt_serial;
 
     use embassy_executor::Spawner;
 
@@ -161,6 +160,7 @@ pub mod program {
         unwrap!(spawner.spawn(usb_task(usb)));
 
         let (tx, mut rx) = cdc_class_full.split();
+        let _ = rx;
 
         let logger = defmt_serial::SerialLogger::new(tx);
         let s = spawner.spawn(defmt_serial_task(logger));

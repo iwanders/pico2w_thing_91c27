@@ -282,7 +282,7 @@ pub struct AccelerationModeDataRateHigh {
     pub rate: AccelerationDataRateHigh,
 }
 impl AccelerationModeDataRateHigh {
-    fn to_reg(&self) -> u8 {
+    fn to_reg(self) -> u8 {
         (self.regout as u8) << 7 | (self.rate as u8) << 3 | (self.scale as u8)
     }
 }
@@ -314,7 +314,7 @@ pub struct GyroscopeBandwidthScale {
     pub scale: GyroscopeScale,
 }
 impl GyroscopeBandwidthScale {
-    fn to_reg(&self) -> u8 {
+    fn to_reg(self) -> u8 {
         self.scale as u8
     }
 }
@@ -338,7 +338,7 @@ pub struct GyroscopeModeDataRate {
     pub rate: OutputDataRate,
 }
 impl GyroscopeModeDataRate {
-    fn to_reg(&self) -> u8 {
+    fn to_reg(self) -> u8 {
         (self.mode as u8) << 4 | self.rate as u8
     }
 }
@@ -389,7 +389,7 @@ pub struct FifoControl {
     pub mode: FifoMode,
 }
 impl FifoControl {
-    fn to_reg(&self) -> u8 {
+    fn to_reg(self) -> u8 {
         (self.timestamp as u8) << 6 | (self.temperature as u8) << 4 | self.mode as u8
     }
 }
@@ -399,7 +399,7 @@ pub struct FifoBatch {
     pub acceleration: OutputDataRate,
 }
 impl FifoBatch {
-    fn to_reg(&self) -> u8 {
+    fn to_reg(self) -> u8 {
         (self.gyroscope as u8) << 4 | self.acceleration as u8
     }
 }
@@ -421,12 +421,12 @@ pub struct BatchDataRateConfig {
     pub threshold: u16,
 }
 impl BatchDataRateConfig {
-    fn to_reg1(&self) -> u8 {
+    fn to_reg1(self) -> u8 {
         (self.trigger_bdr as u8) << 5
             | (self.batch_acceleration_high as u8) << 3
             | (self.threshold >> 8) as u8
     }
-    fn to_reg2(&self) -> u8 {
+    fn to_reg2(self) -> u8 {
         self.threshold as u8
     }
 }
@@ -491,7 +491,7 @@ where
         use embedded_hal_async::spi::Operation;
 
         self.spi
-            .transaction(&mut [Operation::Write(&[register]), Operation::Write(&data)])
+            .transaction(&mut [Operation::Write(&[register]), Operation::Write(data)])
             .await?;
         Ok(())
     }
@@ -1046,7 +1046,7 @@ impl S1E5F10 {
         let z: u32 = ((self.sign() as u32) << (16 + 15))
             | ((((self.exponent() as u32) << 10) + 0x1C000u32) << 13)
             | ((self.fraction() as u32) << 13);
-        return f32::from_bits(z);
+        f32::from_bits(z)
     }
 }
 
@@ -1116,10 +1116,10 @@ impl<'d> Iterator for LsmFifoIterator<'d> {
                 &self.data[self.position + 1..self.position + 7],
             )));
             self.position += 7;
-            return res;
+            res
         } else {
             // incomplete word count.
-            return Some(Err(LsmFifoError::NotEnoughData));
+            Some(Err(LsmFifoError::NotEnoughData))
         }
     }
 }

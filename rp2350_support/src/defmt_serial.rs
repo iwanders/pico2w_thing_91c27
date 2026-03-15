@@ -95,7 +95,8 @@ fn do_write(mut bytes: &[u8]) {
 
 /// Throw out all safety promises and shove bytes into the pipe, this will mess up the defmt printing setup.
 /// Remember to still let the executor handle the pipe->usb process.
-pub unsafe fn push_serial(mut bytes: &[u8]) {
+pub fn push_serial(mut bytes: &[u8]) {
+    // Unsafe because it interacts with the global mutable singleton.
     unsafe {
         if let Some(tx) = TX_THING.as_mut() {
             while !bytes.is_empty() {

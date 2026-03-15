@@ -1,7 +1,7 @@
 use bitfield_struct::bitfield;
 
-#[cfg(target_arch = "arm")]
-use defmt::{info, println, warn};
+// #[cfg(target_arch = "arm")]
+// use defmt::{info, println, warn};
 use embedded_hal_async::spi::SpiDevice;
 use zerocopy::{FromBytes, Immutable, IntoBytes, TryFromBytes};
 
@@ -204,7 +204,7 @@ pub struct PowerConfig {
     pub acceleration: SensorMode,
 }
 impl PowerConfig {
-    fn to_reg(&self) -> u8 {
+    fn to_reg(self) -> u8 {
         // temperature sensor defaults to on.
         (self.acceleration as u8) | (self.gyroscope as u8) << 2
     }
@@ -235,8 +235,8 @@ pub enum FifoMode {
     StopOnFull = 0b10,
 }
 impl FifoMode {
-    fn to_reg(&self) -> u8 {
-        (*self as u8) << 6
+    fn to_reg(self) -> u8 {
+        (self as u8) << 6
     }
 }
 
@@ -253,7 +253,7 @@ pub struct FifoConfig {
 }
 
 impl FifoConfig {
-    pub fn to_regs(&self) -> [u8; 3] {
+    pub fn to_regs(self) -> [u8; 3] {
         [
             (self.resume_partial as u8) << 6
                 | (self.watermark_gt_persist as u8) << 5
@@ -261,7 +261,7 @@ impl FifoConfig {
                 | (self.fsync as u8) << 3
                 | (self.batch_temperature as u8) << 2
                 | (self.batch_gyro as u8) << 1
-                | (self.batch_accel as u8) << 0,
+                | (self.batch_accel as u8),
             self.watermark as u8,
             (self.watermark >> 8) as u8,
         ]
@@ -419,15 +419,15 @@ impl Default for FifoTemperature {
     }
 }
 impl FifoTemperature {
-    pub fn to_c_f32(&self) -> f32 {
+    pub fn to_c_f32(self) -> f32 {
         match self {
             // 16 bit:
             // Temperature in Degrees Centigrade = (TEMP_DATA / 132.48) + 25
             // 8 bit:
             // Temperature in Degrees Centigrade = (FIFO_TEMP_DATA / 2.07) + 25
             // p67
-            FifoTemperature::OneByte(t) => (*t as f32 / 2.07) + 25.0,
-            FifoTemperature::TwoByte(t) => (*t as f32 / 132.48) + 25.0,
+            FifoTemperature::OneByte(t) => (t as f32 / 2.07) + 25.0,
+            FifoTemperature::TwoByte(t) => (t as f32 / 132.48) + 25.0,
         }
     }
 }
@@ -719,7 +719,7 @@ where
         use embedded_hal_async::spi::Operation;
 
         self.spi
-            .transaction(&mut [Operation::Write(&[register]), Operation::Write(&data)])
+            .transaction(&mut [Operation::Write(&[register]), Operation::Write(data)])
             .await?;
         Ok(())
     }

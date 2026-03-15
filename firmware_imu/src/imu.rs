@@ -3,7 +3,7 @@ use embassy_rp::gpio::Output;
 use embassy_rp::peripherals::USB;
 use embassy_rp::usb::Driver;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
-use embassy_time::{Duration, Timer};
+use embassy_time::Timer;
 use embassy_usb::class::cdc_acm::CdcAcmClass;
 use embedded_hal_async::spi::SpiDevice;
 
@@ -11,7 +11,7 @@ use crate::icm42688;
 use crate::icm42688::ICM42688;
 use crate::lsm6dsv320x;
 use crate::lsm6dsv320x::LSM6DSV320X;
-use defmt::{info, println, warn};
+use defmt::info; // , println, warn
 use static_cell::StaticCell;
 
 type CdcType = CdcAcmClass<'static, Driver<'static, USB>>;
@@ -23,8 +23,8 @@ type IcmDeviceSPI = embassy_embedded_hal::shared_bus::asynch::spi::SpiDevice<
     IcmSPI,
     Output<'static>,
 >;
-type ICM = ICM42688<IcmDeviceSPI>;
-type ICMError = icm42688::Error<<IcmDeviceSPI as embedded_hal_async::spi::ErrorType>::Error>;
+type Icm = ICM42688<IcmDeviceSPI>;
+type IcmError = icm42688::Error<<IcmDeviceSPI as embedded_hal_async::spi::ErrorType>::Error>;
 
 type LsmSPI = embassy_rp::spi::Spi<'static, embassy_rp::peripherals::SPI1, embassy_rp::spi::Async>;
 type LsmDeviceSPI = embassy_embedded_hal::shared_bus::asynch::spi::SpiDevice<
@@ -33,9 +33,9 @@ type LsmDeviceSPI = embassy_embedded_hal::shared_bus::asynch::spi::SpiDevice<
     LsmSPI,
     Output<'static>,
 >;
-type LSM = LSM6DSV320X<LsmDeviceSPI>;
-type LSMError = lsm6dsv320x::Error<<LsmDeviceSPI as embedded_hal_async::spi::ErrorType>::Error>;
-type LSMPayload = [u8; 7];
+type Lsm = LSM6DSV320X<LsmDeviceSPI>;
+type LsmError = lsm6dsv320x::Error<<LsmDeviceSPI as embedded_hal_async::spi::ErrorType>::Error>;
+type LsmPayload = [u8; 7];
 /*
 
 Okay, so one task for each imu.
@@ -72,7 +72,7 @@ impl AtomicBufferStats {
 
 #[derive(Copy, Clone, Debug, defmt::Format, zerocopy::IntoBytes)]
 #[repr(u8)]
-enum DataType {
+pub enum DataType {
     Nop,
     Icm,
     Lsm,
@@ -88,7 +88,7 @@ struct BufferStats {
 }
 #[embassy_executor::task]
 async fn icm_task(
-    mut icm: ICM,
+    mut icm: Icm,
     mut producer: heapless::spsc::Producer<'static, u8>,
     buffer: &'static mut [u8],
     stats: &'static AtomicBufferStats,
@@ -145,8 +145,8 @@ async fn icm_task(
 }
 #[embassy_executor::task]
 async fn lsm_task(
-    mut lsm: LSM,
-    mut producer: heapless::spsc::Producer<'static, LSMPayload>,
+    mut lsm: Lsm,
+    mut producer: heapless::spsc::Producer<'static, LsmPayload>,
     buffer: &'static mut [u8],
     stats: &'static AtomicBufferStats,
 ) -> ! {
@@ -181,7 +181,7 @@ async fn lsm_task(
             } else {
                 stats
                     .queue_pushed
-                    .fetch_add(1 * 7, core::sync::atomic::Ordering::Relaxed);
+                    .fetch_add(7, core::sync::atomic::Ordering::Relaxed);
             }
         }
         if s.overrun_latched() {
@@ -199,7 +199,7 @@ async fn lsm_task(
 async fn data_cdc_task(
     mut cdc: CdcType,
     mut icm_consumer: heapless::spsc::Consumer<'static, u8>,
-    mut lsm_consumer: heapless::spsc::Consumer<'static, LSMPayload>,
+    mut lsm_consumer: heapless::spsc::Consumer<'static, LsmPayload>,
 ) -> ! {
     const BUFFER_LEN: usize = 64;
     let buffer = {
@@ -252,12 +252,13 @@ async fn data_cdc_task(
 
 pub async fn imu_entry(
     spawner: Spawner,
-    mut icm: ICM,
-    mut lsm: LSM,
-    mut cdc: CdcType,
-    mut output_pin: Output<'static>,
+    mut icm: Icm,
+    mut lsm: Lsm,
+    cdc: CdcType,
+    output_pin: Output<'static>,
 ) {
     defmt::info!("Setting up imu!");
+    let _ = output_pin;
 
     // _icm_test(icm).await.unwrap();
     //
@@ -301,7 +302,7 @@ pub async fn imu_entry(
 
     let lsm_queue = {
         const BUFFER_LEN: usize = 700;
-        type QueueType = heapless::spsc::Queue<LSMPayload, BUFFER_LEN>;
+        type QueueType = heapless::spsc::Queue<LsmPayload, BUFFER_LEN>;
         static STATIC_BUFFER: StaticCell<QueueType> = StaticCell::new();
         STATIC_BUFFER.init(QueueType::new())
     };
@@ -375,7 +376,7 @@ pub async fn imu_entry(
     }*/
 }
 
-async fn configure_lsm(lsm: &mut LSM) -> Result<(), LSMError> {
+async fn configure_lsm(lsm: &mut Lsm) -> Result<(), LsmError> {
     lsm.reset().await?;
     Timer::after_millis(10).await;
 
@@ -478,7 +479,7 @@ async fn configure_lsm(lsm: &mut LSM) -> Result<(), LSMError> {
     Ok(())
 }
 
-async fn configure_icm(icm: &mut ICM) -> Result<(), ICMError> {
+async fn configure_icm(icm: &mut Icm) -> Result<(), IcmError> {
     defmt::info!("Detected ICM");
     let _ = icm.reset().await;
     Timer::after_millis(10).await;

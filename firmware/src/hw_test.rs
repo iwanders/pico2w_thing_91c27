@@ -324,7 +324,7 @@ async fn test_mic(p: MicPinTransfer) {
             let back_u32 = unsafe {
                 core::slice::from_raw_parts(back_buffer.as_ptr().cast::<u8>(), 4 * BUFFER_SIZE)
             };
-            unsafe { crate::defmt_serial::push_serial(&back_u32) };
+            crate::defmt_serial::push_serial(&back_u32);
             Timer::after_micros(10).await;
         }
     }
